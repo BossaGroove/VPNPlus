@@ -21,7 +21,8 @@ this file gets rewritten as those land.
   non-negotiably: one window for everything routine; switching profiles is
   one click from the main screen; "connecting" names its step and times out
   rather than spinning forever; a failure says what failed and what to do
-  about it, in the main window, in plain language; default text sizes and
+  about it, in the main window, in plain language and never as a raw error
+  code; default text sizes and
   real spacing; the menu bar and the window always agree.
 - **The core is protocol-agnostic from the first commit.** Profiles,
   credentials, the connection state machine, the menu bar, logs, and
