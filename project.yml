@@ -43,11 +43,19 @@ targets:
       - target: VPNPlusTunnel
         embed: true
         codeSign: false
+    # XcodeGen GENERATES this file from the properties below — it does not
+    # merge with whatever is on disk. Anything hand-written at this path is
+    # silently overwritten, so every key the bundle needs must be here.
     info:
       path: VPNPlus/Info.plist
       properties:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundlePackageType: APPL
+        LSMinimumSystemVersion: "14.0"
+        LSApplicationCategoryType: public.app-category.utilities
+        NSPrincipalClass: NSApplication
+        NSHumanReadableCopyright: GPL-3.0-or-later
     settings:
       base:
         # User-facing name, with the space. The extension keeps a symbol-safe
@@ -75,11 +83,20 @@ targets:
       - package: VPNPlusCore
         product: VPNPlusCore
       - sdk: NetworkExtension.framework
+    # Same generation rule as the app. NEProviderClasses is what tells macOS
+    # this bundle is a tunnel provider at all — without it the OS reports
+    # "Extension not found in App bundle" and never offers an approval.
     info:
       path: VPNPlusTunnel/Info.plist
       properties:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundlePackageType: SYSX
+        NSHumanReadableCopyright: GPL-3.0-or-later
+        NetworkExtension:
+          NEMachServiceName: DR9YZ5L9PX.com.bossagroove.VPNPlus.tunnel
+          NEProviderClasses:
+            com.apple.networkextension.packet-tunnel: $(PRODUCT_MODULE_NAME).PacketTunnelProvider
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bossagroove.VPNPlus.tunnel
