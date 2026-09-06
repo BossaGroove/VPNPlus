@@ -11,5 +11,15 @@ version from the heading, so it must match the tag exactly.
 
 ## Unreleased
 
+### Added
+
+- Project scaffold: `project.yml` (XcodeGen), the `VPNPlusCore` local package,
+  the app target, and a NetworkExtension system extension target.
+- CI builds both configurations and fails if the committed Xcode project is
+  stale relative to `project.yml`.
+
+**Nothing works yet.** The app activates its network extension and reports the
+result; there is no tunnel engine.
+
 Nothing released yet. The first version's entry goes here, and the release
 workflow refuses to build a tag that has no matching section.

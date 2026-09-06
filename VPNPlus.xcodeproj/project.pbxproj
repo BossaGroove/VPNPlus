@@ -1,0 +1,511 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		00BFD1E10B4560AA9E984429 /* VPNPlusTunnel.systemextension in Embed System Extensions */ = {isa = PBXBuildFile; fileRef = 5C891AFB48AF4ED86888CD08 /* VPNPlusTunnel.systemextension */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		017407B0623EE77D6A116F9F /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFEC2F7E4380EC79C2474F2F /* App.swift */; };
+		0E04F2C597286220660B161C /* VPNPlusCore in Frameworks */ = {isa = PBXBuildFile; productRef = B4EEE11DD89DF281EE6A7291 /* VPNPlusCore */; };
+		4465665E03BC198916CB20FD /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F7D913D6471B1A325F2359F /* PacketTunnelProvider.swift */; };
+		7676B0812A5C4D64B97AC9DA /* MainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CD75F5958AB78A8340EB4A4 /* MainWindowController.swift */; };
+		78A892EEA3E7C7ABFACD60E5 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA1E04DC0D4A5A19A907C8A0 /* NetworkExtension.framework */; };
+		C79DCB232F97FE60A0C61EE1 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0249DBE000CCC1904590F222 /* main.swift */; };
+		D547BAF5DF36F7768CC0271E /* VPNPlusCore in Frameworks */ = {isa = PBXBuildFile; productRef = E5AD49E779DF062A87D93C4D /* VPNPlusCore */; };
+		DD1118C0F8E834F09160946A /* InstallLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 014171C7BC3E81B7ACFD6DA1 /* InstallLocation.swift */; };
+		FB556FCAF7D5B786F0EE4F22 /* ExtensionInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = C535D99BB8588E6A6E0F467E /* ExtensionInstaller.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FA78D4811EC7E27728A11083 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E47F33744BEA266A851D4ACF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D74754BC20B5DA89542F5CD1;
+			remoteInfo = VPNPlusTunnel;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		EF3E76D93EA08B95A13CBDB2 /* Embed System Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(SYSTEM_EXTENSIONS_FOLDER_PATH)";
+			dstSubfolderSpec = 16;
+			files = (
+				00BFD1E10B4560AA9E984429 /* VPNPlusTunnel.systemextension in Embed System Extensions */,
+			);
+			name = "Embed System Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		014171C7BC3E81B7ACFD6DA1 /* InstallLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallLocation.swift; sourceTree = "<group>"; };
+		0249DBE000CCC1904590F222 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		3EE7FB96CCF503AA5008C88B /* VPNPlusCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = VPNPlusCore; path = Packages/VPNPlusCore; sourceTree = SOURCE_ROOT; };
+		5C891AFB48AF4ED86888CD08 /* VPNPlusTunnel.systemextension */ = {isa = PBXFileReference; explicitFileType = "wrapper.system-extension"; includeInIndex = 0; path = VPNPlusTunnel.systemextension; sourceTree = BUILT_PRODUCTS_DIR; };
+		8D29B2DFA2D5B14954AFC31F /* VPNPlus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VPNPlus.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9CD75F5958AB78A8340EB4A4 /* MainWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowController.swift; sourceTree = "<group>"; };
+		9F7D913D6471B1A325F2359F /* PacketTunnelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketTunnelProvider.swift; sourceTree = "<group>"; };
+		C535D99BB8588E6A6E0F467E /* ExtensionInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionInstaller.swift; sourceTree = "<group>"; };
+		EFEC2F7E4380EC79C2474F2F /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		FA1E04DC0D4A5A19A907C8A0 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1269687FADF30950D00F38BD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D547BAF5DF36F7768CC0271E /* VPNPlusCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1EB6D8188CD7230FFC8B99EB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0E04F2C597286220660B161C /* VPNPlusCore in Frameworks */,
+				78A892EEA3E7C7ABFACD60E5 /* NetworkExtension.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		895210ADD3FCF73E89347274 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				3EE7FB96CCF503AA5008C88B /* VPNPlusCore */,
+			);
+			path = Packages;
+			sourceTree = "<group>";
+		};
+		912D0AABCD05A58BFC721495 = {
+			isa = PBXGroup;
+			children = (
+				895210ADD3FCF73E89347274 /* Packages */,
+				A29F2DC8AFC6D99F16D50E4F /* VPNPlus */,
+				F593EAC21856441E6230FF09 /* VPNPlusTunnel */,
+				C6C4D23668343ABDB5DE9B71 /* Frameworks */,
+				F53B8D2028BF075BA9576543 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A29F2DC8AFC6D99F16D50E4F /* VPNPlus */ = {
+			isa = PBXGroup;
+			children = (
+				EFEC2F7E4380EC79C2474F2F /* App.swift */,
+				C535D99BB8588E6A6E0F467E /* ExtensionInstaller.swift */,
+				014171C7BC3E81B7ACFD6DA1 /* InstallLocation.swift */,
+				9CD75F5958AB78A8340EB4A4 /* MainWindowController.swift */,
+			);
+			path = VPNPlus;
+			sourceTree = "<group>";
+		};
+		C6C4D23668343ABDB5DE9B71 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				FA1E04DC0D4A5A19A907C8A0 /* NetworkExtension.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		F53B8D2028BF075BA9576543 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8D29B2DFA2D5B14954AFC31F /* VPNPlus.app */,
+				5C891AFB48AF4ED86888CD08 /* VPNPlusTunnel.systemextension */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F593EAC21856441E6230FF09 /* VPNPlusTunnel */ = {
+			isa = PBXGroup;
+			children = (
+				0249DBE000CCC1904590F222 /* main.swift */,
+				9F7D913D6471B1A325F2359F /* PacketTunnelProvider.swift */,
+			);
+			path = VPNPlusTunnel;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		041D75C00EAD791F9BCEB16D /* VPNPlus */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B6695766774D14272B728860 /* Build configuration list for PBXNativeTarget "VPNPlus" */;
+			buildPhases = (
+				930AB0B242C24273A5B585C4 /* Sources */,
+				1269687FADF30950D00F38BD /* Frameworks */,
+				EF3E76D93EA08B95A13CBDB2 /* Embed System Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				337562EDE981E942C27070B6 /* PBXTargetDependency */,
+			);
+			name = VPNPlus;
+			packageProductDependencies = (
+				E5AD49E779DF062A87D93C4D /* VPNPlusCore */,
+			);
+			productName = VPNPlus;
+			productReference = 8D29B2DFA2D5B14954AFC31F /* VPNPlus.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D74754BC20B5DA89542F5CD1 /* VPNPlusTunnel */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C8DEF8D2AE7C908B2A9714A6 /* Build configuration list for PBXNativeTarget "VPNPlusTunnel" */;
+			buildPhases = (
+				51666D38C5AFB25E556DEE6C /* Sources */,
+				1EB6D8188CD7230FFC8B99EB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VPNPlusTunnel;
+			packageProductDependencies = (
+				B4EEE11DD89DF281EE6A7291 /* VPNPlusCore */,
+			);
+			productName = VPNPlusTunnel;
+			productReference = 5C891AFB48AF4ED86888CD08 /* VPNPlusTunnel.systemextension */;
+			productType = "com.apple.product-type.system-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E47F33744BEA266A851D4ACF /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					041D75C00EAD791F9BCEB16D = {
+						DevelopmentTeam = DR9YZ5L9PX;
+						ProvisioningStyle = Manual;
+					};
+					D74754BC20B5DA89542F5CD1 = {
+						DevelopmentTeam = DR9YZ5L9PX;
+						ProvisioningStyle = Manual;
+					};
+				};
+			};
+			buildConfigurationList = 07139EF5422C3C2BC7F21F78 /* Build configuration list for PBXProject "VPNPlus" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 912D0AABCD05A58BFC721495;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B789B500495D5167A9ADE30C /* XCLocalSwiftPackageReference "Packages/VPNPlusCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = F53B8D2028BF075BA9576543 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				041D75C00EAD791F9BCEB16D /* VPNPlus */,
+				D74754BC20B5DA89542F5CD1 /* VPNPlusTunnel */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		51666D38C5AFB25E556DEE6C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4465665E03BC198916CB20FD /* PacketTunnelProvider.swift in Sources */,
+				C79DCB232F97FE60A0C61EE1 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		930AB0B242C24273A5B585C4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				017407B0623EE77D6A116F9F /* App.swift in Sources */,
+				FB556FCAF7D5B786F0EE4F22 /* ExtensionInstaller.swift in Sources */,
+				DD1118C0F8E834F09160946A /* InstallLocation.swift in Sources */,
+				7676B0812A5C4D64B97AC9DA /* MainWindowController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		337562EDE981E942C27070B6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D74754BC20B5DA89542F5CD1 /* VPNPlusTunnel */;
+			targetProxy = FA78D4811EC7E27728A11083 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		2BE410F893BB407001D6F539 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = DR9YZ5L9PX;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		451079394FA8517881976F17 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = VPNPlus/VPNPlus.release.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = VPNPlus/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bossagroove.VPNPlus;
+				PRODUCT_NAME = "VPN Plus";
+				SDKROOT = macosx;
+				SYSTEM_EXTENSION_FOLDER_PATH = Contents/Library/SystemExtensions;
+			};
+			name = Release;
+		};
+		7B03094AD7EAF1B97859B7FA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = DR9YZ5L9PX;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		7D2F0A4F788B628CA3BBB786 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = VPNPlusTunnel/VPNPlusTunnel.release.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = VPNPlusTunnel/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bossagroove.VPNPlus.tunnel;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		91C81538829975ABE1990250 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = VPNPlus/VPNPlus.debug.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = VPNPlus/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bossagroove.VPNPlus;
+				PRODUCT_NAME = "VPN Plus";
+				SDKROOT = macosx;
+				SYSTEM_EXTENSION_FOLDER_PATH = Contents/Library/SystemExtensions;
+			};
+			name = Debug;
+		};
+		9FF661DD5EC9F99340186285 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = VPNPlusTunnel/VPNPlusTunnel.debug.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = VPNPlusTunnel/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bossagroove.VPNPlus.tunnel;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		07139EF5422C3C2BC7F21F78 /* Build configuration list for PBXProject "VPNPlus" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2BE410F893BB407001D6F539 /* Debug */,
+				7B03094AD7EAF1B97859B7FA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B6695766774D14272B728860 /* Build configuration list for PBXNativeTarget "VPNPlus" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				91C81538829975ABE1990250 /* Debug */,
+				451079394FA8517881976F17 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C8DEF8D2AE7C908B2A9714A6 /* Build configuration list for PBXNativeTarget "VPNPlusTunnel" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9FF661DD5EC9F99340186285 /* Debug */,
+				7D2F0A4F788B628CA3BBB786 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		B789B500495D5167A9ADE30C /* XCLocalSwiftPackageReference "Packages/VPNPlusCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/VPNPlusCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B4EEE11DD89DF281EE6A7291 /* VPNPlusCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = VPNPlusCore;
+		};
+		E5AD49E779DF062A87D93C4D /* VPNPlusCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = VPNPlusCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = E47F33744BEA266A851D4ACF /* Project object */;
+}

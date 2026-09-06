@@ -1,0 +1,92 @@
+# Generated project — edit this file, never the pbxproj, then run:
+#   xcodegen generate
+# Both this file and the generated project are committed (CLAUDE.md).
+name: VPNPlus
+
+options:
+  bundleIdPrefix: com.bossagroove
+  developmentLanguage: en
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+packages:
+  VPNPlusCore:
+    path: Packages/VPNPlusCore
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_EMIT_LOC_STRINGS: YES
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    DEAD_CODE_STRIPPING: YES
+    DEVELOPMENT_TEAM: DR9YZ5L9PX
+    # B2/D173: the release pipeline signs manually, outside Xcode, because
+    # Xcode demands an exact entitlement/profile match and our profiles
+    # allow-list eight NetworkExtension values where we claim one.
+    CODE_SIGN_STYLE: Manual
+    ENABLE_HARDENED_RUNTIME: YES
+    # Not sandboxed: Developer ID distribution, and a system extension host.
+    ENABLE_APP_SANDBOX: NO
+
+targets:
+  VPNPlus:
+    type: application
+    platform: macOS
+    sources:
+      - path: VPNPlus
+        excludes: ["*.entitlements", "Info.plist"]
+    dependencies:
+      - package: VPNPlusCore
+        product: VPNPlusCore
+      - target: VPNPlusTunnel
+        embed: true
+        codeSign: false
+    info:
+      path: VPNPlus/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+    settings:
+      base:
+        # User-facing name, with the space. The extension keeps a symbol-safe
+        # product name because its module name is referenced from Info.plist.
+        PRODUCT_NAME: VPN Plus
+        PRODUCT_BUNDLE_IDENTIFIER: com.bossagroove.VPNPlus
+        MARKETING_VERSION: "0.0.1"
+        CURRENT_PROJECT_VERSION: "1"
+        # The extension is embedded here, which is what makes a Sparkle update
+        # carry it and keeps every update free of an installer (D169).
+        SYSTEM_EXTENSION_FOLDER_PATH: Contents/Library/SystemExtensions
+      configs:
+        Debug:
+          CODE_SIGN_ENTITLEMENTS: VPNPlus/VPNPlus.debug.entitlements
+        Release:
+          CODE_SIGN_ENTITLEMENTS: VPNPlus/VPNPlus.release.entitlements
+
+  VPNPlusTunnel:
+    type: system-extension
+    platform: macOS
+    sources:
+      - path: VPNPlusTunnel
+        excludes: ["*.entitlements", "Info.plist"]
+    dependencies:
+      - package: VPNPlusCore
+        product: VPNPlusCore
+      - sdk: NetworkExtension.framework
+    info:
+      path: VPNPlusTunnel/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bossagroove.VPNPlus.tunnel
+        MARKETING_VERSION: "0.0.1"
+        CURRENT_PROJECT_VERSION: "1"
+      configs:
+        Debug:
+          CODE_SIGN_ENTITLEMENTS: VPNPlusTunnel/VPNPlusTunnel.debug.entitlements
+        Release:
+          CODE_SIGN_ENTITLEMENTS: VPNPlusTunnel/VPNPlusTunnel.release.entitlements

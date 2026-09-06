@@ -60,8 +60,22 @@ this file gets rewritten as those land.
 
 ## Build & test
 
-Not yet — there is nothing to build. This section lands with the first
-milestone, alongside `project.yml` and the local packages.
+```bash
+xcodegen generate                                    # after any project.yml change
+xcodebuild -project VPNPlus.xcodeproj -scheme VPNPlus \
+  -configuration Debug -destination 'platform=macOS' \
+  CODE_SIGNING_ALLOWED=NO build
+swift test --package-path Packages/VPNPlusCore
+```
+
+`CODE_SIGNING_ALLOWED=NO` is the normal local build. Signing needs the
+Developer ID certificate **and** both provisioning profiles, and it is done by
+the release workflow rather than by Xcode — see the note on entitlements below.
+
+**Deployment target: macOS 14.0.** Chosen with the first milestone, as this
+file promised. The binding constraint is
+`NSXPCConnection.setCodeSigningRequirement` (macOS 13+), which the privileged
+interface depends on; 14.0 matches the sibling app and clears it comfortably.
 
 ## Conventions
 
@@ -75,6 +89,11 @@ milestone, alongside `project.yml` and the local packages.
   String Catalog plus an in-app language picker. User-facing strings are
   localized as they land, not retrofitted.
 - swift-format with the committed config; match surrounding style.
+- **Every source file opens with the GPL-3.0 header.** Copy it from any
+  existing file; it is not generated, and a file without one is a defect.
+- **Two entitlements files per target**, debug and release. They differ by the
+  `-systemextension` suffix, and a release build that uses the debug file fails
+  at extension activation rather than at build time.
 - Tests use Swift Testing (`import Testing`).
 - Commit style: short imperative subject; group by feature.
 - Code comments may cite items like "feature-spec 3.4" — those are the

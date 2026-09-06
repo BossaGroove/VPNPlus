@@ -12,25 +12,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The app scaffold (project.yml + Packages/) lands with the first
-      # milestone. Until it does, this workflow reports success rather than
-      # painting every commit red.
-      - name: Is there an app to build yet?
-        id: scaffold
-        run: |
-          if [ -f project.yml ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No project.yml yet — skipping build and tests."
-          fi
-
       - name: Select Xcode
-        if: steps.scaffold.outputs.ready == 'true'
         run: sudo xcode-select -s /Applications/Xcode.app
 
       - name: Test local packages
-        if: steps.scaffold.outputs.ready == 'true'
         run: |
           set -o pipefail
           shopt -s nullglob
@@ -41,13 +26,28 @@ jobs:
           done
 
       - name: Generate Xcode project
-        if: steps.scaffold.outputs.ready == 'true'
         run: |
           brew install xcodegen
           xcodegen generate
 
-      - name: Build app
-        if: steps.scaffold.outputs.ready == 'true'
+      # The generated project is committed, so a stale one is a real defect:
+      # it means someone edited project.yml without regenerating.
+      - name: Check the committed project is up to date
         run: |
-          xcodebuild -project VPNPlus.xcodeproj -scheme VPNPlus \
-            -configuration Release CODE_SIGN_IDENTITY=- build | tail -20
+          if ! git diff --quiet -- VPNPlus.xcodeproj; then
+            echo "::error::VPNPlus.xcodeproj is stale. Run 'xcodegen generate' and commit the result."
+            git diff --stat -- VPNPlus.xcodeproj
+            exit 1
+          fi
+
+      # Signing needs the Developer ID certificate and both provisioning
+      # profiles, which only the release workflow has. CI proves it compiles.
+      - name: Build (Debug and Release, unsigned)
+        run: |
+          set -o pipefail
+          for config in Debug Release; do
+            echo "── $config"
+            xcodebuild -project VPNPlus.xcodeproj -scheme VPNPlus \
+              -configuration "$config" -destination 'platform=macOS' \
+              CODE_SIGNING_ALLOWED=NO build | tail -5
+          done

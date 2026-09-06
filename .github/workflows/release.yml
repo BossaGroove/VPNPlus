@@ -7,12 +7,17 @@ name: Release
 # without secrets the workflow still produces an ad-hoc-signed DMG marked as
 # a pre-release.
 #
-# NOT YET RESOLVED — revisit before the first real tag. A VPN client needs a
-# privileged component (a SMAppService daemon, a NetworkExtension provider,
-# or a system extension); whichever it turns out to be, it changes what has
-# to be signed, which entitlements need Apple provisioning, and whether a
-# plain DMG is still the right container. The steps below are the proven
-# shape from a sibling app, not a validated pipeline for this one.
+# The app embeds a NetworkExtension system extension at
+# Contents/Library/SystemExtensions. That means two provisioning profiles are
+# build inputs (PROVISIONING_PROFILE_APP, PROVISIONING_PROFILE_EXT), signing
+# runs inside-out with entitlements passed explicitly per component, and
+# xcodebuild's own signing is bypassed — Xcode demands an exact match between
+# the entitlements file and the profile, and ours allow-list eight
+# NetworkExtension values where we claim one.
+#
+# NOT YET REHEARSED. Every step below is derived from documentation and from
+# artefacts inspected by hand; no tag has ever run it. The first release is the
+# test.
 
 on:
   push:
@@ -84,54 +89,86 @@ jobs:
             -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
           security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
 
-      - name: Build (universal)
-        env:
-          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - name: Build (universal, unsigned)
         run: |
           set -o pipefail
           VERSION="${GITHUB_REF_NAME#v}"
-          if [ "$HAS_SIGNING" = "true" ]; then
-            # Manual style: a command-line identity otherwise conflicts with
-            # the SPM package targets' automatic signing.
-            # Inject-base-entitlements would add get-task-allow (debug-only,
-            # rejected by notarization) to a plain `build` action.
-            SIGNING=(CODE_SIGN_STYLE=Manual \
-                     CODE_SIGN_IDENTITY="Developer ID Application" \
-                     DEVELOPMENT_TEAM="$TEAM_ID" OTHER_CODE_SIGN_FLAGS=--timestamp \
-                     CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO)
-          else
-            SIGNING=(CODE_SIGN_IDENTITY=-)
-          fi
+          # Always unsigned here. Signing is done by hand below, because
+          # Xcode's exact-match validation rejects our legitimate profiles.
           xcodebuild -project VPNPlus.xcodeproj -scheme VPNPlus \
             -configuration Release -derivedDataPath build \
+            -destination 'platform=macOS' \
             ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO \
             MARKETING_VERSION="$VERSION" \
             CURRENT_PROJECT_VERSION="$VERSION" \
-            "${SIGNING[@]}" build | tail -40
+            CODE_SIGNING_ALLOWED=NO build | tail -40
 
-      - name: Re-sign Sparkle nested components
+      - name: Embed provisioning profiles
+        if: env.HAS_SIGNING == 'true'
+        env:
+          PROFILE_APP: ${{ secrets.PROVISIONING_PROFILE_APP }}
+          PROFILE_EXT: ${{ secrets.PROVISIONING_PROFILE_EXT }}
+        run: |
+          APP="build/Build/Products/Release/VPN Plus.app"
+          EXT="$APP/Contents/Library/SystemExtensions/VPNPlusTunnel.systemextension"
+          # A restricted entitlement is only honoured when a profile embedded
+          # in that bundle allow-lists it. One profile per signing subject.
+          echo "$PROFILE_APP" | base64 --decode > "$APP/Contents/embedded.provisionprofile"
+          echo "$PROFILE_EXT" | base64 --decode > "$EXT/Contents/embedded.provisionprofile"
+          for p in "$APP/Contents/embedded.provisionprofile" \
+                   "$EXT/Contents/embedded.provisionprofile"; do
+            security cms -D -i "$p" > /dev/null || { echo "::error::$p is not a valid profile"; exit 1; }
+          done
+
+      - name: Sign (inside out)
         if: env.HAS_SIGNING == 'true'
         run: |
-          # Xcode's sign-on-copy re-signs only the framework wrapper; the
-          # executables inside Sparkle keep the Sparkle project's signatures,
-          # which notarization rejects. Re-sign inside-out with our identity
-          # (Sparkle's documented distribution step), then re-seal the app.
+          set -euo pipefail
           APP="build/Build/Products/Release/VPN Plus.app"
+          EXT="$APP/Contents/Library/SystemExtensions/VPNPlusTunnel.systemextension"
           SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
           SIGN=(codesign --force --sign "Developer ID Application" \
-                --options runtime --timestamp --preserve-metadata=entitlements)
-          "${SIGN[@]}" "$SPARKLE/Versions/B/XPCServices/Installer.xpc"
-          "${SIGN[@]}" "$SPARKLE/Versions/B/XPCServices/Downloader.xpc"
-          "${SIGN[@]}" "$SPARKLE/Versions/B/Autoupdate"
-          "${SIGN[@]}" "$SPARKLE/Versions/B/Updater.app"
-          "${SIGN[@]}" "$SPARKLE"
-          "${SIGN[@]}" "$APP"
-          codesign --verify --deep --strict --verbose=2 "$APP"
-          # Notarization rejects get-task-allow — fail fast if it crept in.
-          if codesign -d --entitlements - "$APP" 2>/dev/null | grep -q get-task-allow; then
-            echo "get-task-allow entitlement present on the app" >&2
-            exit 1
+                --options runtime --timestamp)
+
+          # Order is load-bearing: an outer signature covers the inner ones, so
+          # re-signing anything inner afterwards invalidates the outer.
+
+          # 1. The system extension, with its own entitlements.
+          "${SIGN[@]}" --entitlements VPNPlusTunnel/VPNPlusTunnel.release.entitlements "$EXT"
+
+          # 2. Sparkle's nested executables, which keep Sparkle's own
+          #    signatures otherwise and are rejected by notarization.
+          if [ -d "$SPARKLE" ]; then
+            for nested in \
+              "$SPARKLE/Versions/B/XPCServices/Installer.xpc" \
+              "$SPARKLE/Versions/B/XPCServices/Downloader.xpc" \
+              "$SPARKLE/Versions/B/Autoupdate" \
+              "$SPARKLE/Versions/B/Updater.app"; do
+              [ -e "$nested" ] && "${SIGN[@]}" --preserve-metadata=entitlements "$nested"
+            done
+            "${SIGN[@]}" --preserve-metadata=entitlements "$SPARKLE"
           fi
+
+          # 3. The app last, with its own entitlements.
+          "${SIGN[@]}" --entitlements VPNPlus/VPNPlus.release.entitlements "$APP"
+
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+          # Notarization rejects get-task-allow — fail fast if it crept in.
+          for subject in "$APP" "$EXT"; do
+            if codesign -d --entitlements - "$subject" 2>/dev/null | grep -q get-task-allow; then
+              echo "::error::get-task-allow present on $subject" >&2
+              exit 1
+            fi
+          done
+
+          # The suffixed value is what a Developer ID profile allow-lists; the
+          # un-suffixed one is a debug build that would fail at activation.
+          for subject in "$APP" "$EXT"; do
+            codesign -d --entitlements - "$subject" 2>/dev/null \
+              | grep -q "packet-tunnel-provider-systemextension" \
+              || { echo "::error::$subject is missing the -systemextension entitlement"; exit 1; }
+          done
 
       - name: Package DMG
         run: |
