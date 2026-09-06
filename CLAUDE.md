@@ -95,8 +95,10 @@ interface depends on; 14.0 matches the sibling app and clears it comfortably.
   String Catalog plus an in-app language picker. User-facing strings are
   localized as they land, not retrofitted.
 - swift-format with the committed config; match surrounding style.
-- **Every source file opens with the GPL-3.0 header.** Copy it from any
-  existing file; it is not generated, and a file without one is a defect.
+- **Every source file opens with the GPL-3.0 header**, copyright
+  `BossaGroove`. Copy it from any existing file; it is not generated, and a
+  file without one is a defect. In `Package.swift` it goes *after* the
+  `// swift-tools-version:` line, which must stay first.
 - **Two entitlements files per target**, debug and release. They differ by the
   `-systemextension` suffix, and a release build that uses the debug file fails
   at extension activation rather than at build time.

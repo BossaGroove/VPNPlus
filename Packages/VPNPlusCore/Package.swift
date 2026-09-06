@@ -1,6 +1,6 @@
 // swift-tools-version: 6.0
 // VPN Plus — a native macOS VPN client.
-// Copyright (C) 2026 VPN Plus contributors
+// Copyright (C) 2026 BossaGroove
 //
 // This program is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
