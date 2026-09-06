@@ -11,8 +11,11 @@
 #
 set -euo pipefail
 
-PROFILE_APP="${1:?path to the app's Developer ID provisioning profile}"
-PROFILE_EXT="${2:?path to the extension's Developer ID provisioning profile}"
+# No apostrophes in these messages: inside ${var:?word} bash performs quote
+# removal on word, so a lone ' opens a quoted string that swallows the
+# following lines.
+PROFILE_APP="${1:?path to the Developer ID provisioning profile for the app}"
+PROFILE_EXT="${2:?path to the Developer ID provisioning profile for the extension}"
 
 APP="${3:-}"
 if [ -z "$APP" ]; then
