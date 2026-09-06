@@ -91,8 +91,19 @@ targets:
       properties:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # Resolves to SYSX. sysextd will not "realize" a bundle without it, and
+        # the error it gives is extensionNotFound, which does not say so.
+        CFBundlePackageType: $(PRODUCT_BUNDLE_PACKAGE_TYPE)
+        CFBundleDisplayName: VPN Plus Tunnel
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        # Shown in the System Settings approval dialog. A shipping NE system
+        # extension (LuLu) carries it; ours did not, and sysextd would not
+        # realize the bundle without it — reporting extensionNotFound instead.
+        NSSystemExtensionUsageDescription: VPN Plus needs this component to carry your network traffic through the VPN.
         NSHumanReadableCopyright: GPL-3.0-or-later
         NetworkExtension:
+          # Must be inside an app group the extension is entitled to — Xcode's
+          # template and LuLu both do this; a bare team-prefixed name is not enough.
           NEMachServiceName: DR9YZ5L9PX.com.bossagroove.VPNPlus.tunnel
           NEProviderClasses:
             com.apple.networkextension.packet-tunnel: $(PRODUCT_MODULE_NAME).PacketTunnelProvider
