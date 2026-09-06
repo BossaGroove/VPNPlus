@@ -91,7 +91,6 @@ targets:
       properties:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        CFBundlePackageType: SYSX
         NSHumanReadableCopyright: GPL-3.0-or-later
         NetworkExtension:
           NEMachServiceName: DR9YZ5L9PX.com.bossagroove.VPNPlus.tunnel

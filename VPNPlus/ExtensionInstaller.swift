@@ -16,6 +16,7 @@
 
 import Foundation
 import SystemExtensions
+import os
 
 /// Activates the packet tunnel system extension and reports what happened in
 /// plain language. M0 does nothing else with it — the tunnel engine is M1.
@@ -28,6 +29,10 @@ final class ExtensionInstaller: NSObject {
         case active
         case failed(String)
     }
+
+    // nonisolated: the OSSystemExtensionRequestDelegate callbacks are not
+    // main-actor isolated, and they are exactly where logging matters most.
+    private nonisolated static let log = Logger(subsystem: "com.bossagroove.VPNPlus", category: "sysext")
 
     private(set) var status: Status = .idle {
         didSet { if status != oldValue { onChange?(status) } }
@@ -46,6 +51,22 @@ final class ExtensionInstaller: NSObject {
             status = .failed(InstallLocation.current.explanation ?? "")
             return
         }
+
+        // Diagnostic: OSSystemExtensionManager scans the *running* bundle, and
+        // when it fails it reports only the identifier it wanted. Log what we
+        // are actually looking at, since that is the part it will not say.
+        let bundle = Bundle.main.bundleURL
+        let dir = bundle.appendingPathComponent("Contents/Library/SystemExtensions")
+        let found = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+        Self.log.notice("bundle=\(bundle.path, privacy: .public)")
+        Self.log.notice("sysex dir=\(dir.path, privacy: .public) contents=\(found, privacy: .public)")
+        for name in found {
+            let plist = dir.appendingPathComponent(name).appendingPathComponent("Contents/Info.plist")
+            let id = (NSDictionary(contentsOf: plist)?["CFBundleIdentifier"] as? String) ?? "<none>"
+            Self.log.notice("  \(name, privacy: .public) -> \(id, privacy: .public)")
+        }
+        Self.log.notice("requesting=\(self.identifier, privacy: .public)")
+
         status = .requesting
         let request = OSSystemExtensionRequest.activationRequest(
             forExtensionWithIdentifier: identifier,
@@ -82,6 +103,8 @@ extension ExtensionInstaller: OSSystemExtensionRequestDelegate {
     }
 
     nonisolated func request(_ request: OSSystemExtensionRequest, didFailWithError error: Error) {
+        let ns = error as NSError
+        Self.log.error("activation failed domain=\(ns.domain, privacy: .public) code=\(ns.code, privacy: .public) info=\(String(describing: ns.userInfo), privacy: .public)")
         MainActor.assumeIsolated {
             // D2 — a cause and a next action, never a raw code. M0 shows the
             // underlying text because there is no curated copy layer yet;
