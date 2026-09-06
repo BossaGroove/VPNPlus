@@ -30,6 +30,12 @@ this file gets rewritten as those land.
   live behind one boundary, so adding WireGuard is an addition and not a
   rewrite. An OpenVPN concept leaking into the UI layer is a defect to fix
   now, not later.
+- **No employer, client, or other organisation is named anywhere in this
+  repository.** VPN Plus is a personal project and the public repo says so by
+  omission: no company name in source, comments, commits, docs, metadata, or
+  the app's own strings. The specific names to watch for are listed in the
+  private repo, deliberately not here. If a build artefact would carry one,
+  that is a signing question — raise it, do not work around it.
 - **Everything committed here is publishable.** This repository goes public
   at the first release. Internal notes, working docs, vendor references, and
   anything owner-specific belong in the private repo cloned at `internal/`
