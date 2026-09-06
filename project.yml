@@ -83,22 +83,20 @@ targets:
       - package: VPNPlusCore
         product: VPNPlusCore
       - sdk: NetworkExtension.framework
-    # Same generation rule as the app. NEProviderClasses is what tells macOS
-    # this bundle is a tunnel provider at all — without it the OS reports
-    # "Extension not found in App bundle" and never offers an approval.
+    # Same generation rule as the app. NEProviderClasses is what makes this
+    # bundle a tunnel provider once activated; it is required, but its absence
+    # was not the cause of the activation failure — PRODUCT_NAME below was.
     info:
       path: VPNPlusTunnel/Info.plist
       properties:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        # Resolves to SYSX. sysextd will not "realize" a bundle without it, and
-        # the error it gives is extensionNotFound, which does not say so.
+        # Resolves to SYSX, the value Xcode sets for this product type.
         CFBundlePackageType: $(PRODUCT_BUNDLE_PACKAGE_TYPE)
         CFBundleDisplayName: VPN Plus Tunnel
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
-        # Shown in the System Settings approval dialog. A shipping NE system
-        # extension (LuLu) carries it; ours did not, and sysextd would not
-        # realize the bundle without it — reporting extensionNotFound instead.
+        # The user-facing text for the approval flow. Xcode's template and
+        # shipping NE system extensions carry it.
         NSSystemExtensionUsageDescription: VPN Plus needs this component to carry your network traffic through the VPN.
         NSHumanReadableCopyright: GPL-3.0-or-later
         NetworkExtension:

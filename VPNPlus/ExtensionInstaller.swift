@@ -52,20 +52,7 @@ final class ExtensionInstaller: NSObject {
             return
         }
 
-        // Diagnostic: OSSystemExtensionManager scans the *running* bundle, and
-        // when it fails it reports only the identifier it wanted. Log what we
-        // are actually looking at, since that is the part it will not say.
-        let bundle = Bundle.main.bundleURL
-        let dir = bundle.appendingPathComponent("Contents/Library/SystemExtensions")
-        let found = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
-        Self.log.notice("bundle=\(bundle.path, privacy: .public)")
-        Self.log.notice("sysex dir=\(dir.path, privacy: .public) contents=\(found, privacy: .public)")
-        for name in found {
-            let plist = dir.appendingPathComponent(name).appendingPathComponent("Contents/Info.plist")
-            let id = (NSDictionary(contentsOf: plist)?["CFBundleIdentifier"] as? String) ?? "<none>"
-            Self.log.notice("  \(name, privacy: .public) -> \(id, privacy: .public)")
-        }
-        Self.log.notice("requesting=\(self.identifier, privacy: .public)")
+        Self.log.notice("activating \(self.identifier, privacy: .public) from \(Bundle.main.bundleURL.path, privacy: .public)")
 
         status = .requesting
         let request = OSSystemExtensionRequest.activationRequest(

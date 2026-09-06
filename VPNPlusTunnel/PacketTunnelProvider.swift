@@ -55,6 +55,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         settings.ipv4Settings = ipv4
         settings.mtu = 1400
 
+        // M0 ONLY — C4 harness, removed with the engine in M1. Must not ship.
         if experiment == "scopedWithDNS" {
             // D197 — matchDomains [""] is the documented way to capture every
             // query, and is reported to have behaved inconsistently since

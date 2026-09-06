@@ -27,6 +27,10 @@ final class TunnelController {
 
     /// Selects what the provider does. Carried in `providerConfiguration`,
     /// which holds **handles and switches, never secrets** (D191).
+    ///
+    /// **M0 ONLY — the C4 hardware-validation harness. Removed with the engine
+    /// in M1. Must not ship:** `scopedWithDNS` points every DNS query at a
+    /// resolver that does not exist.
     enum Experiment: String, CaseIterable {
         /// Scoped route, no DNS. Safe to kill: it cannot take the machine's
         /// networking with it.
