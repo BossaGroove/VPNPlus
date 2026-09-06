@@ -38,11 +38,14 @@ this file gets rewritten as those land.
   a from-scratch implementation written against our own behavioral spec.
   Tunnelblick is **GPL-2.0-only**: read it to learn *what has to be handled*,
   then implement independently — never copy, port, or translate it.
-- **Every dependency's license is checked before it is added.** This app's
-  license posture is fragile by nature: the surrounding OpenVPN ecosystem is
-  largely copyleft. `openvpn3` is dual-licensed **AGPL-3.0-only OR MPL-2.0**
-  and may only be used under the **MPL-2.0** arm; the AGPL arm would make the
-  whole app copyleft. A new dependency that is GPL or AGPL-only is a blocking
+- **VPN Plus is GPL-3.0-or-later, and every dependency's license is checked
+  before it is added.** The surrounding OpenVPN ecosystem is largely copyleft
+  and we ship with it rather than against it. `openvpn3` is dual-licensed
+  **AGPL-3.0-only OR MPL-2.0**; we take the **MPL-2.0** arm and combine it
+  into this GPL-3.0 work, which MPL-2.0 §3.3 permits because no openvpn3 file
+  is marked "Incompatible With Secondary Licenses". **Never elect the AGPL
+  arm** — AGPLv3 §13 would add a network-use obligation we do not want. A new
+  dependency that is AGPL-only, GPL-2.0-**only**, or proprietary is a blocking
   decision, not an implementation detail.
 - **It is a security product.** It moves the user's entire network traffic
   and will need elevated privileges somewhere. VPN credentials, private keys,

@@ -64,9 +64,13 @@ with the first milestone.
 
 ## License
 
-MIT is the intent. Because the OpenVPN ecosystem is largely copyleft, the
-final license is confirmed once the engine choice is settled and its
-dependency licenses are audited.
+**GPL-3.0-or-later.** See [LICENSE](LICENSE).
+
+VPN Plus is built on the OpenVPN 3 core library, which is dual-licensed
+AGPL-3.0-only or MPL-2.0; we use it under the **MPL-2.0** arm, combined into
+this GPL-3.0 work as MPL-2.0 §3.3 permits. Other dependencies — asio
+(BSL-1.0), lz4 (BSD-2-Clause), fmt (MIT) and OpenSSL 3 (Apache-2.0) — are all
+compatible with GPL-3.0.
 
 ## Credits
 
