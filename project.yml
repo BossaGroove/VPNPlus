@@ -109,6 +109,11 @@ targets:
             com.apple.networkextension.packet-tunnel: $(PRODUCT_MODULE_NAME).PacketTunnelProvider
     settings:
       base:
+        # sysextd matches the requested identifier against the DIRECTORY NAME in
+        # Contents/Library/SystemExtensions — it never opens the bundle to read
+        # its plist (fs_usage, C4). So the bundle must be named after its
+        # identifier, as Xcode does by default and as Karabiner and LuLu ship.
+        PRODUCT_NAME: com.bossagroove.VPNPlus.tunnel
         PRODUCT_BUNDLE_IDENTIFIER: com.bossagroove.VPNPlus.tunnel
         MARKETING_VERSION: "0.0.1"
         CURRENT_PROJECT_VERSION: "1"

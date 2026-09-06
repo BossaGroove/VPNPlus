@@ -24,7 +24,7 @@ if [ -z "$APP" ]; then
     | awk -F' = ' '/ BUILT_PRODUCTS_DIR/{print $2; exit}')
   APP="$DERIVED/VPN Plus.app"
 fi
-EXT="$APP/Contents/Library/SystemExtensions/VPNPlusTunnel.systemextension"
+EXT=$(ls -d "$APP"/Contents/Library/SystemExtensions/*.systemextension | head -1)
 
 [ -d "$APP" ] || { echo "No app at: $APP" >&2; exit 1; }
 [ -d "$EXT" ] || { echo "No extension inside: $APP" >&2; exit 1; }

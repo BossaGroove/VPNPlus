@@ -51,3 +51,21 @@ jobs:
               -configuration "$config" -destination 'platform=macOS' \
               CODE_SIGNING_ALLOWED=NO build | tail -5
           done
+
+      # sysextd matches an activation request against the bundle's DIRECTORY
+      # NAME in Contents/Library/SystemExtensions and never opens the bundle.
+      # A wrongly named extension fails with "extension not found" at runtime
+      # and nothing in the build catches it. This does.
+      - name: Check the extension bundle is named after its identifier
+        run: |
+          set -o pipefail
+          APP=$(xcodebuild -project VPNPlus.xcodeproj -scheme VPNPlus -configuration Release \
+            -showBuildSettings 2>/dev/null | awk -F' = ' '/ BUILT_PRODUCTS_DIR/{print $2; exit}')/VPN\ Plus.app
+          EXT=$(ls -d "$APP"/Contents/Library/SystemExtensions/*.systemextension | head -1)
+          ID=$(plutil -extract CFBundleIdentifier raw "$EXT/Contents/Info.plist")
+          NAME=$(basename "$EXT" .systemextension)
+          if [ "$ID" != "$NAME" ]; then
+            echo "::error::extension bundle is named '$NAME' but its identifier is '$ID' — sysextd will never find it"
+            exit 1
+          fi
+          echo "extension bundle name matches identifier: $ID"

@@ -110,7 +110,7 @@ jobs:
           PROFILE_EXT: ${{ secrets.PROVISIONING_PROFILE_EXT }}
         run: |
           APP="build/Build/Products/Release/VPN Plus.app"
-          EXT="$APP/Contents/Library/SystemExtensions/VPNPlusTunnel.systemextension"
+          EXT=$(ls -d "$APP"/Contents/Library/SystemExtensions/*.systemextension | head -1)
           # A restricted entitlement is only honoured when a profile embedded
           # in that bundle allow-lists it. One profile per signing subject.
           echo "$PROFILE_APP" | base64 --decode > "$APP/Contents/embedded.provisionprofile"
@@ -125,7 +125,7 @@ jobs:
         run: |
           set -euo pipefail
           APP="build/Build/Products/Release/VPN Plus.app"
-          EXT="$APP/Contents/Library/SystemExtensions/VPNPlusTunnel.systemextension"
+          EXT=$(ls -d "$APP"/Contents/Library/SystemExtensions/*.systemextension | head -1)
           SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
           SIGN=(codesign --force --sign "Developer ID Application" \
                 --options runtime --timestamp)

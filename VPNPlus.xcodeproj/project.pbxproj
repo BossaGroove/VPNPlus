@@ -420,6 +420,7 @@
 				);
 				MARKETING_VERSION = 0.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bossagroove.VPNPlus.tunnel;
+				PRODUCT_NAME = com.bossagroove.VPNPlus.tunnel;
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -457,6 +458,7 @@
 				);
 				MARKETING_VERSION = 0.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bossagroove.VPNPlus.tunnel;
+				PRODUCT_NAME = com.bossagroove.VPNPlus.tunnel;
 				SDKROOT = macosx;
 			};
 			name = Debug;
