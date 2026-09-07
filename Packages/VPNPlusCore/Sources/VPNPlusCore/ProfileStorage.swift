@@ -174,6 +174,28 @@ public struct StoredProfileStore: ProfileStore {
         try write(index)
     }
 
+    public func setLastConnected(_ date: Date, for id: Profile.ID) throws {
+        var index = try profiles()
+        guard let position = index.firstIndex(where: { $0.id == id }) else {
+            throw ProfileStoreError.noSuchProfile
+        }
+        index[position].lastConnected = date
+        try write(index)
+    }
+
+    public func setOrder(_ order: [Profile.ID]) throws {
+        let index = try profiles()
+        var byId = Dictionary(uniqueKeysWithValues: index.map { ($0.id, $0) })
+        var reordered: [Profile] = []
+        for id in order {
+            if let profile = byId.removeValue(forKey: id) { reordered.append(profile) }
+        }
+        // Anything the caller did not mention keeps its place relative to the
+        // rest: a partial order is not a licence to drop profiles.
+        reordered.append(contentsOf: index.filter { byId[$0.id] != nil })
+        try write(reordered)
+    }
+
     public func finishHandover(for id: Profile.ID) throws {
         var index = try profiles()
         guard let position = index.firstIndex(where: { $0.id == id }) else {

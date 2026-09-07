@@ -46,11 +46,12 @@ final class MainWindowController: NSWindowController {
     private let connectButton = NSButton(title: "Connect", target: nil, action: nil)
     private let disconnectButton = NSButton(title: "Disconnect", target: nil, action: nil)
 
-    // M3 ONLY — a provisional surface. Import is real and stores profiles; the
-    // list, the picker and the configuration sheet the design calls for arrive
-    // with M3.5 and M5. Credentials are still typed each time, until M4.
+    // M3 ONLY — a provisional *window*. The cards inside it are A12's, as of
+    // M5.3; what is still provisional is the window around them — the
+    // promoted region, the six window states and the sizing are M5.4's.
     private let importButton = NSButton(title: "", target: nil, action: nil)
-    private let profiles = ProfileListView(frame: .zero)
+    private let profiles = CardGridView(frame: .zero)
+    private let profileScroll = NSScrollView()
     private let emptyLabel = NSTextField(wrappingLabelWithString: "")
     private let usernameField = NSTextField(string: "")
     private let passwordField = NSSecureTextField(string: "")
@@ -133,13 +134,21 @@ final class MainWindowController: NSWindowController {
             field.translatesAutoresizingMaskIntoConstraints = false
             field.widthAnchor.constraint(equalToConstant: 280).isActive = true
         }
-        profiles.translatesAutoresizingMaskIntoConstraints = false
-        profiles.heightAnchor.constraint(equalToConstant: 150).isActive = true
-        profiles.widthAnchor.constraint(equalToConstant: 420).isActive = true
         profiles.onSelect = { [weak self] _ in self?.renderSelection() }
         profiles.onConnect = { [weak self] in self?.connect(to: $0) }
         profiles.onConfigure = { [weak self] in self?.configure($0) }
         profiles.onDelete = { [weak self] in self?.confirmDelete($0) }
+        profiles.onReveal = { [weak self] in self?.reveal($0) }
+        profiles.onRename = { [weak self] in self?.rename($0, to: $1) }
+        profiles.onMove = { [weak self] in self?.move($0, by: $1) }
+
+        // The grid scrolls; the promoted region does not (A12). M5.4 gives it
+        // the rest of the window.
+        profileScroll.documentView = profiles
+        profileScroll.hasVerticalScroller = true
+        profileScroll.drawsBackground = false
+        profileScroll.translatesAutoresizingMaskIntoConstraints = false
+        profileScroll.heightAnchor.constraint(equalToConstant: 220).isActive = true
 
         emptyLabel.textColor = .secondaryLabelColor
         emptyLabel.preferredMaxLayoutWidth = 420
@@ -153,7 +162,7 @@ final class MainWindowController: NSWindowController {
         buttons.spacing = 8
 
         let stack = NSStackView(views: [
-            statusLabel, detailLabel, profiles, emptyLabel, testPath,
+            statusLabel, detailLabel, profileScroll, emptyLabel, testPath,
             tunnelLabel, messageLabel, usernameField, passwordField, buttons,
         ])
         stack.orientation = .vertical
@@ -163,9 +172,10 @@ final class MainWindowController: NSWindowController {
 
         guard let content = window?.contentView else { return }
         content.addSubview(stack)
+        profileScroll.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -20),
+            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
             stack.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
             // Not a layout nicety: without it, content that outgrows the
             // window simply disappears below the edge with nothing to say so.
@@ -185,8 +195,14 @@ final class MainWindowController: NSWindowController {
 
     private func renderProfiles() {
         let stored = (try? store.profiles()) ?? []
-        profiles.show(stored)
-        profiles.isHidden = stored.isEmpty
+        // The card shows the user's name for a profile where they gave one,
+        // which lives in the overrides record and not on the profile (D188).
+        var titles: [Profile.ID: String] = [:]
+        for profile in stored {
+            titles[profile.id] = compose(profile)?.title.value ?? profile.title
+        }
+        profiles.show(stored, titles: titles)
+        profileScroll.isHidden = stored.isEmpty
         emptyLabel.isHidden = !stored.isEmpty
         emptyLabel.stringValue = String(localized: """
             No profiles yet. Import one with the button below, drop it on this \
@@ -271,6 +287,39 @@ final class MainWindowController: NSWindowController {
             renderProfiles()
         }
         content.presentAsSheet(sheet)
+    }
+
+    /// A rename is an override, not a rewrite: an employer who reissues the
+    /// profile should not take the user's name for it away (D132, 2.6).
+    private func rename(_ profile: Profile, to title: String) {
+        var overrides = (try? store.overrides(for: profile.id)) ?? Overrides()
+        overrides.title = title
+        try? store.setOverrides(overrides, for: profile.id)
+        renderProfiles()
+    }
+
+    /// It is their file (A13). The app's own copy is gone once the extension
+    /// holds the configuration, so this reveals what they imported *from*.
+    private func reveal(_ profile: Profile) {
+        let url = URL(fileURLWithPath: profile.origin.filename)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            show(message: String(localized: "VPN Plus can't find that profile's original file any more. The profile still works — it is the file that has moved."))
+            return
+        }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    /// Reordering, from the keyboard and from VoiceOver. Dragging is invisible
+    /// to VoiceOver (A18 finding 5), so it cannot be the only way — and the
+    /// order is the user's, which is why nothing else ever changes it (D119).
+    private func move(_ profile: Profile, by offset: Int) {
+        var order = ((try? store.profiles()) ?? []).map(\.id)
+        guard let from = order.firstIndex(of: profile.id) else { return }
+        let to = from + offset
+        guard order.indices.contains(to) else { return }
+        order.swapAt(from, to)
+        try? store.setOrder(order)
+        renderProfiles()
     }
 
     /// Deleting takes a private key with it, so it asks first.
@@ -546,6 +595,14 @@ final class MainWindowController: NSWindowController {
     /// A1 found OpenVPN Connect lying about a connection.
     private func renderConnection(_ connection: Connection) {
         tunnelLabel.stringValue = connection.summary()
+        // Once per session, not once per tick: the card's "2 hours ago" and
+        // D46's "what changed since it last worked" both read this.
+        if case .connected(let session) = connection,
+           let stored = ((try? store.profiles()) ?? []).first(where: { $0.id == session.profile }),
+           stored.lastConnected != session.since {
+            try? store.setLastConnected(session.since, for: session.profile)
+            renderProfiles()
+        }
         tick?.invalidate()
         guard connection.state.isTransient || connection.state == .connected else { return }
         tick = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in

@@ -65,6 +65,13 @@ public struct Profile: Sendable, Equatable, Identifiable, Codable {
     /// "use the one you have" and "forget the one you have", which is the
     /// difference between connecting and losing a saved password.
     public var credentialsSaved: Bool
+    /// When this profile last connected successfully.
+    ///
+    /// A card says "2 hours ago" or "Never" from it, and D46's *"what changed
+    /// since it last worked"* needs it too — which is why removing a profile
+    /// has to say it is removing this as well as the profile itself (D82): two
+    /// of the three things a removal deletes are invisible.
+    public var lastConnected: Date?
     /// The last attempt that ended badly, kept after the state has moved on.
     ///
     /// **Failed does not survive a restart; this does** (D96). On launch the
@@ -83,6 +90,7 @@ public struct Profile: Sendable, Equatable, Identifiable, Codable {
         descriptor: ProfileDescriptor? = nil,
         configurationHandedOver: Bool = false,
         credentialsSaved: Bool = false,
+        lastConnected: Date? = nil,
         lastFailure: FailureRecord? = nil
     ) {
         self.id = id
@@ -93,6 +101,7 @@ public struct Profile: Sendable, Equatable, Identifiable, Codable {
         self.descriptor = descriptor
         self.configurationHandedOver = configurationHandedOver
         self.credentialsSaved = credentialsSaved
+        self.lastConnected = lastConnected
         self.lastFailure = lastFailure
     }
 
@@ -108,6 +117,7 @@ public struct Profile: Sendable, Equatable, Identifiable, Codable {
         descriptor = try values.decodeIfPresent(ProfileDescriptor.self, forKey: .descriptor)
         configurationHandedOver = try values.decodeIfPresent(Bool.self, forKey: .configurationHandedOver) ?? false
         credentialsSaved = try values.decodeIfPresent(Bool.self, forKey: .credentialsSaved) ?? false
+        lastConnected = try values.decodeIfPresent(Date.self, forKey: .lastConnected)
         lastFailure = try values.decodeIfPresent(FailureRecord.self, forKey: .lastFailure)
     }
 }
@@ -152,6 +162,19 @@ public protocol ProfileStore: Sendable {
 
     /// Keeps, or clears, the record of the last failed attempt (D96).
     func setLastFailure(_ failure: FailureRecord?, for id: Profile.ID) throws
+
+    /// Records a successful connection's time.
+    func setLastConnected(_ date: Date, for id: Profile.ID) throws
+
+    /// Stores the order the user put their profiles in.
+    ///
+    /// **Nothing else may change it** (D119). The grid's value is that the
+    /// profile you want is where it was last time; an order that rearranges
+    /// itself destroys the muscle memory that makes a one-click switch feel
+    /// like one click, and moves the target between the glance and the click.
+    /// Ids the store does not know are ignored, and ids missing from the list
+    /// keep their relative order at the end.
+    func setOrder(_ order: [Profile.ID]) throws
 
     /// Marks the configuration as handed over to the extension **and deletes
     /// the app's own copy**. Two copies of a private key is worse than none,

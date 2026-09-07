@@ -219,6 +219,48 @@ struct ProfileStoreTests {
         }
     }
 
+    // MARK: - The order is the user's (D119)
+
+    @Test func theOrderIsWhateverTheUserSaidItWas() throws {
+        let (store, _, _) = makeStore()
+        let one = profile("Singapore")
+        let two = profile("Hong Kong")
+        let three = profile("Home")
+        for each in [one, two, three] { try store.add(each, configuration: Data("client".utf8)) }
+        #expect(try store.profiles().map(\.title) == ["Singapore", "Hong Kong", "Home"])
+
+        try store.setOrder([three.id, one.id, two.id])
+        #expect(try store.profiles().map(\.title) == ["Home", "Singapore", "Hong Kong"])
+    }
+
+    /// A partial order is not a licence to drop profiles: anything the caller
+    /// did not mention keeps its place relative to the rest.
+    @Test func anIncompleteOrderLosesNothing() throws {
+        let (store, _, _) = makeStore()
+        let one = profile("Singapore")
+        let two = profile("Hong Kong")
+        let three = profile("Home")
+        for each in [one, two, three] { try store.add(each, configuration: Data("client".utf8)) }
+
+        try store.setOrder([three.id])
+        #expect(try store.profiles().map(\.title) == ["Home", "Singapore", "Hong Kong"])
+
+        // An id the store has never heard of changes nothing either.
+        try store.setOrder([UUID(), two.id])
+        #expect(try store.profiles().count == 3)
+        #expect(try store.profiles().first?.title == "Hong Kong")
+    }
+
+    @Test func aSuccessfulConnectionIsRemembered() throws {
+        let (store, _, _) = makeStore()
+        let one = profile()
+        try store.add(one, configuration: Data("client".utf8))
+        #expect(try store.profiles().first?.lastConnected == nil)
+        let when = Date(timeIntervalSince1970: 1_700_000_000)
+        try store.setLastConnected(when, for: one.id)
+        #expect(try store.profiles().first?.lastConnected == when)
+    }
+
     // MARK: - Overrides
 
     @Test func overridesRoundTripAndAnEmptyRecordIsRemoved() throws {
