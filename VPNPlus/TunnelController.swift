@@ -61,6 +61,8 @@ final class TunnelController {
 
         let proto = NETunnelProviderProtocol()
         proto.providerBundleIdentifier = "com.bossagroove.VPNPlus.tunnel"
+        // Shown by System Settings; the first `remote` of the profile once one
+        // is stored (M3). Until then, the app's name.
         proto.serverAddress = "VPN Plus"
         // Handles and switches only, never secrets (D191). Nothing yet.
         proto.providerConfiguration = [:]
@@ -75,9 +77,16 @@ final class TunnelController {
         refreshStatus()
     }
 
-    func connect() throws {
+    /// M2 ONLY — the profile text and credentials ride in the start options.
+    /// M3 stores profiles and M4 puts credentials behind the XPC interface;
+    /// until then nothing here persists, and a start from System Settings has
+    /// nothing to connect with (D75 is knowingly broken in M2).
+    func connect(profile: String, username: String, password: String) throws {
         guard let session = manager?.connection as? NETunnelProviderSession else { return }
-        try session.startVPNTunnel()
+        var options: [String: NSObject] = ["profile": profile as NSString]
+        if !username.isEmpty { options["username"] = username as NSString }
+        if !password.isEmpty { options["password"] = password as NSString }
+        try session.startVPNTunnel(options: options)
     }
 
     func disconnect() {

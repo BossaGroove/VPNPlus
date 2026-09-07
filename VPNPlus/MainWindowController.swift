@@ -32,6 +32,15 @@ final class MainWindowController: NSWindowController {
     private let connectButton = NSButton(title: "Connect", target: nil, action: nil)
     private let disconnectButton = NSButton(title: "Disconnect", target: nil, action: nil)
 
+    // M2 ONLY — the test path. A profile chosen from disk is held in memory
+    // for this run and never written anywhere; credentials are typed each
+    // time. M3 (profiles) and M4 (credentials) replace all of this.
+    private let chooseButton = NSButton(title: "Choose Profile…", target: nil, action: nil)
+    private let profileLabel = NSTextField(labelWithString: "No profile chosen")
+    private let usernameField = NSTextField(string: "")
+    private let passwordField = NSSecureTextField(string: "")
+    private var profileText: String?
+
     init() {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 620, height: 440),
@@ -66,11 +75,24 @@ final class MainWindowController: NSWindowController {
         disconnectButton.target = self
         disconnectButton.action = #selector(disconnect)
 
+        chooseButton.target = self
+        chooseButton.action = #selector(chooseProfile)
+        profileLabel.textColor = .secondaryLabelColor
+        usernameField.placeholderString = "Username (if the profile asks)"
+        passwordField.placeholderString = "Password"
+        for field in [usernameField, passwordField] {
+            field.translatesAutoresizingMaskIntoConstraints = false
+            field.widthAnchor.constraint(equalToConstant: 280).isActive = true
+        }
+        let testPath = NSStackView(views: [chooseButton, profileLabel])
+        testPath.orientation = .horizontal
+        testPath.spacing = 8
+
         let buttons = NSStackView(views: [connectButton, disconnectButton])
         buttons.orientation = .horizontal
         buttons.spacing = 8
 
-        let stack = NSStackView(views: [statusLabel, detailLabel, tunnelLabel, buttons])
+        let stack = NSStackView(views: [statusLabel, detailLabel, tunnelLabel, testPath, usernameField, passwordField, buttons])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 12
@@ -85,11 +107,31 @@ final class MainWindowController: NSWindowController {
         ])
     }
 
+    @objc private func chooseProfile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.init(filenameExtension: "ovpn") ?? .data, .data]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.message = "Choose an OpenVPN profile. It stays in memory for this run only."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            profileText = try String(contentsOf: url, encoding: .utf8)
+            profileLabel.stringValue = url.lastPathComponent
+        } catch {
+            profileText = nil
+            profileLabel.stringValue = "Could not read \(url.lastPathComponent)"
+        }
+    }
+
     @objc private func connect() {
+        guard let profileText else {
+            tunnelLabel.stringValue = "Tunnel: choose a profile first"
+            return
+        }
         Task {
             do {
                 try await tunnel.prepare()
-                try tunnel.connect()
+                try tunnel.connect(profile: profileText, username: usernameField.stringValue, password: passwordField.stringValue)
             } catch {
                 tunnelLabel.stringValue = "Tunnel: \(error.localizedDescription)"
             }
@@ -119,7 +161,7 @@ final class MainWindowController: NSWindowController {
                 """
         case .active:
             statusLabel.stringValue = "Network component ready"
-            detailLabel.stringValue = "M0 scaffold — no tunnel engine yet."
+            detailLabel.stringValue = "Test path (M2): choose a profile, enter credentials if it needs them, Connect."
         case .failed(let message):
             statusLabel.stringValue = "Setup did not finish"
             detailLabel.stringValue = message
