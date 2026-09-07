@@ -8,10 +8,10 @@ Guidance for AI-assisted development in this repository.
 existing options work and are unpleasant to use. v1 speaks **OpenVPN**;
 **WireGuard is phase 2**. See [README.md](README.md).
 
-**Status: scaffolding.** There is no app target yet. The VPN engine, the
-privilege model (privileged helper vs. NetworkExtension), and the sandbox
-posture are all still under investigation — nothing here locks them in, and
-this file gets rewritten as those land.
+**Status: early implementation.** The app and a NetworkExtension system
+extension exist, openvpn3 is compiled into the extension, and nothing connects
+yet. Decisions that are settled: NetworkExtension packet tunnel as a system
+extension, openvpn3 as the engine, GPL-3.0-or-later, no sandbox.
 
 ## Hard rules
 
@@ -67,12 +67,19 @@ this file gets rewritten as those land.
 ## Build & test
 
 ```bash
+git submodule update --init                          # openvpn3, pinned at a release tag
+Scripts/build-deps.sh                                # OpenSSL, lz4, fmt, patched asio — static, universal; once
 xcodegen generate                                    # after any project.yml change
 xcodebuild -project VPNPlus.xcodeproj -scheme VPNPlus \
   -configuration Debug -destination 'platform=macOS' \
   CODE_SIGNING_ALLOWED=NO build
 swift test --package-path Packages/VPNPlusCore
 ```
+
+The engine is compiled into the tunnel extension from `ThirdParty/openvpn3`
+(see `ThirdParty/README.md`); `Scripts/build-deps.sh` is idempotent and CI runs
+it behind a cache. Running the extension needs a signed build: see
+`Scripts/sign-local.sh --dev`.
 
 `CODE_SIGNING_ALLOWED=NO` is the normal local build. Signing needs the
 Developer ID certificate **and** both provisioning profiles, and it is done by
