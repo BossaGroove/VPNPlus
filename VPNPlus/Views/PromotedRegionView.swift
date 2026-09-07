@@ -70,17 +70,27 @@ final class PromotedRegionView: NSView {
         primary.target = self
         primary.action = #selector(act)
 
-        for view in [connectionStack, guidance] {
-            addSubview(view)
-            NSLayoutConstraint.activate([
-                view.topAnchor.constraint(equalTo: topAnchor),
-                view.leadingAnchor.constraint(equalTo: leadingAnchor),
-                view.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
-                view.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor),
-            ])
-        }
+        // **An NSStackView, and that is load-bearing.** A stack view detaches
+        // a hidden view from its layout; a plain view keeps its space. With
+        // these two as plain subviews pinned only `lessThanOrEqualTo` the
+        // bottom, nothing pulled this region's height down — Auto Layout gave
+        // it 584 of the window's 672 points and left the grid's scroll view
+        // zero, which is the empty window M5.4 first shipped (measured).
+        //
+        // Pinned to **all four** edges, so the region is exactly as tall as
+        // whichever of the two is showing — and nothing at all when neither
+        // is, which is Idle.
+        let outer = NSStackView(views: [connectionStack, guidance])
+        outer.orientation = .vertical
+        outer.alignment = .leading
+        outer.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(outer)
         NSLayoutConstraint.activate([
-            primary.heightAnchor.constraint(greaterThanOrEqualToConstant: Space.hitTarget)
+            outer.topAnchor.constraint(equalTo: topAnchor),
+            outer.leadingAnchor.constraint(equalTo: leadingAnchor),
+            outer.trailingAnchor.constraint(equalTo: trailingAnchor),
+            outer.bottomAnchor.constraint(equalTo: bottomAnchor),
+            primary.heightAnchor.constraint(greaterThanOrEqualToConstant: Space.hitTarget),
         ])
     }
 
@@ -94,6 +104,7 @@ final class PromotedRegionView: NSView {
         guidance.isHidden = true
         connectionStack.isHidden = false
         nameLabel.stringValue = name
+        nameLabel.isHidden = false
         detailLabel.isHidden = true
         detailLabel.preferredMaxLayoutWidth = 520
 
@@ -123,6 +134,10 @@ final class PromotedRegionView: NSView {
             _ = session
 
         case .failed(let record):
+            // The name is already in the title — "Couldn't connect to X" —
+            // and A10's copy rule puts it there on purpose (rule 2). Saying it
+            // twice reads like a stutter.
+            nameLabel.isHidden = true
             stateLabel.stringValue = FailureCopy.title(record, name: name)
             stateLabel.textColor = Palette.stateFailed
             clockLabel.isHidden = true
@@ -146,6 +161,15 @@ final class PromotedRegionView: NSView {
             // content (A12's Idle).
             connectionStack.isHidden = true
         }
+    }
+
+    /// Idle: there is nothing promoted, because nothing is happening — and
+    /// **the region takes no space at all**, rather than keeping the height of
+    /// whatever it showed last. A hidden view keeps its layout space; a view
+    /// with nothing in it does not.
+    func showNothing() {
+        connectionStack.isHidden = true
+        guidance.isHidden = true
     }
 
     /// Setup and Blocked: the region carries the guidance, and **the reason is

@@ -62,6 +62,10 @@ final class MainWindowController: NSWindowController {
     private let grid = CardGridView(frame: .zero)
     private let gridScroll = NSScrollView()
     private let empty = GuidanceView()
+    /// Held, because the gap above the grid belongs to the promoted region
+    /// and there is no region to leave a gap under in Idle.
+    private lazy var gridTop = gridScroll.topAnchor.constraint(
+        equalTo: promoted.bottomAnchor, constant: Space.xxl)
     private var tick: Timer?
 
     /// The profile the promoted region is about. **What the user asked for,
@@ -91,11 +95,17 @@ final class MainWindowController: NSWindowController {
 
         window.title = "VPN Plus"
         window.center()
-        window.setFrameAutosaveName("MainWindow")
+        // Bumped when the designed size changed at M5.4: a frame saved from a
+        // provisional window is not a size the user chose.
+        window.setFrameAutosaveName("MainWindow.M5")
         window.minSize = Self.minimumSize
         // Resizable *and* zoomable, against A1's finding that OpenVPN Connect
         // disables zoom and fixes itself at about 400 × 685.
         window.collectionBehavior = [.fullScreenPrimary]
+
+        #if DEBUG
+            keepOnTheBuiltInDisplayWhileDeveloping()
+        #endif
 
         buildToolbar()
         buildLayout()
@@ -127,6 +137,32 @@ final class MainWindowController: NSWindowController {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("not supported") }
 
+    #if DEBUG
+        /// **Development only.** Puts the window on the built-in display.
+        ///
+        /// Not a behaviour anybody wants shipped — a window belongs where the user
+        /// left it — but during development the app is relaunched every few
+        /// minutes, and it landing on whichever display was last used interrupts
+        /// whatever the owner is doing on the other one. Compiled out of Release
+        /// entirely.
+        private func keepOnTheBuiltInDisplayWhileDeveloping() {
+            guard let window,
+                let builtIn = NSScreen.screens.first(where: {
+                    guard
+                        let number = $0.deviceDescription[
+                            NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
+                    else { return false }
+                    return CGDisplayIsBuiltin(CGDirectDisplayID(number.uint32Value)) != 0
+                })
+            else { return }
+            var frame = window.frame
+            frame.origin = NSPoint(
+                x: builtIn.visibleFrame.midX - frame.width / 2,
+                y: builtIn.visibleFrame.midY - frame.height / 2)
+            window.setFrame(frame, display: false)
+        }
+    #endif
+
     // MARK: - Chrome
 
     /// **One control** (D117): import. Settings is ⌘, in the application menu
@@ -151,6 +187,7 @@ final class MainWindowController: NSWindowController {
     private func buildLayout() {
         let root = content.view
 
+        gridScroll.contentView = TopAlignedClipView()
         gridScroll.documentView = grid
         gridScroll.hasVerticalScroller = true
         gridScroll.drawsBackground = false
@@ -166,7 +203,7 @@ final class MainWindowController: NSWindowController {
             promoted.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: Space.xl),
             promoted.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -Space.xl),
 
-            gridScroll.topAnchor.constraint(equalTo: promoted.bottomAnchor, constant: Space.xxl),
+            gridTop,
             gridScroll.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: Space.xl),
             gridScroll.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -Space.xl),
             gridScroll.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -Space.xl),
@@ -197,8 +234,8 @@ final class MainWindowController: NSWindowController {
         // Setup is deferred to the first Connect (D59), so "nothing asked for
         // yet" is not a state the user is shown. *When* it is asked for is
         // M7's; what it looks like is here.
-        case .idle, .active: .ready
-        case .requesting, .needsApproval: .waitingForApproval
+        case .idle, .active, .requesting: .ready
+        case .needsApproval: .waitingForApproval
         case .failed: .blocked
         }
     }
@@ -214,10 +251,12 @@ final class MainWindowController: NSWindowController {
         empty.isHidden = state != .empty
         gridScroll.isHidden = state == .empty
         promoted.isHidden = false
+        defer { gridTop.constant = promoted.isHidden ? 0 : Space.xxl }
 
         switch state {
         case .empty:
             promoted.isHidden = true
+            promoted.showNothing()
             empty.show(
                 title: String(localized: "No profiles yet"),
                 body: String(
@@ -277,6 +316,7 @@ final class MainWindowController: NSWindowController {
 
         case .idle:
             promoted.isHidden = true
+            promoted.showNothing()
 
         case .active, .failed:
             let name = involved.flatMap { titles[$0] } ?? String(localized: "this VPN")
@@ -289,6 +329,7 @@ final class MainWindowController: NSWindowController {
         grid.show(others, titles: titles)
 
         keepTheClocksHonest()
+
     }
 
     /// A ticking number that stopped is how A1 found OpenVPN Connect claiming
@@ -331,7 +372,8 @@ final class MainWindowController: NSWindowController {
     private func compose(_ profile: Profile) -> ProfileSettings? {
         guard let descriptor = descriptor(for: profile) else { return nil }
         let overrides = (try? store.overrides(for: profile.id)) ?? Overrides()
-        return ProfileSettings.compose(descriptor, with: overrides)
+        return ProfileSettings.compose(
+            descriptor, with: overrides, filename: profile.origin.filename)
     }
 
     /// What the profile says about itself. Stored at import, because once the

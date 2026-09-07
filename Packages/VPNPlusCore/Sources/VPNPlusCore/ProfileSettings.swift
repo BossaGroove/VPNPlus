@@ -116,14 +116,24 @@ public struct ProfileSettings: Sendable, Equatable {
     /// Disclosed as a count, with the list one click behind it (D187).
     public let waivedDirectives: [String]
 
-    public static func compose(_ descriptor: ProfileDescriptor, with overrides: Overrides) -> ProfileSettings {
+    /// `filename` is the file the profile came from, and it is not optional
+    /// decoration: **an engine with no name to report gives the server's
+    /// address** (D215), so composing the title from the descriptor alone
+    /// calls the profile `203.0.113.18`. `preferredTitle` is the rule that
+    /// fixes it, and it needs the filename to apply.
+    public static func compose(
+        _ descriptor: ProfileDescriptor,
+        with overrides: Overrides,
+        filename: String = ""
+    ) -> ProfileSettings {
         let server: ServerSelection
         if descriptor.alternateServers.isEmpty {
             let typed = overrides.server
             server = .single(
                 host: ResolvedValue(profile: descriptor.server.host, override: typed?.host),
                 port: ResolvedValue(profile: descriptor.server.port, override: typed?.port),
-                transport: ResolvedValue(profile: descriptor.server.transport, override: typed?.transport))
+                transport: ResolvedValue(
+                    profile: descriptor.server.transport, override: typed?.transport))
         } else {
             // A chosen server that the configuration no longer offers falls
             // back to the first, so the surface can never show a dead choice.
@@ -146,7 +156,8 @@ public struct ProfileSettings: Sendable, Equatable {
             } else {
                 username = .editable(ResolvedValue(profile: "", override: overrides.username))
             }
-            let saving: PasswordSaving = descriptor.allowsPasswordSave
+            let saving: PasswordSaving =
+                descriptor.allowsPasswordSave
                 ? .offered(on: overrides.savePassword ?? true)
                 : .forbiddenByProfile
             var challenge: (prompt: String, echo: Bool)?
@@ -159,7 +170,8 @@ public struct ProfileSettings: Sendable, Equatable {
         }
 
         return ProfileSettings(
-            title: ResolvedValue(profile: descriptor.displayName, override: overrides.title),
+            title: ResolvedValue(
+                profile: descriptor.preferredTitle(filename: filename), override: overrides.title),
             server: server,
             signIn: signIn,
             keyPassphraseNeeded: descriptor.credentials.contains(.privateKeyPassphrase),

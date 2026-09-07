@@ -91,7 +91,11 @@ final class ProfileCardView: NSView {
         wantsLayer = true
         layer?.cornerRadius = 10
         layer?.borderWidth = 1
-        translatesAutoresizingMaskIntoConstraints = false
+        // **The grid positions a card by frame**, so this stays on: a view
+        // with it turned off and no constraints placing it has no position and
+        // no size, which is exactly how M5.4 first shipped an empty window.
+        // Auto Layout still does everything *inside* the card.
+        translatesAutoresizingMaskIntoConstraints = true
         toolTip = title
 
         connectButton.title = String(localized: "Connect")
@@ -135,8 +139,9 @@ final class ProfileCardView: NSView {
                 lessThanOrEqualTo: trailingAnchor, constant: -Space.l),
             controls.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Space.l),
             controls.heightAnchor.constraint(greaterThanOrEqualToConstant: Space.hitTarget),
-
-            widthAnchor.constraint(greaterThanOrEqualToConstant: Self.minimumWidth),
+            // No width constraint of its own: the grid guarantees the minimum,
+            // because the minimum is what the column count is derived *from*
+            // (D167), and a second opinion here could only conflict with it.
         ])
 
         // A card is one thing to VoiceOver, with the name as its identity and
@@ -158,14 +163,15 @@ final class ProfileCardView: NSView {
     // MARK: - Drawing
 
     override func updateLayer() {
-        layer?.backgroundColor =
-            (isSelected ? Palette.surfaceSelected : Palette.surfaceCard).cgColor
+        // **Selection is keyboard focus** (D57), so it is drawn as focus: the
+        // accent on the border, and the card's own surface underneath either
+        // way. Filling the whole card with the selection colour made the one
+        // profile on screen look like the connected one — a claim the grid is
+        // not allowed to make, because a grid card never carries connection
+        // state (D114).
+        layer?.backgroundColor = Palette.surfaceCard.cgColor
         layer?.borderColor = (isSelected ? Palette.accent : Palette.border).cgColor
-        // Selection is keyboard focus (D57), so it has to be visible as more
-        // than a tint — Increase Contrast users and anyone with a light
-        // selection colour need the border to carry it too.
         layer?.borderWidth = isSelected ? 2 : 1
-        nameField.textColor = isSelected ? .selectedTextColor : Palette.textPrimary
     }
 
     // MARK: - Gestures (D55, D57)

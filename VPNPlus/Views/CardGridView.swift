@@ -44,6 +44,17 @@ import VPNPlusCore
 /// self-sorting grid destroys the muscle memory that makes a one-click switch
 /// feel like one click, and it moves the target between the glance and the
 /// click.
+/// A clip view that puts its content at the **top**.
+///
+/// `NSClipView` is not flipped, so a document view shorter than the scroll
+/// view sits in the middle of it — which is where the first card appeared
+/// before this existed. Five lines, and the alternative is laying the document
+/// view out by hand.
+@MainActor
+final class TopAlignedClipView: NSClipView {
+    override var isFlipped: Bool { true }
+}
+
 @MainActor
 final class CardGridView: NSView {
     private static let gap = Space.l
