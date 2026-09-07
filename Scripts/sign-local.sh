@@ -90,7 +90,10 @@ for subject in "$APP" "$EXT"; do
     echo "$subject carries the -systemextension entitlement, which a development build must not" >&2
     exit 1
   fi
-  grep -q "<string>$WANT</string>" <<<"$ENTS" \
+  # Plain substring: codesign prints entitlements in a bracketed format on
+  # current macOS, as XML on older ones. The dev-mode check above already
+  # rejected the suffixed value, so a substring match is exact enough here.
+  grep -q "$WANT" <<<"$ENTS" \
     || { echo "$subject is missing the $WANT entitlement" >&2; exit 1; }
 done
 
