@@ -75,10 +75,22 @@ class Client final : public ClientAPI::OpenVPNClient
     {
     }
 
-    bool prepare(const char *profile, const char *username, const char *password, std::string &message)
+    bool prepare(const char *profile, const char *username, const char *password,
+                 const vpnplus_overrides *overrides, std::string &message)
     {
         ClientAPI::Config config;
         config.content = profile ? profile : "";
+        // The user's choice of server, applied without rewriting the profile
+        // text, which is stored verbatim (D188).
+        if (overrides != nullptr)
+        {
+            if (overrides->server != nullptr)
+                config.serverOverride = overrides->server;
+            if (overrides->port != nullptr)
+                config.portOverride = overrides->port;
+            if (overrides->transport != nullptr)
+                config.protoOverride = overrides->transport;
+        }
         config.guiVersion = client_version_;
         config.info = true;   // INFO events carry server messages the user should see
         config.dco = false;   // no data-channel offload on macOS
@@ -698,14 +710,14 @@ extern "C" void vpnplus_engine_destroy(vpnplus_engine *engine)
     delete engine;
 }
 
-extern "C" bool vpnplus_engine_prepare(vpnplus_engine *engine, const char *profile, const char *username, const char *password, char *message, size_t message_size)
+extern "C" bool vpnplus_engine_prepare(vpnplus_engine *engine, const char *profile, const char *username, const char *password, const vpnplus_overrides *overrides, char *message, size_t message_size)
 {
     if (engine == nullptr)
         return false;
     try
     {
         std::string text;
-        const bool ok = engine->client->prepare(profile, username, password, text);
+        const bool ok = engine->client->prepare(profile, username, password, overrides, text);
         if (!ok)
             copy_message(message, message_size, text);
         return ok;

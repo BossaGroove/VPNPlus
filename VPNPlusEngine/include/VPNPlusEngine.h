@@ -198,10 +198,20 @@ typedef struct vpnplus_engine vpnplus_engine;
 vpnplus_engine *vpnplus_engine_create(const vpnplus_engine_callbacks *callbacks, const char *client_version);
 void vpnplus_engine_destroy(vpnplus_engine *engine);
 
+/// A user's choice that changes where or how this connection is made. Any
+/// field may be NULL or empty, meaning "use what the profile says".
+typedef struct {
+    const char *server;   ///< host to connect to instead of the profile's
+    const char *port;
+    const char *transport;
+} vpnplus_overrides;
+
 /// Evaluates the profile and stores the credentials. Must succeed before run().
-/// Either credential may be NULL or empty. On false, `message` explains.
+/// Either credential may be NULL or empty, and `overrides` may be NULL. On
+/// false, `message` explains.
 bool vpnplus_engine_prepare(vpnplus_engine *engine, const char *profile,
                             const char *username, const char *password,
+                            const vpnplus_overrides *overrides,
                             char *message, size_t message_size);
 
 /// Connects, and returns only when the connection has ended. Returns false

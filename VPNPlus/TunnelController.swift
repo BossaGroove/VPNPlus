@@ -16,6 +16,7 @@
 
 import Foundation
 import NetworkExtension
+import VPNPlusCore
 import os
 
 /// Creates and drives the VPN configuration. The real connection model
@@ -81,11 +82,21 @@ final class TunnelController {
     /// M3 stores profiles and M4 puts credentials behind the XPC interface;
     /// until then nothing here persists, and a start from System Settings has
     /// nothing to connect with (D75 is knowingly broken in M2).
-    func connect(profile: String, username: String, password: String) throws {
+    func connect(
+        profile: String,
+        username: String,
+        password: String,
+        server: ServerEndpoint = ServerEndpoint()
+    ) throws {
         guard let session = manager?.connection as? NETunnelProviderSession else { return }
         var options: [String: NSObject] = ["profile": profile as NSString]
         if !username.isEmpty { options["username"] = username as NSString }
         if !password.isEmpty { options["password"] = password as NSString }
+        // Only what the user chose: an override equal to the profile's own
+        // value is not an override, and the model already decided that.
+        if !server.host.isEmpty { options["serverHost"] = server.host as NSString }
+        if !server.port.isEmpty { options["serverPort"] = server.port as NSString }
+        if !server.transport.isEmpty { options["serverTransport"] = server.transport as NSString }
         try session.startVPNTunnel(options: options)
     }
 

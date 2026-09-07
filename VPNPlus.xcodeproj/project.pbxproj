@@ -16,6 +16,7 @@
 		20A72A340ACB7C5286938572 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 13133B04CBB3D94810E7E1E6 /* CoreFoundation.framework */; };
 		39FCA6D97086FE9B0A2BB252 /* DropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58B8862F0FA21CF7DC071671 /* DropView.swift */; };
 		3FF21C450F306C5FF7BEE330 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E855E821FD66EF1537305B0 /* SystemConfiguration.framework */; };
+		4357428D4CBBFB99481CA99C /* ProfileConfigurationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23BAA2476B265EB039506C3B /* ProfileConfigurationSheet.swift */; };
 		4465665E03BC198916CB20FD /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F7D913D6471B1A325F2359F /* PacketTunnelProvider.swift */; };
 		4D78EEA5FE37B5814C55C253 /* libVPNPlusEngine.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FBDBC35E7CE4C4696A7A964 /* libVPNPlusEngine.a */; };
 		60B41A883578D99B0ED546C2 /* RunTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20028CE67B99ED88EE431F26 /* RunTests.swift */; };
@@ -30,6 +31,7 @@
 		919F30053FD246BACAC7AB1E /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 10BC1655F49A221682EA0E4A /* IOKit.framework */; };
 		92EBC36E033F0AABFCEFC337 /* libc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = DFB57BBBCF629E49A6B82483 /* libc++.tbd */; };
 		A86A7F0E44843C0CD7875969 /* VPNPlusEngine.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 208361D78664FDC72939DDB7 /* VPNPlusEngine.h */; };
+		ACBD9DBFCA5232978DFF8590 /* ProfileListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 957446ACB2DAF0C01B877E05 /* ProfileListView.swift */; };
 		ADE17859AF1ADC4A3AD45A2C /* ExternalPKIHelper.c in Sources */ = {isa = PBXBuildFile; fileRef = 92FA759A42A5B4F74D866FC1 /* ExternalPKIHelper.c */; };
 		AFC9D77610261CD7EE9D3BD7 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7ED01D1888C03F68BC162FA3 /* CoreServices.framework */; };
 		B024190D8EAE53657644AA66 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 13133B04CBB3D94810E7E1E6 /* CoreFoundation.framework */; };
@@ -116,6 +118,7 @@
 		13133B04CBB3D94810E7E1E6 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		20028CE67B99ED88EE431F26 /* RunTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunTests.swift; sourceTree = "<group>"; };
 		208361D78664FDC72939DDB7 /* VPNPlusEngine.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VPNPlusEngine.h; sourceTree = "<group>"; };
+		23BAA2476B265EB039506C3B /* ProfileConfigurationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileConfigurationSheet.swift; sourceTree = "<group>"; };
 		2455A69E951DCA668094ABA2 /* VPNPlusEngineTests-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "VPNPlusEngineTests-Bridging-Header.h"; sourceTree = "<group>"; };
 		3CBF178DBF0AF1CAED795117 /* TestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFixtures.swift; sourceTree = "<group>"; };
 		3EE7FB96CCF503AA5008C88B /* VPNPlusCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = VPNPlusCore; path = Packages/VPNPlusCore; sourceTree = SOURCE_ROOT; };
@@ -132,6 +135,7 @@
 		7ED01D1888C03F68BC162FA3 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = System/Library/Frameworks/CoreServices.framework; sourceTree = SDKROOT; };
 		8D29B2DFA2D5B14954AFC31F /* VPNPlus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VPNPlus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		92FA759A42A5B4F74D866FC1 /* ExternalPKIHelper.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ExternalPKIHelper.c; sourceTree = "<group>"; };
+		957446ACB2DAF0C01B877E05 /* ProfileListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileListView.swift; sourceTree = "<group>"; };
 		9CD75F5958AB78A8340EB4A4 /* MainWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowController.swift; sourceTree = "<group>"; };
 		9CDD25E6602DBB2C35764F2B /* VPNPlus-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "VPNPlus-Bridging-Header.h"; sourceTree = "<group>"; };
 		9F7D913D6471B1A325F2359F /* PacketTunnelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketTunnelProvider.swift; sourceTree = "<group>"; };
@@ -235,8 +239,10 @@
 				B5E1663DC8DD11E37C655963 /* ImportMessage.swift */,
 				014171C7BC3E81B7ACFD6DA1 /* InstallLocation.swift */,
 				9CD75F5958AB78A8340EB4A4 /* MainWindowController.swift */,
+				23BAA2476B265EB039506C3B /* ProfileConfigurationSheet.swift */,
 				AD459008A5079558FEE30141 /* ProfileImport.swift */,
 				78598EE5564F61AE94D4B153 /* ProfileImporter.swift */,
+				957446ACB2DAF0C01B877E05 /* ProfileListView.swift */,
 				4B4A4F17AAADBDA419BA9006 /* ProfileStorage.swift */,
 				A0C0DB62A25CADB2DFD5CB5F /* TunnelController.swift */,
 				9CDD25E6602DBB2C35764F2B /* VPNPlus-Bridging-Header.h */,
@@ -476,8 +482,10 @@
 				7F0560F6228F685A72CFAA58 /* ImportMessage.swift in Sources */,
 				DD1118C0F8E834F09160946A /* InstallLocation.swift in Sources */,
 				7676B0812A5C4D64B97AC9DA /* MainWindowController.swift in Sources */,
+				4357428D4CBBFB99481CA99C /* ProfileConfigurationSheet.swift in Sources */,
 				C0D83B28313952C35DEA40B0 /* ProfileImport.swift in Sources */,
 				C401EF4DB9265005338A59C5 /* ProfileImporter.swift in Sources */,
+				ACBD9DBFCA5232978DFF8590 /* ProfileListView.swift in Sources */,
 				CCF814AD83E789107066C510 /* ProfileStorage.swift in Sources */,
 				E331C45DCD7FC398D5538B6F /* TunnelController.swift in Sources */,
 			);

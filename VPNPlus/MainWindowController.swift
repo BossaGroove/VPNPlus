@@ -38,7 +38,8 @@ final class MainWindowController: NSWindowController {
     // list, the picker and the configuration sheet the design calls for arrive
     // with M3.5 and M5. Credentials are still typed each time, until M4.
     private let importButton = NSButton(title: "", target: nil, action: nil)
-    private let profileLabel = NSTextField(labelWithString: "")
+    private let profiles = ProfileListView(frame: .zero)
+    private let emptyLabel = NSTextField(wrappingLabelWithString: "")
     private let usernameField = NSTextField(string: "")
     private let passwordField = NSSecureTextField(string: "")
 
@@ -84,21 +85,31 @@ final class MainWindowController: NSWindowController {
         tunnelLabel.textColor = .secondaryLabelColor
 
         connectButton.target = self
-        connectButton.action = #selector(connect)
+        connectButton.action = #selector(connectSelected)
         disconnectButton.target = self
         disconnectButton.action = #selector(disconnect)
 
         importButton.title = String(localized: "Import Profile…")
         importButton.target = self
         importButton.action = #selector(importProfileFromPanel(_:))
-        profileLabel.textColor = .secondaryLabelColor
-        usernameField.placeholderString = "Username (if the profile asks)"
-        passwordField.placeholderString = "Password"
+        usernameField.placeholderString = String(localized: "Username")
+        passwordField.placeholderString = String(localized: "Password")
         for field in [usernameField, passwordField] {
             field.translatesAutoresizingMaskIntoConstraints = false
             field.widthAnchor.constraint(equalToConstant: 280).isActive = true
         }
-        let testPath = NSStackView(views: [importButton, profileLabel])
+        profiles.translatesAutoresizingMaskIntoConstraints = false
+        profiles.heightAnchor.constraint(equalToConstant: 150).isActive = true
+        profiles.widthAnchor.constraint(equalToConstant: 420).isActive = true
+        profiles.onSelect = { [weak self] _ in self?.renderSelection() }
+        profiles.onConnect = { [weak self] in self?.connect(to: $0) }
+        profiles.onConfigure = { [weak self] in self?.configure($0) }
+        profiles.onDelete = { [weak self] in self?.confirmDelete($0) }
+
+        emptyLabel.textColor = .secondaryLabelColor
+        emptyLabel.preferredMaxLayoutWidth = 420
+
+        let testPath = NSStackView(views: [importButton])
         testPath.orientation = .horizontal
         testPath.spacing = 8
 
@@ -106,7 +117,10 @@ final class MainWindowController: NSWindowController {
         buttons.orientation = .horizontal
         buttons.spacing = 8
 
-        let stack = NSStackView(views: [statusLabel, detailLabel, tunnelLabel, testPath, usernameField, passwordField, buttons])
+        let stack = NSStackView(views: [
+            statusLabel, detailLabel, profiles, emptyLabel, testPath,
+            tunnelLabel, usernameField, passwordField, buttons,
+        ])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 12
@@ -132,39 +146,172 @@ final class MainWindowController: NSWindowController {
     }
 
     private func renderProfiles() {
-        let profiles = (try? store.profiles()) ?? []
-        guard let first = profiles.first else {
-            profileLabel.stringValue = String(localized: "No profiles yet — import one, or drop it on this window")
-            return
-        }
-        let waived = first.waivedDirectives.count
-        // A count, never a buried list (D187). The list is one click behind it,
-        // in the import sheet now and in the profile's own surface at M5.
-        profileLabel.stringValue = profiles.count == 1
-            ? (waived == 0
-                ? first.title
-                : String(localized: "\(first.title) — \(waived) settings not used"))
-            : String(localized: "\(profiles.count) profiles, starting with \(first.title)")
+        let stored = (try? store.profiles()) ?? []
+        profiles.show(stored)
+        profiles.isHidden = stored.isEmpty
+        emptyLabel.isHidden = !stored.isEmpty
+        emptyLabel.stringValue = String(localized: """
+            No profiles yet. Import one with the button below, drop it on this \
+            window, or double-click it in the Finder.
+            """)
+        renderSelection()
     }
 
-    @objc private func connect() {
-        // M3.5 turns this into a selection; for now the first stored profile is
-        // the one that connects, which is already better than a file picker
-        // per run.
-        guard let profile = (try? store.profiles())?.first,
-              let configuration = try? store.configuration(for: profile.id),
-              let text = String(data: configuration, encoding: .utf8)
-        else {
+    private func renderSelection() {
+        guard let profile = profiles.selected else {
+            usernameField.isHidden = true
+            passwordField.isHidden = true
+            connectButton.isEnabled = false
+            return
+        }
+        connectButton.isEnabled = true
+
+        // The sign-in fields follow what the profile asks for, which the model
+        // decided (D128). Credentials themselves are still typed each time,
+        // until M4 can store them.
+        let settings = compose(profile)
+        switch settings?.signIn {
+        case .credentials(let username, _, _):
+            usernameField.isHidden = false
+            passwordField.isHidden = false
+            switch username {
+            case .fixed(let fixed):
+                usernameField.stringValue = fixed
+                usernameField.isEditable = false
+                usernameField.placeholderString = nil
+            case .editable(let value):
+                usernameField.isEditable = true
+                usernameField.stringValue = value.value
+                usernameField.placeholderString = String(localized: "Username")
+            }
+            passwordField.placeholderString = String(localized: "Password")
+        case .notNeeded:
+            usernameField.isHidden = true
+            passwordField.isHidden = true
+        case nil:
+            usernameField.isHidden = true
+            passwordField.isHidden = true
+        }
+    }
+
+    /// The profile and the user's overrides, composed — the only way this
+    /// window learns what to show (D188).
+    private func compose(_ profile: Profile) -> ProfileSettings? {
+        guard let configuration = try? store.configuration(for: profile.id),
+              let text = String(data: configuration, encoding: .utf8),
+              let descriptor = ProfileImport.describe(text, setAside: profile.waivedDirectives)
+        else { return nil }
+        let overrides = (try? store.overrides(for: profile.id)) ?? Overrides()
+        return ProfileSettings.compose(descriptor, with: overrides)
+    }
+
+    private func configure(_ profile: Profile) {
+        guard let configuration = try? store.configuration(for: profile.id),
+              let text = String(data: configuration, encoding: .utf8),
+              let descriptor = ProfileImport.describe(text, setAside: profile.waivedDirectives)
+        else { return }
+        let overrides = (try? store.overrides(for: profile.id)) ?? Overrides()
+        let sheet = ProfileConfigurationSheet(
+            profile: profile, descriptor: descriptor, overrides: overrides
+        ) { [weak self] updated in
+            guard let self else { return }
+            try? store.setOverrides(updated, for: profile.id)
+            // The title in the list follows the user's name for it.
+            renderProfiles()
+        }
+        contentViewController?.presentAsSheet(sheet) ?? presentSheet(sheet)
+    }
+
+    private func presentSheet(_ controller: NSViewController) {
+        let holder = NSViewController()
+        holder.view = window?.contentView ?? NSView()
+        holder.presentAsSheet(controller)
+    }
+
+    /// Deleting takes a private key with it, so it asks first.
+    private func confirmDelete(_ profile: Profile) {
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Delete \(profile.title)?")
+        alert.informativeText = String(localized: """
+            This removes the profile and anything saved with it, including its \
+            certificate and key. You would need the original file to import it again.
+            """)
+        alert.addButton(withTitle: String(localized: "Delete"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        let respond: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard let self, response == .alertFirstButtonReturn else { return }
+            do {
+                try store.remove(profile.id)
+            } catch {
+                tunnelLabel.stringValue = String(localized: "Couldn't delete that profile")
+            }
+            renderProfiles()
+        }
+        if let window {
+            alert.beginSheetModal(for: window, completionHandler: respond)
+        } else {
+            respond(alert.runModal())
+        }
+    }
+
+    @objc private func connectSelected() {
+        guard let profile = profiles.selected else {
             tunnelLabel.stringValue = String(localized: "Import a profile first")
             return
+        }
+        connect(to: profile)
+    }
+
+    /// Connecting reads the stored profile and the user's overrides. No file
+    /// picker, and the configuration surface is never on the way here (2.13).
+    private func connect(to profile: Profile) {
+        guard let configuration = try? store.configuration(for: profile.id),
+              let text = String(data: configuration, encoding: .utf8)
+        else {
+            tunnelLabel.stringValue = String(localized: "Couldn't read that profile")
+            return
+        }
+        let settings = compose(profile)
+        let username: String
+        switch settings?.signIn {
+        case .credentials(.fixed(let fixed), _, _): username = fixed
+        default: username = usernameField.stringValue
         }
         Task {
             do {
                 try await tunnel.prepare()
-                try tunnel.connect(profile: text, username: usernameField.stringValue, password: passwordField.stringValue)
+                try tunnel.connect(
+                    profile: text,
+                    username: username,
+                    password: passwordField.stringValue,
+                    server: overrideServer(for: profile, settings: settings))
             } catch {
                 tunnelLabel.stringValue = "Tunnel: \(error.localizedDescription)"
             }
+        }
+    }
+
+    /// Only what the user actually chose: where the composed value equals the
+    /// profile's own, nothing is sent.
+    private func overrideServer(for profile: Profile, settings: ProfileSettings?) -> ServerEndpoint {
+        guard let settings else { return ServerEndpoint() }
+        switch settings.server {
+        case let .single(host, port, transport):
+            var chosen = ServerEndpoint()
+            if case .overridden = host.provenance {
+                chosen = ServerEndpoint(host: host.value, port: chosen.port, transport: chosen.transport)
+            }
+            if case .overridden = port.provenance {
+                chosen = ServerEndpoint(host: chosen.host, port: port.value, transport: chosen.transport)
+            }
+            if case .overridden = transport.provenance {
+                chosen = ServerEndpoint(host: chosen.host, port: chosen.port, transport: transport.value)
+            }
+            return chosen
+        case .choice:
+            // A chosen server is always an override: the profile advertises
+            // several and the user picked one.
+            return settings.effectiveServer
         }
     }
 

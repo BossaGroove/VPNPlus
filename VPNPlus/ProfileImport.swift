@@ -161,7 +161,9 @@ struct ProfileImport {
         var all: [ServerChoice] = []
     }
 
-    private static func describe(_ text: String, setAside: [String]) -> ProfileDescriptor? {
+    /// What a stored profile says about itself. Used by import, and by any
+    /// surface that needs to compose a profile with its overrides (D188).
+    static func describe(_ text: String, setAside: [String]) -> ProfileDescriptor? {
         let servers = Servers()
         var info = vpnplus_profile_info()
         withExtendedLifetime(servers) {

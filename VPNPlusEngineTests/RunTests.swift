@@ -60,7 +60,7 @@ struct RunTests {
         defer { vpnplus_engine_destroy(engine) }
 
         var message = [CChar](repeating: 0, count: 1024)
-        let prepared = vpnplus_engine_prepare(engine, Self.unreachableProfile, "user", "pass", &message, message.count)
+        let prepared = vpnplus_engine_prepare(engine, Self.unreachableProfile, "user", "pass", nil, &message, message.count)
         #expect(prepared, "prepare: \(String(cString: message))")
 
         // The deadline a provider would apply, played by the test.

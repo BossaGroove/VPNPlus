@@ -113,12 +113,33 @@ final class Engine: @unchecked Sendable {
         Unmanaged<Engine>.fromOpaque(context).takeUnretainedValue()
     }
 
+    /// Where to connect, when the user chose somewhere other than what the
+    /// profile says. Empty strings mean "use the profile's own".
+    struct ServerOverride: Sendable {
+        var host = ""
+        var port = ""
+        var transport = ""
+        var isEmpty: Bool { host.isEmpty && port.isEmpty && transport.isEmpty }
+    }
+
     /// Evaluates the profile and stores the credentials. Throws with the
     /// engine's own reason.
-    func prepare(profile: String, username: String?, password: String?) throws {
+    func prepare(
+        profile: String,
+        username: String?,
+        password: String?,
+        server: ServerOverride = ServerOverride()
+    ) throws {
         guard let handle else { throw Failure(message: "The engine could not be created.") }
         var message = [CChar](repeating: 0, count: 1024)
-        let ok = vpnplus_engine_prepare(handle, profile, username, password, &message, message.count)
+        let ok = server.host.withCString { host in
+            server.port.withCString { port in
+                server.transport.withCString { transport in
+                    var overrides = vpnplus_overrides(server: host, port: port, transport: transport)
+                    return vpnplus_engine_prepare(handle, profile, username, password, &overrides, &message, message.count)
+                }
+            }
+        }
         if !ok { throw Failure(message: Self.string(message)) }
     }
 

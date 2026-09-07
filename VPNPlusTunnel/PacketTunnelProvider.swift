@@ -67,6 +67,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     private var profile = ""
     private var username: String?
     private var password: String?
+    private var serverOverride = Engine.ServerOverride()
     private var deadline: DispatchWorkItem?
     private var transportPoll: DispatchWorkItem?
 
@@ -89,6 +90,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         self.profile = profile
         self.username = options?["username"] as? String
         self.password = options?["password"] as? String
+        self.serverOverride = Engine.ServerOverride(
+            host: options?["serverHost"] as? String ?? "",
+            port: options?["serverPort"] as? String ?? "",
+            transport: options?["serverTransport"] as? String ?? "")
+        if !serverOverride.isEmpty {
+            log.notice("server override: \(self.serverOverride.host, privacy: .public):\(self.serverOverride.port, privacy: .public) \(self.serverOverride.transport, privacy: .public)")
+        }
 
         let completion = Completion(completionHandler)
         state.withLock { $0.startCompletion = completion; $0.connected = false; $0.stopping = false }
@@ -115,7 +123,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         }
 
         do {
-            try engine.prepare(profile: profile, username: username, password: password)
+            try engine.prepare(profile: profile, username: username, password: password, server: serverOverride)
         } catch {
             log.error("prepare failed: \(error.localizedDescription, privacy: .public)")
             failAttempt(Failure("\(error)"))
