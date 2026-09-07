@@ -100,16 +100,13 @@ final class ProfileImporter {
         waivers: [String]
     ) throws {
         let filename = url.lastPathComponent
-        // The title the user sees: what the profile calls itself, else the
-        // filename without its extension.
-        let title = descriptor.displayName.isEmpty
-            ? url.deletingPathExtension().lastPathComponent
-            : descriptor.displayName
+        let title = descriptor.preferredTitle(filename: filename)
 
         // A profile imported again replaces its text and keeps the user's
         // adjustments, rather than becoming a second entry (2.6, D132).
         if let existing = try store.profiles().first(where: { $0.origin.filename == filename }) {
-            let conflicts = try store.replaceConfiguration(configuration, descriptor: descriptor, for: existing.id)
+            let conflicts = try store.replaceConfiguration(
+                configuration, descriptor: descriptor, title: title, for: existing.id)
             log.notice("replaced \(filename, privacy: .public); \(conflicts.count, privacy: .public) overrides now contradicted")
             return
         }

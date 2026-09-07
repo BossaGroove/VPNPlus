@@ -84,10 +84,13 @@ public protocol ProfileStore: Sendable {
     func add(_ profile: Profile, configuration: Data) throws
 
     /// Replaces the text of an existing profile, keeping its identity and its
-    /// overrides, and returns what the new text contradicts (D132).
+    /// overrides, and returns what the new text contradicts (D132). `title` is
+    /// the new default name; a title the user chose still wins, because that
+    /// lives in the overrides record.
     func replaceConfiguration(
         _ configuration: Data,
         descriptor: ProfileDescriptor,
+        title: String,
         for id: Profile.ID
     ) throws -> [OverrideConflict]
 

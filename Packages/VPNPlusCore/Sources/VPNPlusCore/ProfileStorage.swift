@@ -122,6 +122,7 @@ public struct StoredProfileStore: ProfileStore {
     public func replaceConfiguration(
         _ configuration: Data,
         descriptor: ProfileDescriptor,
+        title: String,
         for id: Profile.ID
     ) throws -> [OverrideConflict] {
         var index = try profiles()
@@ -135,6 +136,9 @@ public struct StoredProfileStore: ProfileStore {
         var profile = index[position]
         profile.origin.replacedAt = Date()
         profile.waivedDirectives = descriptor.waivedDirectives
+        // The default name follows the new text; a name the user gave it lives
+        // in the overrides record and is untouched here.
+        if !title.isEmpty { profile.title = title }
         index[position] = profile
         try write(index)
 

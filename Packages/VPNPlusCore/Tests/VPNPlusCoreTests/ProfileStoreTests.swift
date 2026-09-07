@@ -169,7 +169,7 @@ struct ProfileStoreTests {
         try store.add(one, configuration: Data("old".utf8))
         try store.setOverrides(Overrides(title: "Work", username: "alex", reconnectAutomatically: false), for: one.id)
 
-        let conflicts = try store.replaceConfiguration(Data("new".utf8), descriptor: descriptor(), for: one.id)
+        let conflicts = try store.replaceConfiguration(Data("new".utf8), descriptor: descriptor(), title: "Company SG", for: one.id)
         #expect(conflicts.isEmpty)
         #expect(try store.configuration(for: one.id) == Data("new".utf8))
         #expect(try store.profiles().count == 1)
@@ -192,7 +192,7 @@ struct ProfileStoreTests {
             Data("new".utf8),
             descriptor: descriptor(allowsPasswordSave: false,
                                    alternates: [ServerChoice(host: "sg.example.invalid", label: "Singapore")]),
-            for: one.id)
+            title: "Company SG", for: one.id)
         #expect(conflicts.count == 2, "\(conflicts)")
         #expect(conflicts.contains(OverrideConflict(kind: .serverNoLongerOffered("gone.example.invalid"))))
         #expect(conflicts.contains(OverrideConflict(kind: .passwordSavingNowForbidden)))
@@ -206,14 +206,15 @@ struct ProfileStoreTests {
         one.waivedDirectives = ["persist-tun"]
         try store.add(one, configuration: Data("old".utf8))
         _ = try store.replaceConfiguration(
-            Data("new".utf8), descriptor: descriptor(waived: ["resolv-retry", "persist-key"]), for: one.id)
+            Data("new".utf8), descriptor: descriptor(waived: ["resolv-retry", "persist-key"]),
+            title: "Company SG", for: one.id)
         #expect(try store.profiles()[0].waivedDirectives == ["resolv-retry", "persist-key"])
     }
 
     @Test func replacingSomethingThatIsNotThereFails() throws {
         let (store, _, _) = makeStore()
         #expect(throws: ProfileStoreError.noSuchProfile) {
-            _ = try store.replaceConfiguration(Data("new".utf8), descriptor: descriptor(), for: UUID())
+            _ = try store.replaceConfiguration(Data("new".utf8), descriptor: descriptor(), title: "x", for: UUID())
         }
     }
 

@@ -77,6 +77,23 @@ public struct ProfileDescriptor: Sendable, Equatable {
         credentials.isEmpty || credentials == [.none]
     }
 
+    /// What to call this profile in a list, given the file it came from.
+    ///
+    /// A configuration's declared name is used only when it is **a name**. An
+    /// engine that has none to report falls back to the server address, and a
+    /// list of profiles titled by IP address is exactly the failure this
+    /// project exists to avoid — so the filename the user chose wins over it.
+    public func preferredTitle(filename: String) -> String {
+        let fallback = filename.isEmpty
+            ? displayName
+            : (filename as NSString).deletingPathExtension
+        guard !displayName.isEmpty else { return fallback }
+        // The engine reports the host as the name when it has nothing better.
+        if displayName == server.host { return fallback }
+        if !server.host.isEmpty, displayName.hasPrefix(server.host) { return fallback }
+        return displayName
+    }
+
     /// The username the configuration fixes, if it fixes one.
     public var fixedUsername: String? {
         for requirement in credentials {

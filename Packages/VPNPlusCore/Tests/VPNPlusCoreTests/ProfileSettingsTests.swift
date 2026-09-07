@@ -203,6 +203,37 @@ struct ProfileSettingsTests {
         #expect(settings.waivedDirectives.count == 3)
     }
 
+    // MARK: - What a profile is called in a list
+
+    /// The failure this rule exists for: openvpn3 reports the server address as
+    /// the profile's name when the file declares none, and a list of profiles
+    /// titled by IP address is what this project is against. Found on the
+    /// owner's own profile at M3.6.
+    @Test func aProfileNamedAfterItsServerIsCalledAfterItsFile() {
+        let unnamed = descriptor(name: "203.0.113.18",
+                                 server: ServerEndpoint(host: "203.0.113.18", port: "443", transport: "udp"))
+        #expect(unnamed.preferredTitle(filename: "Configure SG.ovpn") == "Configure SG")
+    }
+
+    @Test func aProfileWithARealNameKeepsIt() {
+        #expect(descriptor(name: "Company Singapore").preferredTitle(filename: "sg.ovpn") == "Company Singapore")
+    }
+
+    @Test func aProfileWithNoNameFallsBackToItsFile() {
+        #expect(descriptor(name: "").preferredTitle(filename: "Company SG.ovpn") == "Company SG")
+    }
+
+    @Test func aNameThatMerelyStartsWithTheHostIsAlsoNotAName() {
+        let derived = descriptor(name: "sg.example.invalid:1194",
+                                 server: ServerEndpoint(host: "sg.example.invalid", port: "1194", transport: "udp"))
+        #expect(derived.preferredTitle(filename: "Work.ovpn") == "Work")
+    }
+
+    @Test func withoutAFilenameTheProfilesOwnNameIsAllThereIs() {
+        #expect(descriptor(name: "203.0.113.18",
+                           server: ServerEndpoint(host: "203.0.113.18")).preferredTitle(filename: "") == "203.0.113.18")
+    }
+
     // MARK: - Overrides survive a reissued profile (2.6, D132)
 
     @Test func overridesAreASeparateRecordAndSurviveRoundTripping() throws {
