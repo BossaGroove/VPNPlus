@@ -83,6 +83,11 @@ targets:
       - package: VPNPlusCore
         product: VPNPlusCore
       - sdk: NetworkExtension.framework
+      # openvpn3's macOS build links these four (cmake/findcoredeps.cmake).
+      - sdk: SystemConfiguration.framework
+      - sdk: IOKit.framework
+      - sdk: CoreServices.framework
+      - sdk: CoreFoundation.framework
     # Same generation rule as the app. NEProviderClasses is what makes this
     # bundle a tunnel provider once activated; it is required, but its absence
     # was not the cause of the activation failure — PRODUCT_NAME below was.
@@ -115,6 +120,32 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.bossagroove.VPNPlus.tunnel
         MARKETING_VERSION: "0.0.1"
         CURRENT_PROJECT_VERSION: "1"
+        # ── The engine ──────────────────────────────────────────────────────
+        # openvpn3 is compiled into this target from the pinned submodule
+        # (ThirdParty/README.md); its C dependencies come from
+        # Scripts/build-deps.sh, which must have run before this builds.
+        CLANG_CXX_LANGUAGE_STANDARD: c++20
+        CLANG_CXX_LIBRARY: libc++
+        GCC_C_LANGUAGE_STANDARD: gnu11
+        SWIFT_OBJC_BRIDGING_HEADER: VPNPlusTunnel/Engine/VPNPlusTunnel-Bridging-Header.h
+        HEADER_SEARCH_PATHS:
+          - $(SRCROOT)/ThirdParty/openvpn3
+          - $(SRCROOT)/ThirdParty/out/include
+        LIBRARY_SEARCH_PATHS:
+          - $(SRCROOT)/ThirdParty/out/lib
+        OTHER_LDFLAGS: [-lssl, -lcrypto, -llz4, -lfmt]
+        # The define set openvpn3's own client is built with on macOS
+        # (add_corelibrary_dependencies), plus the tun-builder interface,
+        # which is how the engine hands us settings instead of editing routes
+        # itself, and external PKI for pkcs12 profiles.
+        GCC_PREPROCESSOR_DEFINITIONS:
+          - $(inherited)
+          - ASIO_STANDALONE
+          - USE_ASIO
+          - HAVE_LZ4
+          - USE_OPENSSL
+          - USE_TUN_BUILDER
+          - ENABLE_EXTERNAL_PKI
       configs:
         Debug:
           CODE_SIGN_ENTITLEMENTS: VPNPlusTunnel/VPNPlusTunnel.debug.entitlements

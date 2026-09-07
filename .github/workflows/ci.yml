@@ -27,6 +27,16 @@ jobs:
             swift test --package-path "$package"
           done
 
+      # openvpn3's C dependencies, as static universal libraries. The script
+      # skips anything already built, so a cache hit makes this a no-op.
+      - name: Cache third-party libraries
+        uses: actions/cache@v4
+        with:
+          path: ThirdParty/out
+          key: thirdparty-${{ runner.os }}-${{ hashFiles('Scripts/build-deps.sh') }}
+      - name: Build third-party libraries
+        run: Scripts/build-deps.sh
+
       - name: Generate Xcode project
         run: |
           brew install xcodegen

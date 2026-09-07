@@ -33,6 +33,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         // B8 — the whole credential design assumes this process is root.
         // Recorded rather than assumed (C4 confirmed uid=0).
         log.notice("provider start uid=\(getuid(), privacy: .public) euid=\(geteuid(), privacy: .public)")
+        // M1's proof that the engine is linked into this process.
+        log.notice("engine openvpn3 \(String(cString: vpnplus_engine_version()), privacy: .public) (\(String(cString: vpnplus_engine_platform()), privacy: .public))")
 
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
         settings.mtu = 1400
