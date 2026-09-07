@@ -35,6 +35,8 @@ jobs:
       HAS_SPARKLE: ${{ secrets.SPARKLE_ED_PRIVATE_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       # Fails before the (long) build if the tagged version has no changelog
       # entry — the release notes feed both Sparkle and the GitHub release.

@@ -11,3 +11,8 @@ internal/
 
 # Release notes sliced out of CHANGELOG.md by the release workflow
 release-notes.md
+
+# Third-party sources and build products made by Scripts/build-deps.sh
+ThirdParty/src/
+ThirdParty/build/
+ThirdParty/out/
