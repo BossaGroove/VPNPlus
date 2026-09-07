@@ -55,7 +55,7 @@ final class MainWindowController: NSWindowController {
 
     init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 620, height: 440),
+            contentRect: NSRect(x: 0, y: 0, width: 620, height: 560),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
@@ -69,14 +69,17 @@ final class MainWindowController: NSWindowController {
         // every sheet it presents.
         //
         // Assigned before the frame is settled, because it resizes the window.
-        content.view = NSView(frame: NSRect(x: 0, y: 0, width: 620, height: 440))
+        content.view = NSView(frame: NSRect(x: 0, y: 0, width: 620, height: 560))
         window.contentViewController = content
 
         window.title = "VPN Plus"
         window.center()
         // After center(), so a remembered position wins over the default.
         window.setFrameAutosaveName("MainWindow")
-        window.minSize = NSSize(width: 620, height: 440)
+        // Tall enough for the rows *plus* a three-line failure message. At 440
+        // the content already just fitted, so a message pushed Connect off the
+        // bottom — a message that costs you the button it is telling you about.
+        window.minSize = NSSize(width: 620, height: 560)
 
         buildLayout()
         acceptDrops()
@@ -161,6 +164,9 @@ final class MainWindowController: NSWindowController {
             stack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             stack.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -20),
             stack.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
+            // Not a layout nicety: without it, content that outgrows the
+            // window simply disappears below the edge with nothing to say so.
+            stack.bottomAnchor.constraint(lessThanOrEqualTo: content.bottomAnchor, constant: -20),
         ])
     }
 
