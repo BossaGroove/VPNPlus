@@ -66,6 +66,7 @@ final class MainWindowController: NSWindowController {
         disconnectButton.target = self
         disconnectButton.action = #selector(disconnect)
 
+        let buttons = NSStackView(views: [connectButton, disconnectButton])
         buttons.orientation = .horizontal
         buttons.spacing = 8
 
