@@ -19,168 +19,301 @@ import NetworkExtension
 import VPNPlusCore
 import os
 
-/// M0's only screen. It says what the extension is doing and gives C4 a way to
-/// start and stop a tunnel. The real main window is designed in
-/// docs/ux/screen-main.md and built with the engine.
+/// **S2 — one window for everything routine** (commitment 1).
+///
+/// Two zones, and the whole design is in how they relate: a **promoted
+/// region** holding the profile that is involved, and a **grid of the others**
+/// below it. The involved profile is *lifted out* of the grid rather than
+/// shown twice (D114), which is why a grid card has exactly one design and
+/// never carries connection state.
+///
+/// Six window states, **derived** from the tunnel plus two facts (D93) — so
+/// this class chooses layouts, and decides nothing:
+///
+/// | State | What is on screen |
+/// |---|---|
+/// | Empty | What the app needs and where profiles come from. No grid, no region |
+/// | Setup | What is being waited on, and a way back to System Settings |
+/// | Blocked | Why it cannot connect, stated **once** (D116), with everything else still working |
+/// | Idle | The grid |
+/// | Active | The involved profile promoted; the grid stays live below |
+/// | Failed | The message, in the promoted region, with Try Again |
+///
+/// Commitment 1 is kept by what is *absent*: no tabs, no sidebar, no detail
+/// page, and **never navigating to connect** (D54).
 @MainActor
 final class MainWindowController: NSWindowController {
     private static let log = Logger(subsystem: "com.bossagroove.VPNPlus", category: "window")
 
-    /// The window's own view controller, which is what presents every sheet.
-    private let content = NSViewController()
+    /// A12: sized so the common worst case — a Failed message in the longest
+    /// language — fits without scrolling (D115). The minimum is the smallest
+    /// *usable* size rather than the smallest that fits the worst state
+    /// (D165), and the grid scrolls to make up the difference.
+    private static let defaultSize = NSSize(width: 760, height: 640)
+    private static let minimumSize = NSSize(width: 620, height: 440)
 
     private let installer = ExtensionInstaller(identifier: "com.bossagroove.VPNPlus.tunnel")
     private let tunnel = TunnelController()
     private let store: any ProfileStore = StoredProfileStore.live
     private lazy var importer = ProfileImporter(store: store)
 
-    private let statusLabel = NSTextField(labelWithString: "")
-    private let detailLabel = NSTextField(wrappingLabelWithString: "")
-    private let tunnelLabel = NSTextField(labelWithString: "Tunnel: not set up")
-    /// Where a failure or a notice appears. The designed surface is M5's and
-    /// the curated copy M6's; this shows the messages M4 can already write
-    /// rather than leaving them in the log where nobody looks.
-    private let messageLabel = NSTextField(wrappingLabelWithString: "")
-    /// Keeps the clocks honest while something is happening.
+    private let content = NSViewController()
+    private let promoted = PromotedRegionView()
+    private let grid = CardGridView(frame: .zero)
+    private let gridScroll = NSScrollView()
+    private let empty = GuidanceView()
     private var tick: Timer?
-    private let connectButton = NSButton(title: "Connect", target: nil, action: nil)
-    private let disconnectButton = NSButton(title: "Disconnect", target: nil, action: nil)
 
-    // M3 ONLY — a provisional *window*. The cards inside it are A12's, as of
-    // M5.3; what is still provisional is the window around them — the
-    // promoted region, the six window states and the sizing are M5.4's.
-    private let importButton = NSButton(title: "", target: nil, action: nil)
-    private let profiles = CardGridView(frame: .zero)
-    private let profileScroll = NSScrollView()
-    private let emptyLabel = NSTextField(wrappingLabelWithString: "")
-    private let usernameField = NSTextField(string: "")
-    private let passwordField = NSSecureTextField(string: "")
+    /// The profile the promoted region is about. **What the user asked for,
+    /// from the moment they ask** (A13): during a switch that is the
+    /// destination, not the profile being torn down, so one lift happens
+    /// rather than two and the identity never changes mid-operation.
+    private var involved: Profile.ID? {
+        if case .disconnecting(let teardown) = tunnel.connection, let next = teardown.switchingTo {
+            return next
+        }
+        return tunnel.connection.profile
+    }
 
     init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 620, height: 560),
+            contentRect: NSRect(origin: .zero, size: Self.defaultSize),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         super.init(window: window)
 
-        // A real content view controller, and it is not decoration: a sheet is
-        // dismissed by whoever presented it, so presenting from a temporary
-        // one leaves a sheet nobody can close — which blocks the whole window
-        // and refuses even Quit. This one is owned by the window and outlives
-        // every sheet it presents.
-        //
-        // Assigned before the frame is settled, because it resizes the window.
-        content.view = NSView(frame: NSRect(x: 0, y: 0, width: 620, height: 560))
+        // A real content view controller, so a sheet is dismissed by something
+        // that still exists (D223).
+        content.view = NSView(frame: NSRect(origin: .zero, size: Self.defaultSize))
         window.contentViewController = content
 
         window.title = "VPN Plus"
         window.center()
-        // After center(), so a remembered position wins over the default.
         window.setFrameAutosaveName("MainWindow")
-        // Tall enough for the rows *plus* a three-line failure message. At 440
-        // the content already just fitted, so a message pushed Connect off the
-        // bottom — a message that costs you the button it is telling you about.
-        window.minSize = NSSize(width: 620, height: 560)
+        window.minSize = Self.minimumSize
+        // Resizable *and* zoomable, against A1's finding that OpenVPN Connect
+        // disables zoom and fixes itself at about 400 × 685.
+        window.collectionBehavior = [.fullScreenPrimary]
 
+        buildToolbar()
         buildLayout()
         acceptDrops()
-        importer.onChange = { [weak self] in self?.renderProfiles() }
-        installer.onChange = { [weak self] in self?.render($0) }
-        tunnel.onChange = { [weak self] in self?.renderTunnel($0) }
-        tunnel.onConnection = { [weak self] in self?.renderConnection($0) }
-        render(installer.status)
-        renderProfiles()
+
+        importer.onChange = { [weak self] in self?.render() }
+        installer.onChange = { [weak self] _ in self?.render() }
+        tunnel.onChange = { [weak self] _ in self?.render() }
+        tunnel.onConnection = { [weak self] _ in self?.render() }
+
+        promoted.onCancel = { [weak self] in self?.tunnel.disconnect() }
+        promoted.onDisconnect = { [weak self] in self?.tunnel.disconnect() }
+        promoted.onRetry = { [weak self] in self?.retry() }
+
+        grid.onSelect = { _ in }
+        grid.onConnect = { [weak self] in self?.connect(to: $0) }
+        grid.onConfigure = { [weak self] in self?.configure($0) }
+        grid.onDelete = { [weak self] in self?.confirmDelete($0) }
+        grid.onReveal = { [weak self] in self?.reveal($0) }
+        grid.onRename = { [weak self] in self?.rename($0, to: $1) }
+        grid.onMove = { [weak self] in self?.move($0, by: $1) }
+
+        render()
         importer.handOverPending()
         installer.activate()
-        // Nothing is created and nothing is saved: this only asks the system
-        // what it already has, so the window can report on a connection it
-        // was not there for.
         Task { await tunnel.load() }
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("not supported") }
 
-    /// The window accepts a dropped profile (2.1).
+    // MARK: - Chrome
+
+    /// **One control** (D117): import. Settings is ⌘, in the application menu
+    /// (D52), and nothing else has earned the space.
+    private func buildToolbar() {
+        let toolbar = NSToolbar(identifier: "main")
+        toolbar.delegate = self
+        toolbar.displayMode = .iconOnly
+        window?.toolbar = toolbar
+        window?.toolbarStyle = .unified
+    }
+
+    /// **The whole window takes a dropped profile, in every state** (A5).
     private func acceptDrops() {
-        guard let content = window?.contentView else { return }
-        let target = DropView(frame: content.bounds)
+        guard let root = content.view as NSView? else { return }
+        let target = DropView(frame: root.bounds)
         target.autoresizingMask = [.width, .height]
         target.onDrop = { [weak self] url in self?.importProfile(at: url) }
-        content.addSubview(target, positioned: .below, relativeTo: nil)
+        root.addSubview(target, positioned: .below, relativeTo: nil)
     }
 
     private func buildLayout() {
-        statusLabel.font = .preferredFont(forTextStyle: .title2)
-        detailLabel.textColor = .secondaryLabelColor
-        detailLabel.preferredMaxLayoutWidth = 480
-        tunnelLabel.textColor = .secondaryLabelColor
-        messageLabel.preferredMaxLayoutWidth = 480
-        messageLabel.isHidden = true
+        let root = content.view
 
-        connectButton.target = self
-        connectButton.action = #selector(connectSelected)
-        disconnectButton.target = self
-        disconnectButton.action = #selector(disconnect)
+        gridScroll.documentView = grid
+        gridScroll.hasVerticalScroller = true
+        gridScroll.drawsBackground = false
+        gridScroll.autohidesScrollers = true
+        gridScroll.translatesAutoresizingMaskIntoConstraints = false
 
-        importButton.title = String(localized: "Import Profile…")
-        importButton.target = self
-        importButton.action = #selector(importProfileFromPanel(_:))
-        usernameField.placeholderString = String(localized: "Username")
-        passwordField.placeholderString = String(localized: "Password")
-        for field in [usernameField, passwordField] {
-            field.translatesAutoresizingMaskIntoConstraints = false
-            field.widthAnchor.constraint(equalToConstant: 280).isActive = true
-        }
-        profiles.onSelect = { [weak self] _ in self?.renderSelection() }
-        profiles.onConnect = { [weak self] in self?.connect(to: $0) }
-        profiles.onConfigure = { [weak self] in self?.configure($0) }
-        profiles.onDelete = { [weak self] in self?.confirmDelete($0) }
-        profiles.onReveal = { [weak self] in self?.reveal($0) }
-        profiles.onRename = { [weak self] in self?.rename($0, to: $1) }
-        profiles.onMove = { [weak self] in self?.move($0, by: $1) }
+        root.addSubview(promoted)
+        root.addSubview(gridScroll)
+        root.addSubview(empty)
 
-        // The grid scrolls; the promoted region does not (A12). M5.4 gives it
-        // the rest of the window.
-        profileScroll.documentView = profiles
-        profileScroll.hasVerticalScroller = true
-        profileScroll.drawsBackground = false
-        profileScroll.translatesAutoresizingMaskIntoConstraints = false
-        profileScroll.heightAnchor.constraint(equalToConstant: 220).isActive = true
-
-        emptyLabel.textColor = .secondaryLabelColor
-        emptyLabel.preferredMaxLayoutWidth = 420
-
-        let testPath = NSStackView(views: [importButton])
-        testPath.orientation = .horizontal
-        testPath.spacing = 8
-
-        let buttons = NSStackView(views: [connectButton, disconnectButton])
-        buttons.orientation = .horizontal
-        buttons.spacing = 8
-
-        let stack = NSStackView(views: [
-            statusLabel, detailLabel, profileScroll, emptyLabel, testPath,
-            tunnelLabel, messageLabel, usernameField, passwordField, buttons,
-        ])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 12
-        stack.translatesAutoresizingMaskIntoConstraints = false
-
-        guard let content = window?.contentView else { return }
-        content.addSubview(stack)
-        profileScroll.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
-            stack.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
-            // Not a layout nicety: without it, content that outgrows the
-            // window simply disappears below the edge with nothing to say so.
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: content.bottomAnchor, constant: -20),
+            promoted.topAnchor.constraint(equalTo: root.topAnchor, constant: Space.xxl),
+            promoted.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: Space.xl),
+            promoted.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -Space.xl),
+
+            gridScroll.topAnchor.constraint(equalTo: promoted.bottomAnchor, constant: Space.xxl),
+            gridScroll.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: Space.xl),
+            gridScroll.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -Space.xl),
+            gridScroll.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -Space.xl),
+
+            // The empty screen is the content, centred, with no grid and no
+            // region behind it.
+            empty.centerYAnchor.constraint(equalTo: root.centerYAnchor),
+            empty.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: Space.xxl),
+            empty.trailingAnchor.constraint(
+                lessThanOrEqualTo: root.trailingAnchor, constant: -Space.xxl),
         ])
+        // A scroll view manages its document view with an autoresizing mask
+        // by default, which fought a width constraint and got it broken
+        // (measured, 23:42:29). Pinned to the clip view instead, so the grid
+        // takes the visible width and reports its own height.
+        grid.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            grid.leadingAnchor.constraint(equalTo: gridScroll.contentView.leadingAnchor),
+            grid.trailingAnchor.constraint(equalTo: gridScroll.contentView.trailingAnchor),
+            grid.topAnchor.constraint(equalTo: gridScroll.contentView.topAnchor),
+        ])
+    }
+
+    // MARK: - The six states (D93)
+
+    private var setup: SetupState {
+        switch installer.status {
+        // Setup is deferred to the first Connect (D59), so "nothing asked for
+        // yet" is not a state the user is shown. *When* it is asked for is
+        // M7's; what it looks like is here.
+        case .idle, .active: .ready
+        case .requesting, .needsApproval: .waitingForApproval
+        case .failed: .blocked
+        }
+    }
+
+    private func render() {
+        let stored = (try? store.profiles()) ?? []
+        var titles: [Profile.ID: String] = [:]
+        for profile in stored { titles[profile.id] = title(of: profile) }
+
+        let state = WindowState.derive(
+            connection: tunnel.connection, hasProfiles: !stored.isEmpty, setup: setup)
+
+        empty.isHidden = state != .empty
+        gridScroll.isHidden = state == .empty
+        promoted.isHidden = false
+
+        switch state {
+        case .empty:
+            promoted.isHidden = true
+            empty.show(
+                title: String(localized: "No profiles yet"),
+                body: String(
+                    localized: """
+                        VPN Plus needs a .ovpn configuration file to connect. These usually come from \
+                        your employer, a VPN provider, or your own server.
+                        """),
+                action: (
+                    String(localized: "Import a profile…"),
+                    { [weak self] in
+                        self?.importer.chooseFile(over: self?.window)
+                    }
+                ),
+                hint: String(localized: "or drag a .ovpn file anywhere in this window"))
+
+        case .setup:
+            promoted.show(
+                guidance: (
+                    String(localized: "Waiting for your approval"),
+                    String(
+                        localized: """
+                            System Settings should be open. Turn on VPN Plus there, then come back — this \
+                            window will notice.
+                            """),
+                    (
+                        String(localized: "Open System Settings again"),
+                        {
+                            // The pane the approval lives on. A0 C2 found the OS's own
+                            // prompt merely dismissible, leaving "little chance that
+                            // the user will be able to find the correct place" — so
+                            // the window takes them there rather than describing it.
+                            if let url = URL(
+                                string:
+                                    "x-apple.systempreferences:com.apple.LoginItems-Settings.extension"
+                            ) {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                    )
+                ))
+
+        case .blocked:
+            promoted.show(
+                guidance: (
+                    String(localized: "Setup isn't finished"),
+                    String(
+                        localized: """
+                            VPN Plus doesn't have permission from macOS to create a VPN connection, so it \
+                            can't connect yet. Everything else still works — you can add, rename and \
+                            remove profiles.
+                            """),
+                    (
+                        String(localized: "Continue setup"),
+                        { [weak self] in self?.installer.activate() }
+                    )
+                ))
+
+        case .idle:
+            promoted.isHidden = true
+
+        case .active, .failed:
+            let name = involved.flatMap { titles[$0] } ?? String(localized: "this VPN")
+            promoted.show(tunnel.connection, name: name)
+        }
+
+        // **Lift-out** (D114): the grid shows the others, never a second copy
+        // of what is promoted.
+        let others = promoted.isHidden ? stored : stored.filter { $0.id != involved }
+        grid.show(others, titles: titles)
+
+        keepTheClocksHonest()
+    }
+
+    /// A ticking number that stopped is how A1 found OpenVPN Connect claiming
+    /// a connection it did not have.
+    private func keepTheClocksHonest() {
+        tick?.invalidate()
+        let state = tunnel.connection.state
+        guard state.isTransient || state == .connected else { return }
+        tick = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, let involved = self.involved else { return }
+                let name =
+                    ((try? self.store.profiles()) ?? [])
+                    .first { $0.id == involved }
+                    .map { self.title(of: $0) } ?? String(localized: "this VPN")
+                self.promoted.show(self.tunnel.connection, name: name)
+            }
+        }
+    }
+
+    /// The user's name for a profile, else the configuration's, else the
+    /// file's. Composed here because the rule belongs to the overrides record
+    /// and not to a view (D230).
+    private func title(of profile: Profile) -> String {
+        compose(profile)?.title.value ?? profile.title
     }
 
     /// File > Import Profile…, and the button (2.1).
@@ -191,65 +324,6 @@ final class MainWindowController: NSWindowController {
     /// A profile double-clicked in the Finder or dropped on the app icon (2.1).
     func importProfile(at url: URL) {
         importer.importProfile(at: url, over: window)
-    }
-
-    private func renderProfiles() {
-        let stored = (try? store.profiles()) ?? []
-        // The card shows the user's name for a profile where they gave one,
-        // which lives in the overrides record and not on the profile (D188).
-        var titles: [Profile.ID: String] = [:]
-        for profile in stored {
-            titles[profile.id] = compose(profile)?.title.value ?? profile.title
-        }
-        profiles.show(stored, titles: titles)
-        profileScroll.isHidden = stored.isEmpty
-        emptyLabel.isHidden = !stored.isEmpty
-        emptyLabel.stringValue = String(localized: """
-            No profiles yet. Import one with the button below, drop it on this \
-            window, or double-click it in the Finder.
-            """)
-        renderSelection()
-    }
-
-    private func renderSelection() {
-        guard let profile = profiles.selected else {
-            usernameField.isHidden = true
-            passwordField.isHidden = true
-            connectButton.isEnabled = false
-            return
-        }
-        connectButton.isEnabled = true
-
-        // The sign-in fields follow what the profile asks for, which the model
-        // decided (D128).
-        let settings = compose(profile)
-        switch settings?.signIn {
-        case .credentials(let username, _, _):
-            usernameField.isHidden = false
-            passwordField.isHidden = false
-            switch username {
-            case .fixed(let fixed):
-                usernameField.stringValue = fixed
-                usernameField.isEditable = false
-                usernameField.placeholderString = nil
-            case .editable(let value):
-                usernameField.isEditable = true
-                usernameField.stringValue = value.value
-                usernameField.placeholderString = String(localized: "Username")
-            }
-            // An empty field over a saved password means "use the one you
-            // have", so it must not look like an empty field.
-            passwordField.stringValue = ""
-            passwordField.placeholderString = profile.credentialsSaved
-                ? String(localized: "Saved")
-                : String(localized: "Password")
-        case .notNeeded:
-            usernameField.isHidden = true
-            passwordField.isHidden = true
-        case nil:
-            usernameField.isHidden = true
-            passwordField.isHidden = true
-        }
     }
 
     /// The profile and the user's overrides, composed — the only way this
@@ -268,8 +342,8 @@ final class MainWindowController: NSWindowController {
         // A profile imported before descriptors were stored: derive it once
         // from the copy the app still holds, and keep it.
         guard let configuration = try? store.configuration(for: profile.id),
-              let text = String(data: configuration, encoding: .utf8),
-              let derived = ProfileImport.describe(text, setAside: profile.waivedDirectives)
+            let text = String(data: configuration, encoding: .utf8),
+            let derived = ProfileImport.describe(text, setAside: profile.waivedDirectives)
         else { return nil }
         try? store.setDescriptor(derived, for: profile.id)
         return derived
@@ -284,7 +358,7 @@ final class MainWindowController: NSWindowController {
             guard let self else { return }
             try? store.setOverrides(updated, for: profile.id)
             // The title in the list follows the user's name for it.
-            renderProfiles()
+            render()
         }
         content.presentAsSheet(sheet)
     }
@@ -295,7 +369,7 @@ final class MainWindowController: NSWindowController {
         var overrides = (try? store.overrides(for: profile.id)) ?? Overrides()
         overrides.title = title
         try? store.setOverrides(overrides, for: profile.id)
-        renderProfiles()
+        render()
     }
 
     /// It is their file (A13). The app's own copy is gone once the extension
@@ -303,7 +377,11 @@ final class MainWindowController: NSWindowController {
     private func reveal(_ profile: Profile) {
         let url = URL(fileURLWithPath: profile.origin.filename)
         guard FileManager.default.fileExists(atPath: url.path) else {
-            show(message: String(localized: "VPN Plus can't find that profile's original file any more. The profile still works — it is the file that has moved."))
+            notify(
+                String(
+                    localized:
+                        "VPN Plus can't find that profile's original file any more. The profile still works — it is the file that has moved."
+                ))
             return
         }
         NSWorkspace.shared.activateFileViewerSelecting([url])
@@ -319,17 +397,18 @@ final class MainWindowController: NSWindowController {
         guard order.indices.contains(to) else { return }
         order.swapAt(from, to)
         try? store.setOrder(order)
-        renderProfiles()
+        render()
     }
 
     /// Deleting takes a private key with it, so it asks first.
     private func confirmDelete(_ profile: Profile) {
         let alert = NSAlert()
         alert.messageText = String(localized: "Delete \(profile.title)?")
-        alert.informativeText = String(localized: """
-            This removes the profile and anything saved with it, including its \
-            certificate and key. You would need the original file to import it again.
-            """)
+        alert.informativeText = String(
+            localized: """
+                This removes the profile and anything saved with it, including its \
+                certificate and key. You would need the original file to import it again.
+                """)
         alert.addButton(withTitle: String(localized: "Delete"))
         alert.addButton(withTitle: String(localized: "Cancel"))
         let respond: (NSApplication.ModalResponse) -> Void = { [weak self] response in
@@ -337,7 +416,7 @@ final class MainWindowController: NSWindowController {
             do {
                 try store.remove(profile.id)
             } catch {
-                tunnelLabel.stringValue = String(localized: "Couldn't delete that profile")
+                notify(String(localized: "VPN Plus couldn't delete that profile."))
             }
             // The extension holds this profile's configuration and password, so
             // deleting here is only half of it. A dangling secret is a secret
@@ -346,10 +425,12 @@ final class MainWindowController: NSWindowController {
                 do {
                     try await PrivilegedClient().deleteSecrets(for: profile.id)
                 } catch {
-                    Self.log.error("the extension may still hold secrets for a deleted profile: \(error.localizedDescription, privacy: .public)")
+                    Self.log.error(
+                        "the extension may still hold secrets for a deleted profile: \(error.localizedDescription, privacy: .public)"
+                    )
                 }
             }
-            renderProfiles()
+            render()
         }
         if let window {
             alert.beginSheetModal(for: window, completionHandler: respond)
@@ -358,77 +439,6 @@ final class MainWindowController: NSWindowController {
         }
     }
 
-    @objc private func connectSelected() {
-        guard let profile = profiles.selected else {
-            tunnelLabel.stringValue = String(localized: "Import a profile first")
-            return
-        }
-        connect(to: profile)
-    }
-
-    /// Connecting reads the stored profile and the user's overrides. No file
-    /// picker, and the configuration surface is never on the way here (2.13).
-    private func connect(to profile: Profile) {
-        // The configuration is sent only while the extension does not yet hold
-        // it; after that the provider reads its own copy and the start options
-        // carry no secret at all.
-        var text: String?
-        if !profile.configurationHandedOver {
-            guard let configuration = try? store.configuration(for: profile.id),
-                  let readable = String(data: configuration, encoding: .utf8)
-            else {
-                tunnelLabel.stringValue = String(localized: "Couldn't read that profile")
-                return
-            }
-            text = readable
-        }
-        let settings = compose(profile)
-        let username: String
-        switch settings?.signIn {
-        case .credentials(.fixed(let fixed), _, _): username = fixed
-        default: username = usernameField.stringValue
-        }
-        rememberUsername(username, for: profile, settings: settings)
-        let decision = credentials(
-            typedUsername: username,
-            typedPassword: passwordField.stringValue,
-            profile: profile,
-            settings: settings)
-
-        if case .missing(let forgetting) = decision {
-            // Withdrawing permission to keep a password has to take effect
-            // whether or not the user went on to connect: the choice
-            // describes the present state, not the last connection (D219).
-            if forgetting { Task { await forget(profile) } }
-            // A prompt, not a failure (A10): nothing is wrong, the app simply
-            // does not have what it needs yet.
-            show(message: String(localized: "Type your password to connect to \(profile.title)."))
-            return
-        }
-
-        clearMessage()
-        Task {
-            // Stored before connecting, not after: a connection that is
-            // interrupted must not cost the user their password, and the
-            // extension needs it on the very next attempt whatever happens to
-            // this one (D219).
-            await apply(decision, to: profile)
-            do {
-                try await tunnel.prepare(profile: profile.id)
-                try tunnel.connect(
-                    profile: text,
-                    username: decision.sessionUsername,
-                    password: decision.sessionPassword,
-                    server: overrideServer(for: profile, settings: settings))
-            } catch {
-                tunnelLabel.stringValue = "Tunnel: \(error.localizedDescription)"
-            }
-        }
-    }
-
-    /// What to do with the sign-in details before connecting: what the
-    /// extension should be holding afterwards, and what this one connection
-    /// has to carry itself.
     private enum Credentials {
         /// Store these with the extension, and carry nothing.
         case store(username: String, password: String)
@@ -500,12 +510,18 @@ final class MainWindowController: NSWindowController {
                     username: username, password: password, for: profile.id)
                 try? store.setCredentialsSaved(true, for: profile.id)
             } catch {
-                Self.log.notice("could not save the sign-in details: \(error.localizedDescription, privacy: .public)")
+                Self.log.notice(
+                    "could not save the sign-in details: \(error.localizedDescription, privacy: .public)"
+                )
                 // The promise M4.4 made: the user finds out that nothing was
                 // saved, instead of discovering it at the next connection.
-                show(message: String(localized: "VPN Plus couldn't save your password. This connection will still work; the next one will ask for it again."))
+                notify(
+                    String(
+                        localized:
+                            "VPN Plus couldn't save your password. This connection will still work; the next one will ask for it again."
+                    ))
             }
-            renderProfiles()
+            render()
         case .sessionOnly:
             // Unconditional, and not only when the flag says something is
             // stored: a password saved before that flag existed must still go
@@ -529,10 +545,16 @@ final class MainWindowController: NSWindowController {
             try await PrivilegedClient().forgetCredentials(for: profile.id)
             try? store.setCredentialsSaved(false, for: profile.id)
         } catch {
-            Self.log.notice("could not remove the saved sign-in details: \(error.localizedDescription, privacy: .public)")
-            show(message: String(localized: "VPN Plus couldn't forget your saved password. It may still be able to connect on its own."))
+            Self.log.notice(
+                "could not remove the saved sign-in details: \(error.localizedDescription, privacy: .public)"
+            )
+            notify(
+                String(
+                    localized:
+                        "VPN Plus couldn't forget your saved password. It may still be able to connect on its own."
+                ))
         }
-        renderProfiles()
+        render()
     }
 
     /// Keeps a typed username with the user's other choices, so the field is
@@ -545,38 +567,37 @@ final class MainWindowController: NSWindowController {
     /// user's own choices already live (2.14), and it is not a secret: it is
     /// the user's, which is why it goes in *their* preferences and never into
     /// the system-wide VPN configuration (D191).
-    private func rememberUsername(_ username: String, for profile: Profile, settings: ProfileSettings?) {
-        guard case .credentials(.editable, _, _) = settings?.signIn, !username.isEmpty else { return }
+    private func rememberUsername(
+        _ username: String, for profile: Profile, settings: ProfileSettings?
+    ) {
+        guard case .credentials(.editable, _, _) = settings?.signIn, !username.isEmpty else {
+            return
+        }
         var overrides = (try? store.overrides(for: profile.id)) ?? Overrides()
         guard overrides.username != username else { return }
         overrides.username = username
         try? store.setOverrides(overrides, for: profile.id)
     }
 
-    private func show(message: String) {
-        messageLabel.stringValue = message
-        messageLabel.isHidden = message.isEmpty
-    }
-
-    private func clearMessage() {
-        show(message: "")
-    }
-
     /// Only what the user actually chose: where the composed value equals the
     /// profile's own, nothing is sent.
-    private func overrideServer(for profile: Profile, settings: ProfileSettings?) -> ServerEndpoint {
+    private func overrideServer(for profile: Profile, settings: ProfileSettings?) -> ServerEndpoint
+    {
         guard let settings else { return ServerEndpoint() }
         switch settings.server {
         case let .single(host, port, transport):
             var chosen = ServerEndpoint()
             if case .overridden = host.provenance {
-                chosen = ServerEndpoint(host: host.value, port: chosen.port, transport: chosen.transport)
+                chosen = ServerEndpoint(
+                    host: host.value, port: chosen.port, transport: chosen.transport)
             }
             if case .overridden = port.provenance {
-                chosen = ServerEndpoint(host: chosen.host, port: port.value, transport: chosen.transport)
+                chosen = ServerEndpoint(
+                    host: chosen.host, port: port.value, transport: chosen.transport)
             }
             if case .overridden = transport.provenance {
-                chosen = ServerEndpoint(host: chosen.host, port: chosen.port, transport: transport.value)
+                chosen = ServerEndpoint(
+                    host: chosen.host, port: chosen.port, transport: transport.value)
             }
             return chosen
         case .choice:
@@ -586,135 +607,153 @@ final class MainWindowController: NSWindowController {
         }
     }
 
-    @objc private func disconnect() {
-        tunnel.disconnect()
-    }
+    // MARK: - Connecting
 
-    /// The model, in words. A8's states and phases, from the one place that
-    /// knows them — and the clock ticks because a number that stopped is how
-    /// A1 found OpenVPN Connect lying about a connection.
-    private func renderConnection(_ connection: Connection) {
-        tunnelLabel.stringValue = connection.summary()
-        // Once per session, not once per tick: the card's "2 hours ago" and
-        // D46's "what changed since it last worked" both read this.
-        if case .connected(let session) = connection,
-           let stored = ((try? store.profiles()) ?? []).first(where: { $0.id == session.profile }),
-           stored.lastConnected != session.since {
-            try? store.setLastConnected(session.since, for: session.profile)
-            renderProfiles()
+    /// One click, and the configuration surface is never on the way here
+    /// (2.13, D58).
+    ///
+    /// `typed` arrives from the sign-in sheet when the app did not already
+    /// have what it needed. Everything else — which profile, whether to save,
+    /// which server — is decided from the stored model.
+    private func connect(
+        to profile: Profile,
+        typed: (username: String, password: String, remember: Bool)? = nil
+    ) {
+        // The configuration crosses only while the extension does not yet hold
+        // it; after that the provider reads its own copy and the start options
+        // carry no secret at all.
+        var text: String?
+        if !profile.configurationHandedOver {
+            guard let configuration = try? store.configuration(for: profile.id),
+                let readable = String(data: configuration, encoding: .utf8)
+            else {
+                promoted.show(
+                    .failed(
+                        FailureRecord(
+                            profile: profile.id, at: Date(), reason: .configurationMissing)),
+                    name: title(of: profile))
+                return
+            }
+            text = readable
         }
-        tick?.invalidate()
-        guard connection.state.isTransient || connection.state == .connected else { return }
-        tick = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                self.tunnelLabel.stringValue = self.tunnel.connection.summary()
+
+        let settings = compose(profile)
+        if let typed {
+            // Their choice about saving is theirs to keep, so it goes in the
+            // overrides record rather than living for one connection.
+            if case .credentials(_, .offered(let on), _) = settings?.signIn, on != typed.remember {
+                var overrides = (try? store.overrides(for: profile.id)) ?? Overrides()
+                overrides.savePassword = typed.remember
+                try? store.setOverrides(overrides, for: profile.id)
+            }
+            rememberUsername(typed.username, for: profile, settings: compose(profile))
+        }
+
+        let username: String
+        switch settings?.signIn {
+        case .credentials(.fixed(let fixed), _, _): username = fixed
+        default:
+            username = typed?.username ?? (try? store.overrides(for: profile.id))?.username ?? ""
+        }
+
+        let decision = credentials(
+            typedUsername: username,
+            typedPassword: typed?.password ?? "",
+            profile: profile,
+            settings: compose(profile))
+
+        if case .missing(let forgetting) = decision {
+            if forgetting { Task { await forget(profile) } }
+            // **A prompt, not a failure** (A10): nothing has gone wrong, the
+            // app simply does not have what it needs yet.
+            askToSignIn(for: profile, settings: compose(profile))
+            return
+        }
+
+        Task {
+            // Stored before connecting, not after: an interrupted connection
+            // must not cost the user their password (D219).
+            await apply(decision, to: profile)
+            do {
+                try await tunnel.prepare(profile: profile.id)
+                try tunnel.connect(
+                    profile: text,
+                    username: decision.sessionUsername,
+                    password: decision.sessionPassword,
+                    server: overrideServer(for: profile, settings: compose(profile)))
+            } catch {
+                Self.log.error(
+                    "could not start the tunnel: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
 
-    private func renderTunnel(_ status: NEVPNStatus) {
-        // The system's own view, kept only until M5.4 renders the model
-        // properly. Where the two can differ, the model is the one shown.
-        if case .disconnected = tunnel.connection, status == .invalid {
-            tunnelLabel.stringValue = String(localized: "Not set up")
+    /// "Sign in to *X*" — one of S2's six sheets (A20), and reached only on
+    /// the way to connecting.
+    private func askToSignIn(for profile: Profile, settings: ProfileSettings?) {
+        let sheet = SignInSheet(
+            name: title(of: profile), settings: settings, saved: profile.credentialsSaved
+        ) { [weak self] username, password, remember in
+            guard let self, !password.isEmpty else { return }
+            connect(to: profile, typed: (username, password, remember))
         }
-        switch status {
-        case .connected:
-            clearMessage()
-            // The extension is certainly running now, so anything still
-            // waiting to move can move.
-            importer.handOverPending()
-            renderProfiles()
-        case .connecting:
-            clearMessage()
-        case .disconnected where tunnel.stoppedByUser:
-            // Asked for, so there is nothing to explain.
-            clearMessage()
-        case .disconnected:
-            Task { await showLastFailure() }
-        default:
-            break
-        }
+        content.presentAsSheet(sheet)
     }
 
-    /// Asks NetworkExtension why the last attempt ended, and says it in words.
+    /// A consequence of something the user just did, that they have to know
+    /// about and can do nothing about right now.
     ///
-    /// This is what lets a connection started from **System Settings**, with
-    /// this app not running at the time, explain itself when the app is next
-    /// opened — the surface B8's open item 2 said did not exist.
-    private func showLastFailure() async {
-        guard let failure = await tunnel.lastFailure() else { return }
-        Self.log.notice("last disconnect: \(failure.detail, privacy: .public) at \(failure.at?.description ?? "an unrecorded time", privacy: .public)")
-
-        // A reason found at launch may be from any time at all, and a week-old
-        // failure presented as news is worse than saying nothing. Anything
-        // recent is shown; so is anything whose time did not survive the trip,
-        // because silence would be the worse guess. M5 records its own
-        // attempts and will not have to reason about this.
-        if let at = failure.at, Date().timeIntervalSince(at) > 15 * 60 { return }
-
-        let name = configuredProfileTitle()
-        switch failure.kind {
-        case .credentialsUnavailable:
-            // A10 M21. The remedy, not the mechanism: what to do, and what it
-            // buys them next time.
-            show(message: String(localized: """
-                Couldn't connect to \(name). It needs your password, and VPN Plus wasn't running to ask for it. \
-                Connect once from VPN Plus and let it remember your password — after that, starting \(name) from \
-                System Settings or the menu bar will work on its own.
-                """))
-        case .configurationMissing:
-            show(message: String(localized: """
-                Couldn't connect to \(name). VPN Plus doesn't have that profile's settings any more. \
-                Import the profile again.
-                """))
-        case .authenticationFailed:
-            // A10 M1's territory; M6 writes the version with both remedies.
-            show(message: String(localized: """
-                Couldn't sign in to \(name). The server didn't accept your username or password.
-                """))
-        case .timedOut:
-            // M6 names the step it ran out of on, which is most of the value
-            // of the message; until the phase reaches the app (M5.2) this says
-            // only what it knows, and invents nothing (D85).
-            show(message: String(localized: "Couldn't connect to \(name). It didn't finish in time."))
-        case .unknown:
-            show(message: String(localized: "Couldn't connect to \(name), and VPN Plus doesn't have a specific reason for it. Trying again is worth a go."))
-        case nil:
-            // Not ours: the system's own, or a reason M6 has yet to map.
-            break
+    /// Deliberately not a strip in the window: A12's promoted region is for
+    /// the *connection*, and a second place for text would compete with it.
+    /// M6 may reassign these once A10's full set exists.
+    private func notify(_ message: String) {
+        let alert = NSAlert()
+        alert.messageText = message
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: String(localized: "OK"))
+        if let window {
+            alert.beginSheetModal(for: window, completionHandler: { _ in })
+        } else {
+            alert.runModal()
         }
     }
 
-    /// The name of the profile the system configuration points at, which is
-    /// the one that just failed — not whatever happens to be selected.
-    private func configuredProfileTitle() -> String {
-        guard let identifier = tunnel.configuredProfile,
-              let profile = ((try? store.profiles()) ?? []).first(where: { $0.id == identifier })
-        else { return String(localized: "this VPN") }
-        return profile.title
+    /// Try Again, from the Failed region. The same click as Connect — a
+    /// failure is not a different way in (D56).
+    private func retry() {
+        guard let involved,
+            let profile = ((try? store.profiles()) ?? []).first(where: { $0.id == involved })
+        else { return }
+        connect(to: profile)
     }
 
-    private func render(_ status: ExtensionInstaller.Status) {
-        switch status {
-        case .idle:
-            statusLabel.stringValue = "Starting up"
-            detailLabel.stringValue = ""
-        case .requesting:
-            statusLabel.stringValue = "Setting up the network component"
-            detailLabel.stringValue = "This happens once."
-        case .needsApproval:
-            statusLabel.stringValue = "Waiting for your approval"
-            detailLabel.stringValue = """
-                macOS is asking you to allow VPN Plus in System Settings.                 This window will notice when you have.
-                """
-        case .active:
-            statusLabel.stringValue = String(localized: "Network component ready")
-            detailLabel.stringValue = String(localized: "Import a profile, then Connect. Your password is remembered unless you say otherwise.")
-        case .failed(let message):
-            statusLabel.stringValue = "Setup did not finish"
-            detailLabel.stringValue = message
-        }
+}
+
+extension MainWindowController: NSToolbarDelegate {
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        [.importProfile, .flexibleSpace]
     }
+
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        [.flexibleSpace, .importProfile]
+    }
+
+    func toolbar(
+        _ toolbar: NSToolbar,
+        itemForItemIdentifier identifier: NSToolbarItem.Identifier,
+        willBeInsertedIntoToolbar flag: Bool
+    ) -> NSToolbarItem? {
+        guard identifier == .importProfile else { return nil }
+        let item = NSToolbarItem(itemIdentifier: identifier)
+        item.label = String(localized: "Import Profile")
+        item.toolTip = String(localized: "Import a .ovpn profile")
+        item.image = NSImage(systemSymbolName: "plus", accessibilityDescription: item.label)
+        item.target = self
+        item.action = #selector(importProfileFromPanel(_:))
+        return item
+    }
+}
+
+extension NSToolbarItem.Identifier {
+    static let importProfile = NSToolbarItem.Identifier("importProfile")
 }

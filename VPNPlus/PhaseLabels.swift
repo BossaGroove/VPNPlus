@@ -42,9 +42,52 @@ extension TunnelPhase {
 }
 
 extension Connection {
-    /// One line, in words, for a provisional surface. M5.4 builds the designed
-    /// promoted region; this exists so the model can be seen before it can be
-    /// seen properly.
+    /// The state, in words, on its own — what the promoted region puts in the
+    /// largest type on the screen, because it is the J1 answer.
+    ///
+    /// A phase is named **only once it is slow** (D71). A fast connection says
+    /// nothing internal at all: of the five phases in a measured 5.95 s
+    /// connection, exactly one ran long enough to be worth a word.
+    func stateLine(at now: Date = Date()) -> String {
+        switch self {
+        case .disconnected: return String(localized: "Disconnected")
+        case .connected: return String(localized: "Connected")
+        case .disconnecting(let teardown):
+            return teardown.isSwitch
+                ? String(localized: "Switching")
+                : String(localized: "Disconnecting")
+        case .failed: return String(localized: "Couldn't connect")
+        case .connecting(let attempt), .reconnecting(let attempt):
+            let waiting =
+                state == .reconnecting
+                ? String(localized: "Reconnecting")
+                : String(localized: "Connecting")
+            let step = attempt.revealedPhase(at: now)?.label ?? waiting
+            guard attempt.recovery > 0 else { return step }
+            // Counted and shown, which is what makes the bound mean
+            // something (D86).
+            let of = Recovery.maxAttempts
+            return String(localized: "\(step) — attempt \(attempt.recovery) of \(of)")
+        }
+    }
+
+    /// The clock, whichever clock this state has — and it never has both
+    /// (D73). A session reads as a duration; an attempt reads as seconds.
+    func clock(at now: Date = Date()) -> String {
+        switch self {
+        case .connected(let session):
+            let seconds = Int(session.duration(at: now).components.seconds)
+            return String(
+                format: "%d:%02d:%02d", seconds / 3_600, (seconds / 60) % 60, seconds % 60)
+        case .connecting(let attempt), .reconnecting(let attempt):
+            return "\(Int(attempt.elapsed(at: now).components.seconds))s"
+        default:
+            return ""
+        }
+    }
+
+    /// One line for a surface that has room for one — the menu bar's, and the
+    /// window's until M5.4 gave it room for two.
     func summary(at now: Date = Date()) -> String {
         switch self {
         case .disconnected:
@@ -52,7 +95,8 @@ extension Connection {
         case .connecting(let attempt), .reconnecting(let attempt):
             // Named only once it is slow (D71) — a fast connection says
             // nothing internal at all.
-            let waiting = state == .reconnecting
+            let waiting =
+                state == .reconnecting
                 ? String(localized: "Reconnecting")
                 : String(localized: "Connecting")
             let step = attempt.revealedPhase(at: now)?.label ?? waiting

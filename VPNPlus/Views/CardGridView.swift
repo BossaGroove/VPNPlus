@@ -61,6 +61,8 @@ final class CardGridView: NSView {
     /// configuration and the user's overrides, because that rule is the
     /// model's and not a view's.
     private var titles: [Profile.ID: String] = [:]
+    /// What the cards were built from, so an unchanged grid is left alone.
+    private var signature: [String] = []
     private var cards: [ProfileCardView] = []
     private(set) var selected: Profile?
 
@@ -81,6 +83,22 @@ final class CardGridView: NSView {
     }
 
     func show(_ profiles: [Profile], titles: [Profile.ID: String] = [:]) {
+        // **Rebuild only when something on a card changed.**
+        //
+        // The window renders on every report from the provider — five phases
+        // and a 2 s poll during an attempt — and rebuilding the cards each
+        // time would take the focus ring away, lose the selection, and, worst,
+        // destroy an in-place rename under the user's hands mid-word.
+        let signature = profiles.map {
+            "\($0.id)|\(titles[$0.id] ?? $0.title)|\($0.lastConnected?.timeIntervalSince1970 ?? 0)|\($0.credentialsSaved)"
+        }
+        guard signature != self.signature else {
+            self.profiles = profiles
+            self.titles = titles
+            renderSelection()
+            return
+        }
+        self.signature = signature
         self.profiles = profiles
         self.titles = titles
         cards.forEach { $0.removeFromSuperview() }
