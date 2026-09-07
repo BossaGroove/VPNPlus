@@ -17,6 +17,7 @@
 import Foundation
 import Network
 import NetworkExtension
+import VPNPlusCore
 import os
 
 /// The provider: it owns one engine per connection and turns what the engine
@@ -54,7 +55,17 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         var startCompletion: Completion?
         var connected = false
         var stopping = false
+        /// The engine is being replaced by a fresh one; its ending must not
+        /// end the tunnel.
+        var restarting = false
     }
+
+    // M2 ONLY — kept so a fresh session can be started after sleep. M4 moves
+    // this behind the XPC interface.
+    private var profile = ""
+    private var username: String?
+    private var password: String?
+    private var deadline: DispatchWorkItem?
 
     override func startTunnel(
         options: [String: NSObject]?,
@@ -72,14 +83,22 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             completionHandler(Failure("No profile was given. Until M3, connect from the VPN Plus window."))
             return
         }
-        let username = options?["username"] as? String
-        let password = options?["password"] as? String
+        self.profile = profile
+        self.username = options?["username"] as? String
+        self.password = options?["password"] as? String
 
+        let completion = Completion(completionHandler)
+        state.withLock { $0.startCompletion = completion; $0.connected = false; $0.stopping = false }
+        startEngine()
+        observeDefaultPath()
+    }
+
+    /// Creates an engine for the stored profile and runs it on its own thread.
+    /// Used for the first connection and for every fresh session after it.
+    private func startEngine() {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
         let engine = Engine(clientVersion: "VPNPlus/\(version)")
         self.engine = engine
-        let completion = Completion(completionHandler)
-        state.withLock { $0.startCompletion = completion; $0.connected = false; $0.stopping = false }
 
         engine.onLog = { [engineLog] text in
             engineLog.notice("\(text, privacy: .public)")
@@ -96,10 +115,11 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             try engine.prepare(profile: profile, username: username, password: password)
         } catch {
             log.error("prepare failed: \(error.localizedDescription, privacy: .public)")
-            finishStart(with: Failure("\(error)"))
+            failAttempt(Failure("\(error)"))
             return
         }
 
+        armDeadline()
         let thread = Thread { [weak self] in
             let result = engine.run()
             self?.runEnded(result)
@@ -108,8 +128,51 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         thread.qualityOfService = .userInitiated
         runThread = thread
         thread.start()
+    }
 
-        observeDefaultPath()
+    // MARK: - Deadlines (D177, A8)
+
+    /// The engine never gives up on its own. This does: an attempt that has not
+    /// reached CONNECTED within the attempt deadline ends the tunnel, so the
+    /// user gets the network back and a reason instead of "Reconnecting".
+    private func armDeadline() {
+        deadline?.cancel()
+        let seconds = Int(Deadlines.attempt.components.seconds)
+        let item = DispatchWorkItem { [weak self] in
+            guard let self, !state.withLock({ $0.connected }) else { return }
+            log.error("no connection after \(seconds, privacy: .public) s; ending the attempt")
+            failAttempt(Failure("The server did not finish the connection within \(seconds) seconds."))
+        }
+        deadline = item
+        DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(seconds), execute: item)
+    }
+
+    /// Ends the current attempt honestly: fails the start if one is pending,
+    /// otherwise cancels the tunnel so every surface shows Disconnected.
+    private func failAttempt(_ failure: Failure) {
+        let pending = state.withLock { $0.startCompletion != nil }
+        if pending {
+            finishStart(with: failure)
+        }
+        engine?.stop()
+        cancelTunnelWithError(failure)
+    }
+
+    /// Replaces the engine with a fresh session, keeping the tunnel. B3'
+    /// measured that a resumed session never gets its config from the owner's
+    /// server while a fresh one does (A2), so this is what sleep/wake uses.
+    private func restartFresh(reason: String) {
+        log.notice("starting a fresh session: \(reason, privacy: .public)")
+        state.withLock { $0.restarting = true; $0.connected = false }
+        reasserting = true
+        let old = engine
+        old?.stop()
+        DispatchQueue.global().async { [weak self] in
+            guard let self else { return }
+            _ = finished.wait(timeout: .now() + 5)
+            state.withLock { $0.restarting = false }
+            startEngine()
+        }
     }
 
     // MARK: - Sleep, wake, and the network changing under us (J11)
@@ -128,7 +191,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     override func wake() {
         let connected = state.withLock { $0.connected }
         log.notice("wake; connected=\(connected, privacy: .public)")
-        if connected { engine?.resume() }
+        if connected { restartFresh(reason: "wake") }
     }
 
     /// The default path changing while connected (Wi-Fi off, cable in) means
@@ -176,6 +239,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     ) {
         log.notice("provider stop reason=\(reason.rawValue, privacy: .public)")
         state.withLock { $0.stopping = true }
+        deadline?.cancel()
         pathMonitor.cancel()
         guard let engine else { completionHandler(); return }
         engine.stop()
@@ -197,11 +261,17 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             }
             state.withLock { $0.connected = true }
             connectedAt = Date()
+            deadline?.cancel()
             reasserting = false
             finishStart(with: nil)
-        case "RECONNECTING", "PAUSE":
-            // NE shows this as Reconnecting; the tunnel persists meanwhile.
-            if state.withLock({ $0.connected }) { reasserting = true }
+        case "RECONNECTING":
+            // NE shows this as Reconnecting; the tunnel persists meanwhile, and
+            // the attempt gets the same deadline as a first connection.
+            state.withLock { $0.connected = false }
+            reasserting = true
+            armDeadline()
+        case "PAUSE":
+            reasserting = true
         default:
             if event.isFatal {
                 finishStart(with: Failure("\(event.name): \(event.info)"))
@@ -210,7 +280,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     }
 
     private func runEnded(_ result: Result<Void, Engine.Failure>) {
-        let (wasConnected, stopping) = state.withLock { ($0.connected, $0.stopping) }
+        let (wasConnected, stopping, restarting) = state.withLock { ($0.connected, $0.stopping, $0.restarting) }
         switch result {
         case .success:
             log.notice("engine finished")
@@ -220,6 +290,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             finishStart(with: Failure(failure.message))
         }
         finished.signal()
+        if restarting { return }
         if wasConnected, !stopping {
             // The tunnel was up and the engine ended on its own: let NE tear the
             // session down so System Settings and the app see Disconnected.
