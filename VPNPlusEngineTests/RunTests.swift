@@ -32,7 +32,7 @@ struct RunTests {
         var logCount: Int { lock.lock(); defer { lock.unlock() }; return logs.count }
     }
 
-    static let unreachableProfile = ValidateTests.minimalProfile
+    static let unreachableProfile = TestFixtures.minimalProfile
         .replacingOccurrences(of: "remote vpn.example.invalid 1194", with: "remote 192.0.2.1 1194")
 
     /// D177, confirmed here: the engine never gives up on its own. Twenty

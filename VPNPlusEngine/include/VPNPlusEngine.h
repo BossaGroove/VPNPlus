@@ -38,10 +38,109 @@ const char *vpnplus_engine_version(void);
 /// The engine's own description of the platform it was built for. Static storage.
 const char *vpnplus_engine_platform(void);
 
-/// Parses a profile the way connect() would, with no network, and reports the
-/// first defect. Returns true when the profile would be accepted. On false,
-/// `message` receives a NUL-terminated explanation (truncated to fit).
-bool vpnplus_engine_validate(const char *profile, char *message, size_t message_size);
+// -- Importing a profile ----------------------------------------------------
+
+/// What merging a profile from disk produced.
+typedef struct {
+    bool ok;
+    char status[64];             ///< the engine's own status code, for the log
+    char message[512];           ///< the engine's own error text, for the log
+    char basename[256];          ///< the file's name, a sensible default title
+    char missing_reference[512]; ///< the referenced file it could not read, when that is why it failed
+    size_t reference_count;      ///< referenced files successfully inlined
+} vpnplus_merge_info;
+
+/// Reads a profile from disk and inlines the files it references, so the stored
+/// text is self-contained. Returns the byte length the merged text needs; when
+/// that exceeds profile_size nothing is written and the call should be repeated
+/// with a larger buffer. out is filled in either way, and the length is 0 on
+/// failure.
+size_t vpnplus_engine_merge(const char *path, char *profile, size_t profile_size, vpnplus_merge_info *out);
+
+/// One server a profile offers. label is the issuer's own name for it, empty
+/// when it supplied none.
+typedef void (*vpnplus_server_callback)(void *context, const char *host, const char *label);
+
+/// What a profile says about itself, without connecting.
+typedef struct {
+    bool ok;
+    char message[512];
+    char profile_name[256];
+    char friendly_name[256];
+    /// The username the profile fixes, empty when the user may choose. A fixed
+    /// username is shown read-only rather than as an empty field.
+    char fixed_username[256];
+    bool autologin;           ///< needs no username or password
+    bool external_pki;        ///< its client identity lives outside the file
+    bool allow_password_save; ///< false means the save option is not offered at all
+    bool private_key_password_required;
+    char static_challenge[512]; ///< an extra prompt the server asks for, empty when none
+    bool static_challenge_echo; ///< whether that answer may be shown as it is typed
+    char remote_host[256];
+    char remote_port[16];
+    char remote_proto[16];
+    size_t server_count;
+} vpnplus_profile_info;
+
+/// Fills out from the profile text, and calls servers once per alternate
+/// server. Returns out->ok.
+bool vpnplus_engine_describe(const char *profile, vpnplus_profile_info *out,
+                             vpnplus_server_callback servers, void *context);
+
+// -- Validating a profile ---------------------------------------------------
+
+typedef enum {
+    VPNPLUS_VERDICT_ACCEPTED = 0,
+    /// Usable, but the engine ignores directives the profile carries. Disclosed
+    /// as a count with the list behind it, never buried.
+    VPNPLUS_VERDICT_ACCEPTED_WITH_WAIVERS = 1,
+    VPNPLUS_VERDICT_REFUSED = 2,
+} vpnplus_verdict;
+
+typedef enum {
+    VPNPLUS_REFUSAL_NONE = 0,
+    /// Not a profile we can read at all.
+    VPNPLUS_REFUSAL_MALFORMED = 1,
+    /// Locked to a server that hands out its own configuration: the wrong file.
+    VPNPLUS_REFUSAL_SERVER_LOCKED = 2,
+    /// Its client identity is in a key store we cannot read (pkcs12).
+    VPNPLUS_REFUSAL_EXTERNAL_KEY_STORE = 3,
+    /// It needs something the engine does not implement, and would not work.
+    VPNPLUS_REFUSAL_UNSUPPORTED_FEATURE = 4,
+    /// It carries directives the engine does not recognise. These may be set
+    /// aside by the user and the profile imported anyway.
+    VPNPLUS_REFUSAL_UNKNOWN_DIRECTIVES = 5,
+} vpnplus_refusal;
+
+typedef enum {
+    /// The engine ignores it and connects anyway. Already waived; disclose it.
+    VPNPLUS_DIRECTIVE_IGNORED = 0,
+    /// Unrecognised. The user may set it aside; pass it back in waive.
+    VPNPLUS_DIRECTIVE_WAIVABLE = 1,
+    /// A refusal with a real reason. Never waivable: without it the tunnel
+    /// would not do what the profile says.
+    VPNPLUS_DIRECTIVE_BLOCKING = 2,
+} vpnplus_directive_kind;
+
+/// One directive the engine set aside or refused. reason is the engine's own
+/// wording for its category.
+typedef void (*vpnplus_directive_callback)(void *context, const char *directive,
+                                           const char *reason, vpnplus_directive_kind kind);
+
+typedef struct {
+    vpnplus_verdict verdict;
+    vpnplus_refusal refusal;
+    char message[1024];
+} vpnplus_validation;
+
+/// Parses a profile exactly the way connecting would, with no network, and
+/// reports what would happen. waive names directives the user has agreed to set
+/// aside (only ones reported as WAIVABLE); pass NULL and 0 for none.
+/// directives is called once per directive set aside or refused.
+void vpnplus_engine_validate(const char *profile,
+                             const char *const *waive, size_t waive_count,
+                             vpnplus_validation *out,
+                             vpnplus_directive_callback directives, void *context);
 
 /// One local tunnel address, as the server pushed it.
 typedef struct {

@@ -37,7 +37,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include <algorithm>
 #include <cstring>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -382,31 +384,296 @@ extern "C" const char *vpnplus_engine_platform(void)
     return value.c_str();
 }
 
-// D189: eval_config accepts almost anything; the defects that matter are thrown
-// when ClientOptions is constructed inside connect(). This runs that
-// construction with no network, the way upstream's own unit tests do.
-extern "C" bool vpnplus_engine_validate(const char *profile, char *message, size_t message_size)
+namespace {
+
+/// Collects the engine's log lines while a profile is parsed. openvpn3 reports
+/// the directives it set aside through its log, and only throws for the fatal
+/// ones, so this is the only way to see the whole picture (D187 wants the list,
+/// not just a yes or no).
+class LogCollector final : public openvpn::ClientAPI::LogReceiver
 {
+  public:
+    void log(const openvpn::ClientAPI::LogInfo &info) override
+    {
+        std::string line;
+        for (const char c : info.text)
+        {
+            if (c == '\n')
+            {
+                lines_.push_back(line);
+                line.clear();
+            }
+            else if (c != '\r')
+            {
+                line += c;
+            }
+        }
+        if (!line.empty())
+            lines_.push_back(line);
+    }
+
+    const std::vector<std::string> &lines() const
+    {
+        return lines_;
+    }
+
+  private:
+    std::vector<std::string> lines_;
+};
+
+/// The categories openvpn3 treats as fatal — the `true` argument to
+/// `showUnusedOptionsByList` and `showOptionsByFunction` in cliopt.hpp. Every
+/// other category is one the engine ignores while still connecting.
+bool category_is_fatal(const std::string &category)
+{
+    static const char *const fatal[] = {
+        "Removed deprecated option",
+        "Server only option",
+        "OpenVPN 2.x command line operation",
+        "Option allowed only to be pushed by the server",
+        "OpenVPN management interface is not supported by this client",
+        "UNKNOWN/UNSUPPORTED OPTIONS",
+    };
+    for (const char *f : fatal)
+        if (category.find(f) != std::string::npos)
+            return true;
+    return false;
+}
+
+/// Directives that must never be set aside, whatever the user asks: without
+/// them the tunnel would not do what the profile says (feature-spec 2.9). Kept
+/// deliberately small and justified; B7's sweep found only this one in the
+/// unrecognised group.
+bool never_waivable(const std::string &directive)
+{
+    return directive == "pkcs12"; // the client identity itself (2.10, D192)
+}
+
+/// One directive openvpn3 reported, with the category it reported it under.
+struct ReportedDirective
+{
+    std::string name;
+    std::string category;
+};
+
+/// openvpn3 logs a category line, then one indexed line per directive:
+///     Unsupported option (ignored)
+///     0 [resolv-retry] [infinite]
+/// Anything else is prose we do not need.
+std::vector<ReportedDirective> parse_reported(const std::vector<std::string> &lines)
+{
+    std::vector<ReportedDirective> out;
+    std::string category;
+    for (const std::string &raw : lines)
+    {
+        const size_t begin = raw.find_first_not_of(" \t");
+        if (begin == std::string::npos)
+            continue;
+        const std::string line = raw.substr(begin);
+        if (line.rfind("NOTE:", 0) == 0)
+            continue;
+
+        // "<n> [name] ..." — an entry under the current category.
+        size_t i = 0;
+        while (i < line.size() && std::isdigit(static_cast<unsigned char>(line[i])))
+            ++i;
+        if (i > 0 && i + 1 < line.size() && line[i] == ' ' && line[i + 1] == '[')
+        {
+            const size_t close = line.find(']', i + 2);
+            if (close != std::string::npos && !category.empty())
+                out.push_back({line.substr(i + 2, close - i - 2), category});
+            continue;
+        }
+        category = line;
+    }
+    return out;
+}
+
+void report(const std::vector<ReportedDirective> &directives, bool refused,
+            vpnplus_directive_callback callback, void *context)
+{
+    if (callback == nullptr)
+        return;
+    for (const ReportedDirective &d : directives)
+    {
+        vpnplus_directive_kind kind = VPNPLUS_DIRECTIVE_IGNORED;
+        if (category_is_fatal(d.category))
+        {
+            const bool unrecognised = d.category.find("UNKNOWN/UNSUPPORTED OPTIONS") != std::string::npos;
+            kind = (unrecognised && !never_waivable(d.name) && refused)
+                       ? VPNPLUS_DIRECTIVE_WAIVABLE
+                       : VPNPLUS_DIRECTIVE_BLOCKING;
+        }
+        callback(context, d.name.c_str(), d.category.c_str(), kind);
+    }
+}
+
+} // namespace
+
+extern "C" size_t vpnplus_engine_merge(const char *path, char *profile, size_t profile_size, vpnplus_merge_info *out)
+{
+    if (out == nullptr)
+        return 0;
+    std::memset(out, 0, sizeof *out);
     try
     {
-        openvpn::InitProcess::Init init;
-        openvpn::OptionList options;
-        openvpn::ClientOptions::Config config;
-        config.clientconf.dco = false;
-        config.proto_context_options.reset(new openvpn::ProtoContextCompressionOptions());
-        const auto parsed = openvpn::ParseClientConfig::parse(profile ? profile : "", nullptr, options);
-        if (parsed.error())
+        openvpn::ClientAPI::OpenVPNClientHelper helper;
+        // Follow references: a profile that names its certificate in a
+        // neighbouring file is the ordinary case, and 2.2 wants them inlined.
+        const openvpn::ClientAPI::MergeConfig merged = helper.merge_config(path ? path : "", true);
+        copy_field(out->status, sizeof out->status, merged.status);
+        copy_field(out->message, sizeof out->message, merged.errorText);
+        copy_field(out->basename, sizeof out->basename, merged.basename);
+        out->reference_count = merged.refPathList.size();
+        out->ok = merged.status == "MERGE_SUCCESS";
+        if (!out->ok)
         {
-            copy_message(message, message_size, parsed.message());
-            return false;
+            // The engine's error text is "ERR_PROFILE_<code>: <detail>", and for
+            // a reference it could not read the detail is the filename — which
+            // is what 2.3 must show the user.
+            const size_t colon = merged.errorText.find(": ");
+            if (colon != std::string::npos && merged.status.find("REF_FAIL") != std::string::npos)
+                copy_field(out->missing_reference, sizeof out->missing_reference, merged.errorText.substr(colon + 2));
+            return 0;
         }
-        openvpn::ClientOptions client_options(options, config);
+        const std::string &content = merged.profileContent;
+        if (profile != nullptr && content.size() < profile_size)
+        {
+            std::memcpy(profile, content.data(), content.size());
+            profile[content.size()] = '\0';
+        }
+        return content.size();
+    }
+    catch (const std::exception &e)
+    {
+        copy_field(out->status, sizeof out->status, "MERGE_EXCEPTION");
+        copy_field(out->message, sizeof out->message, e.what());
+        return 0;
+    }
+}
+
+extern "C" bool vpnplus_engine_describe(const char *profile, vpnplus_profile_info *out,
+                                        vpnplus_server_callback servers, void *context)
+{
+    if (out == nullptr)
+        return false;
+    std::memset(out, 0, sizeof *out);
+    try
+    {
+        openvpn::ClientAPI::OpenVPNClientHelper helper;
+        openvpn::ClientAPI::Config config;
+        config.content = profile ? profile : "";
+        const openvpn::ClientAPI::EvalConfig eval = helper.eval_config(config);
+        copy_field(out->message, sizeof out->message, eval.message);
+        if (eval.error)
+            return false;
+        copy_field(out->profile_name, sizeof out->profile_name, eval.profileName);
+        copy_field(out->friendly_name, sizeof out->friendly_name, eval.friendlyName);
+        copy_field(out->fixed_username, sizeof out->fixed_username, eval.userlockedUsername);
+        out->autologin = eval.autologin;
+        out->external_pki = eval.externalPki;
+        out->allow_password_save = eval.allowPasswordSave;
+        out->private_key_password_required = eval.privateKeyPasswordRequired;
+        copy_field(out->static_challenge, sizeof out->static_challenge, eval.staticChallenge);
+        out->static_challenge_echo = eval.staticChallengeEcho;
+        copy_field(out->remote_host, sizeof out->remote_host, eval.remoteHost);
+        copy_field(out->remote_port, sizeof out->remote_port, eval.remotePort);
+        copy_field(out->remote_proto, sizeof out->remote_proto, eval.remoteProto);
+        out->server_count = eval.serverList.size();
+        if (servers != nullptr)
+            for (const auto &entry : eval.serverList)
+                servers(context, entry.server.c_str(), entry.friendlyName.c_str());
+        out->ok = true;
         return true;
     }
     catch (const std::exception &e)
     {
-        copy_message(message, message_size, e.what());
+        copy_field(out->message, sizeof out->message, e.what());
         return false;
+    }
+}
+
+// D189: eval_config accepts almost anything — seven of the eight defects B7
+// tested pass it clean — and the ones that matter are thrown when ClientOptions
+// is constructed inside connect(). This runs that construction with no network,
+// the way upstream's own unit tests do, and reports what would happen.
+extern "C" void vpnplus_engine_validate(const char *profile,
+                                        const char *const *waive, size_t waive_count,
+                                        vpnplus_validation *out,
+                                        vpnplus_directive_callback directives, void *context)
+{
+    if (out == nullptr)
+        return;
+    out->verdict = VPNPLUS_VERDICT_REFUSED;
+    out->refusal = VPNPLUS_REFUSAL_MALFORMED;
+    out->message[0] = '\0';
+
+    std::string content = profile ? profile : "";
+    std::vector<std::string> honoured;
+    for (size_t i = 0; waive != nullptr && i < waive_count; ++i)
+    {
+        if (waive[i] == nullptr || *waive[i] == '\0')
+            continue;
+        // 2.9 is enforced here rather than in the caller: a directive whose
+        // absence would change what the tunnel does cannot be set aside even
+        // if asked, so no UI can bypass the rule by accident.
+        if (!never_waivable(waive[i]))
+            honoured.push_back(waive[i]);
+    }
+    if (!honoured.empty())
+    {
+        // The engine's own way of setting a directive aside; storing the
+        // decision with the profile is D187's other half.
+        content += "\nignore-unknown-option";
+        for (const std::string &name : honoured)
+            content += " " + name;
+        content += "\n";
+    }
+
+    LogCollector collector;
+    try
+    {
+        openvpn::InitProcess::Init init;
+        openvpn::Log::Context log_context(&collector);
+
+        openvpn::OptionList options;
+        const auto parsed = openvpn::ParseClientConfig::parse(content, nullptr, options);
+        if (parsed.error())
+        {
+            copy_message(out->message, sizeof out->message, parsed.message());
+            // The one defect the static parse does catch (B7).
+            out->refusal = parsed.message().find("SERVER_LOCKED") != std::string::npos
+                               ? VPNPLUS_REFUSAL_SERVER_LOCKED
+                               : VPNPLUS_REFUSAL_MALFORMED;
+            return;
+        }
+
+        openvpn::ClientOptions::Config config;
+        config.clientconf.dco = false;
+        config.proto_context_options.reset(new openvpn::ProtoContextCompressionOptions());
+        openvpn::ClientOptions client_options(options, config);
+
+        const auto reported = parse_reported(collector.lines());
+        report(reported, false, directives, context);
+        out->refusal = VPNPLUS_REFUSAL_NONE;
+        out->verdict = reported.empty() ? VPNPLUS_VERDICT_ACCEPTED : VPNPLUS_VERDICT_ACCEPTED_WITH_WAIVERS;
+    }
+    catch (const std::exception &e)
+    {
+        copy_message(out->message, sizeof out->message, e.what());
+        const auto reported = parse_reported(collector.lines());
+        report(reported, true, directives, context);
+
+        const std::string text = e.what();
+        const bool unknown = text.find("UNKNOWN/UNSUPPORTED OPTIONS") != std::string::npos;
+        bool key_store = false;
+        for (const auto &d : reported)
+            if (never_waivable(d.name) && category_is_fatal(d.category))
+                key_store = true;
+
+        out->refusal = key_store ? VPNPLUS_REFUSAL_EXTERNAL_KEY_STORE
+                       : unknown ? VPNPLUS_REFUSAL_UNKNOWN_DIRECTIVES
+                                 : VPNPLUS_REFUSAL_UNSUPPORTED_FEATURE;
     }
 }
 
