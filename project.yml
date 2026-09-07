@@ -27,6 +27,10 @@ settings:
     # allow-list eight NetworkExtension values where we claim one.
     CODE_SIGN_STYLE: Manual
     ENABLE_HARDENED_RUNTIME: YES
+    # Xcode 16 puts a Debug app's code in a separate "<name>.debug.dylib" for
+    # previews and hot reload. We sign by hand and use neither, and an unsigned
+    # nested dylib is refused under the hardened runtime, so build one binary.
+    ENABLE_DEBUG_DYLIB: NO
     # Not sandboxed: Developer ID distribution, and a system extension host.
     ENABLE_APP_SANDBOX: NO
 

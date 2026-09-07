@@ -69,7 +69,14 @@ cp "$PROFILE_EXT" "$EXT/Contents/embedded.provisionprofile"
 
 echo "── signing inside out"
 # Order matters: an outer signature covers the inner ones, so re-signing
-# anything inner afterwards invalidates the outer.
+# anything inner afterwards invalidates the outer. Nested code first — the
+# hardened runtime refuses to load a library not signed by the same team.
+for bundle in "$EXT" "$APP"; do
+  find "$bundle/Contents" \( -name "*.dylib" -o -name "*.framework" \) -not -path "*/Frameworks/*/*" -prune 2>/dev/null \
+    | while read -r nested; do
+        codesign --force --sign "$IDENTITY" --options runtime --timestamp "$nested"
+      done
+done
 codesign --force --sign "$IDENTITY" --options runtime --timestamp \
   --entitlements "$ENT_EXT" "$EXT"
 codesign --force --sign "$IDENTITY" --options runtime --timestamp \
