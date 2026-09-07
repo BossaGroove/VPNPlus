@@ -41,7 +41,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     private let pathMonitor = NWPathMonitor()
     private var lastPathDescription = ""
     private var connectedAt: Date?
-    private let finished = DispatchSemaphore(value: 0)
+    /// Signalled when the current engine's run() returns. One per session:
+    /// a shared semaphore accumulates a count and stops being a barrier.
+    private var runFinished: DispatchSemaphore?
     private let state = OSAllocatedUnfairLock(initialState: State())
 
     /// The start completion handler is not Sendable by type; it is called
@@ -122,9 +124,12 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
 
         armDeadline()
         pollTransport()
+        let done = DispatchSemaphore(value: 0)
+        runFinished = done
         let thread = Thread { [weak self] in
             let result = engine.run()
             self?.runEnded(result)
+            done.signal()
         }
         thread.name = "engine.connect"
         thread.qualityOfService = .userInitiated
@@ -189,10 +194,26 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         log.notice("starting a fresh session: \(reason, privacy: .public)")
         reasserting = true
         let old = engine
+        let done = runFinished
         old?.stop()
         DispatchQueue.global().async { [weak self] in
             guard let self else { return }
-            _ = finished.wait(timeout: .now() + 5)
+            _ = done?.wait(timeout: .now() + 5)
+            // Hand the default route back to the physical network for the
+            // attempt. Two reasons, both measured in M2.5: the user keeps
+            // working while we reconnect instead of losing all networking, and
+            // every reconnect that failed did so with a dead tunnel still
+            // holding the default route, which the working cases never had.
+            let cleared = DispatchSemaphore(value: 0)
+            setTunnelNetworkSettings(nil) { [log] error in
+                if let error {
+                    log.error("could not clear the tunnel settings: \(error.localizedDescription, privacy: .public)")
+                } else {
+                    log.notice("tunnel settings cleared; the physical network is primary while we reconnect")
+                }
+                cleared.signal()
+            }
+            _ = cleared.wait(timeout: .now() + 5)
             state.withLock { $0.restarting = false }
             startEngine()
         }
@@ -274,7 +295,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         engine.stop()
         // The connect thread returns once the engine has wound down; give it a
         // bounded moment so a stuck engine cannot hold the stop forever.
-        _ = finished.wait(timeout: .now() + 5)
+        _ = runFinished?.wait(timeout: .now() + 5)
         self.engine = nil
         completionHandler()
     }
@@ -321,7 +342,6 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             log.error("engine ended with error: \(failure.message, privacy: .public)")
             finishStart(with: Failure(failure.message))
         }
-        finished.signal()
         if restarting { return }
         if wasConnected, !stopping {
             // The tunnel was up and the engine ended on its own: let NE tear the

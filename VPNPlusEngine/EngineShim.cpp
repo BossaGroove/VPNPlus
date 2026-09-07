@@ -206,7 +206,10 @@ class Client final : public ClientAPI::OpenVPNClient
                 inet_ntop(AF_INET, &reinterpret_cast<sockaddr_in *>(&local)->sin_addr, buf, sizeof buf);
             else if (local.ss_family == AF_INET6)
                 inet_ntop(AF_INET6, &reinterpret_cast<sockaddr_in6 *>(&local)->sin6_addr, buf, sizeof buf);
-            where = buf;
+            const unsigned port = local.ss_family == AF_INET
+                                      ? ntohs(reinterpret_cast<sockaddr_in *>(&local)->sin_port)
+                                      : ntohs(reinterpret_cast<sockaddr_in6 *>(&local)->sin6_port);
+            where = std::string(buf) + ":" + std::to_string(port);
         }
         if (callbacks_.log)
         {
