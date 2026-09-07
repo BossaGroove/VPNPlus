@@ -172,11 +172,26 @@ struct ConnectionTests {
 
     // MARK: - Naming a phase only once it is slow (D71)
 
-    @Test func aFastPhaseIsNeverNamed() {
+    @Test func aFastConnectionNamesNothingInternal() {
         var state = ConnectionMachine.next(.disconnected, on: .connect(singapore), at: start)
-        state = ConnectionMachine.next(state, on: .entered(phase("handshake", 30)), at: start + 1)
-        #expect(state.attempt?.revealedPhase(at: start + 2) == nil, "1 s in: nothing to say yet")
-        #expect(state.attempt?.revealedPhase(at: start + 4)?.id == "handshake")
+        state = ConnectionMachine.next(state, on: .entered(phase("handshake", 30)), at: start + 0.1)
+        #expect(state.attempt?.revealedPhase(at: start + 1) == nil, "1 s in: nothing to say yet")
+        #expect(state.attempt?.revealedPhase(at: start + 3)?.id == "handshake")
+    }
+
+    /// The reveal delay belongs to the **attempt**, not to each phase.
+    /// Measured against each phase, a real connection read backwards: "Signing
+    /// in" at +2 s, then the generic "Connecting" at +4 s because the next
+    /// phase was 100 ms old. A step being un-named looks like progress lost.
+    @Test func aNamedStepIsNeverReplacedByAVaguerOne() {
+        var state = ConnectionMachine.next(.disconnected, on: .connect(singapore), at: start)
+        state = ConnectionMachine.next(state, on: .entered(phase("auth", 20)), at: start + 0.2)
+        #expect(state.attempt?.revealedPhase(at: start + 3)?.id == "auth")
+
+        // The next phase begins, and is named at once because the attempt is
+        // already being narrated.
+        state = ConnectionMachine.next(state, on: .entered(phase("config", 20)), at: start + 3.9)
+        #expect(state.attempt?.revealedPhase(at: start + 4)?.id == "config")
     }
 
     @Test func aPhaseWithNoReportIsNotInvented() {

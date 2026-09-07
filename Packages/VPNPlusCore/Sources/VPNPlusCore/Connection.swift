@@ -112,13 +112,21 @@ public struct Attempt: Sendable, Equatable {
     /// The phase to name, or nil while the attempt is still fast enough that
     /// naming a step would be noise (D71).
     ///
-    /// The measured connection is 5.7–6.5 s end to end with a 4 s handshake in
-    /// the middle (feature-spec 3.15), so a reveal delay is the difference
-    /// between narrating a normal connection and explaining a slow one.
+    /// **The delay belongs to the attempt, not to each phase**, and that is a
+    /// correction: measuring it against each phase separately made a real
+    /// connection read *backwards*. At +2 s it said "Signing in"; at +4 s the
+    /// next phase was only 100 ms old, so it fell back to the generic
+    /// "Connecting" — a step being un-named looks like progress being lost
+    /// (measured, 00:09:37).
+    ///
+    /// D71's purpose is that a **fast** connection says nothing internal. Once
+    /// an attempt is slow enough to narrate, it narrates the step it is
+    /// actually on. A step that lasts 150 ms then flickers past, which is
+    /// untidy and true; keeping the previous step on screen would be tidy and
+    /// false.
     public func revealedPhase(at now: Date) -> TunnelPhase? {
-        guard let phase, let phaseEnteredAt else { return nil }
-        let running = Duration.seconds(max(0, now.timeIntervalSince(phaseEnteredAt)))
-        return running >= Deadlines.phaseReveal ? phase : nil
+        guard let phase else { return nil }
+        return elapsed(at: now) >= Deadlines.phaseReveal ? phase : nil
     }
 
     /// Which deadline has passed, if either has. **Every phase has a deadline
