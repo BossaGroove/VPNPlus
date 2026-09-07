@@ -22,8 +22,14 @@ import NetworkExtension
 // NSExtensionPrincipalClass from Info.plist. This file is one of the concrete
 // differences between the two packagings, and the reason B14's evidence
 // (gathered against an app extension) has to be repeated at C4.
+// The privileged service is started here, not from a provider, because a
+// password must be storable *before* there is any tunnel — which is what makes
+// a connection from System Settings possible at all (D75).
+private let privileged = PrivilegedService()
+
 autoreleasepool {
     NEProvider.startSystemExtensionMode()
+    privileged.start()
 }
 
 dispatchMain()

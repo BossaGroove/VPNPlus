@@ -78,6 +78,10 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         log.notice("provider start uid=\(getuid(), privacy: .public) euid=\(geteuid(), privacy: .public)")
         log.notice("engine openvpn3 \(String(cString: vpnplus_engine_version()), privacy: .public) (\(String(cString: vpnplus_engine_platform()), privacy: .public))")
 
+        // M4.1 SPIKE ONLY — removed once the answer is recorded. Runs before
+        // the profile check so it can be triggered without one.
+        SecretStoreSpike.run()
+
         // M2 ONLY — the profile and credentials arrive in the start options,
         // straight from the app's test path. M3 stores profiles and M4 moves
         // credentials behind the XPC interface; a start from System Settings

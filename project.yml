@@ -43,6 +43,7 @@ targets:
     sources:
       - path: VPNPlus
         excludes: ["*.entitlements", "Info.plist"]
+      - path: VPNPlusShared
     dependencies:
       - package: VPNPlusCore
         product: VPNPlusCore
@@ -110,6 +111,7 @@ targets:
     sources:
       - path: VPNPlusTunnel
         excludes: ["*.entitlements", "Info.plist"]
+      - path: VPNPlusShared
     dependencies:
       - package: VPNPlusCore
         product: VPNPlusCore

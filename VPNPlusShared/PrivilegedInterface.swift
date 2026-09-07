@@ -1,0 +1,112 @@
+// VPN Plus — a native macOS VPN client.
+// Copyright (C) 2026 BossaGroove
+//
+// This program is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the Free
+// Software Foundation, either version 3 of the License, or (at your option)
+// any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with this program. If not, see <https://www.gnu.org/licenses/>.
+
+import Foundation
+
+/// The entire privileged interface (B9). Two methods, both idempotent,
+/// **neither returning a secret** (D193).
+///
+/// Read this list as a closed set. The test for anything proposed later: if it
+/// would let a caller make the root process act on something the *caller*
+/// names — a path, a command, an address — it does not belong here. That is
+/// why there is no `readSecret`, nothing taking a file path, and no generic
+/// message.
+///
+/// Shared by both targets so the app and the extension cannot drift.
+@objc protocol PrivilegedInterface {
+    /// Stores one secret for one profile, replacing any it already holds.
+    /// Idempotent by construction: the same call twice leaves the same state.
+    func setSecret(profile: UUID, kind: Int, value: Data, reply: @escaping ((any Error)?) -> Void)
+
+    /// Removes every secret held for one profile. Succeeds when there were
+    /// none, because the caller asked for a state, not an action.
+    func deleteSecrets(profile: UUID, reply: @escaping ((any Error)?) -> Void)
+}
+
+/// What a stored secret is. Deliberately a small closed set: an interface that
+/// accepts an arbitrary label accepts an arbitrary amount of storage.
+enum SecretKind: Int, CaseIterable {
+    /// The merged profile text. A secret because it routinely contains a
+    /// private key (D190).
+    case configuration = 1
+    /// The user's password, or the session token that stands in for it.
+    case password = 2
+
+    /// The largest value this kind may carry. A cap is not paranoia: the
+    /// caller runs as the user and can be attacked (D194), and root should
+    /// never be asked to hold something the size of a disk image.
+    var sizeLimit: Int {
+        switch self {
+        case .configuration: 1 << 20  // 1 MiB; openvpn3's own profile cap is smaller
+        case .password: 4 << 10       // 4 KiB, which is generous for a password or a token
+        }
+    }
+
+    /// The keychain account this kind uses for a profile. A UUID and a word:
+    /// keychain metadata is readable without authorisation (D216), so an
+    /// account name must say nothing about the user, the server or the profile.
+    func account(for profile: UUID) -> String {
+        switch self {
+        case .configuration: "\(profile.uuidString).profile"
+        case .password: "\(profile.uuidString).password"
+        }
+    }
+}
+
+/// Why a privileged call was refused. Carries no detail an attacker could
+/// mine: the caller learns that it was wrong, not what would have been right.
+enum PrivilegedFailure: Int, Error {
+    case malformedRequest = 1
+    case tooLarge = 2
+    case storageFailed = 3
+
+    static let domain = "com.bossagroove.VPNPlus.privileged"
+
+    var asError: NSError {
+        NSError(domain: Self.domain, code: rawValue, userInfo: [
+            NSLocalizedDescriptionKey: description,
+        ])
+    }
+
+    var description: String {
+        switch self {
+        case .malformedRequest: "The request was not understood."
+        case .tooLarge: "The value was too large."
+        case .storageFailed: "The secret could not be stored."
+        }
+    }
+}
+
+/// The Mach service the extension listens on, and the code-signing identities
+/// each side pins. Both are frozen by D174, which is what makes pinning them
+/// a stable check rather than a maintenance burden.
+enum PrivilegedChannel {
+    /// Must match `NEMachServiceName` in the extension's Info.plist.
+    static let machServiceName = "DR9YZ5L9PX.com.bossagroove.VPNPlus.tunnel"
+
+    private static let team = "DR9YZ5L9PX"
+
+    /// What the extension demands of anything that connects to it: our app,
+    /// signed by us. Being signed by the same team is not enough on its own —
+    /// the bundle identifier is pinned too (D194).
+    static let appRequirement =
+        "identifier \"com.bossagroove.VPNPlus\" and anchor apple generic and certificate leaf[subject.OU] = \"\(team)\""
+
+    /// What the app demands of the service it is talking to, so a malicious
+    /// listener cannot impersonate the extension and collect passwords.
+    static let extensionRequirement =
+        "identifier \"com.bossagroove.VPNPlus.tunnel\" and anchor apple generic and certificate leaf[subject.OU] = \"\(team)\""
+}
