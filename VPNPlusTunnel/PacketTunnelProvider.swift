@@ -301,7 +301,10 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         let item = DispatchWorkItem { [weak self] in
             guard let self, !state.withLock({ $0.connected }) else { return }
             log.error("no connection after \(seconds, privacy: .public) s; ending the attempt")
-            failAttempt(Failure("The server did not finish the connection within \(seconds) seconds."))
+            // A reason the app can turn into words, now that there is a code
+            // for it. M5.2 makes this five phase deadlines instead of one.
+            failAttempt(TunnelFailure.timedOut.error(
+                "The connection did not complete within \(seconds) seconds."))
         }
         deadline = item
         DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(seconds), execute: item)

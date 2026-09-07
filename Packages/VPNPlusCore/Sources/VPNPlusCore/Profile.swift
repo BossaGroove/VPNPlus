@@ -65,6 +65,14 @@ public struct Profile: Sendable, Equatable, Identifiable, Codable {
     /// "use the one you have" and "forget the one you have", which is the
     /// difference between connecting and losing a saved password.
     public var credentialsSaved: Bool
+    /// The last attempt that ended badly, kept after the state has moved on.
+    ///
+    /// **Failed does not survive a restart; this does** (D96). On launch the
+    /// window is Idle and this is history — timestamped, and one click from
+    /// the detail — because relaunching into Failed would claim a failure that
+    /// did not just happen, while discarding it would lose the reason the user
+    /// may have come back to read.
+    public var lastFailure: FailureRecord?
 
     public init(
         id: UUID = UUID(),
@@ -74,7 +82,8 @@ public struct Profile: Sendable, Equatable, Identifiable, Codable {
         acceptedWaivers: [String] = [],
         descriptor: ProfileDescriptor? = nil,
         configurationHandedOver: Bool = false,
-        credentialsSaved: Bool = false
+        credentialsSaved: Bool = false,
+        lastFailure: FailureRecord? = nil
     ) {
         self.id = id
         self.origin = origin
@@ -84,6 +93,7 @@ public struct Profile: Sendable, Equatable, Identifiable, Codable {
         self.descriptor = descriptor
         self.configurationHandedOver = configurationHandedOver
         self.credentialsSaved = credentialsSaved
+        self.lastFailure = lastFailure
     }
 
     /// Decoding a profile stored before these fields existed must not fail: a
@@ -98,6 +108,7 @@ public struct Profile: Sendable, Equatable, Identifiable, Codable {
         descriptor = try values.decodeIfPresent(ProfileDescriptor.self, forKey: .descriptor)
         configurationHandedOver = try values.decodeIfPresent(Bool.self, forKey: .configurationHandedOver) ?? false
         credentialsSaved = try values.decodeIfPresent(Bool.self, forKey: .credentialsSaved) ?? false
+        lastFailure = try values.decodeIfPresent(FailureRecord.self, forKey: .lastFailure)
     }
 }
 
@@ -138,6 +149,9 @@ public protocol ProfileStore: Sendable {
     /// profile. The app cannot read them, so it has to remember that they
     /// exist.
     func setCredentialsSaved(_ saved: Bool, for id: Profile.ID) throws
+
+    /// Keeps, or clears, the record of the last failed attempt (D96).
+    func setLastFailure(_ failure: FailureRecord?, for id: Profile.ID) throws
 
     /// Marks the configuration as handed over to the extension **and deletes
     /// the app's own copy**. Two copies of a private key is worse than none,

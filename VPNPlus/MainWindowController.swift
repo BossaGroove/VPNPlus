@@ -595,6 +595,13 @@ final class MainWindowController: NSWindowController {
             show(message: String(localized: """
                 Couldn't sign in to \(name). The server didn't accept your username or password.
                 """))
+        case .timedOut:
+            // M6 names the step it ran out of on, which is most of the value
+            // of the message; until the phase reaches the app (M5.2) this says
+            // only what it knows, and invents nothing (D85).
+            show(message: String(localized: "Couldn't connect to \(name). It didn't finish in time."))
+        case .unknown:
+            show(message: String(localized: "Couldn't connect to \(name), and VPN Plus doesn't have a specific reason for it. Trying again is worth a go."))
         case nil:
             // Not ours: the system's own, or a reason M6 has yet to map.
             break

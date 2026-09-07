@@ -144,62 +144,6 @@ struct StoredSessionToken: Codable, Equatable {
     }
 }
 
-/// Why the tunnel could not run, in the one form that survives the trip back
-/// to the app.
-///
-/// NetworkExtension hands the app whatever `NSError` the provider cancelled
-/// with (`fetchLastDisconnectError`), which is how a connection started from
-/// System Settings can still explain itself to a window that was not there at
-/// the time. So a **code** crosses and the *words* stay in the app: the
-/// extension carries no localized strings, and the copy is A10's to write.
-///
-/// A small closed set on purpose. The full A9→A10 mapping is M6's, and it will
-/// extend this; what is here is what M4 can actually distinguish.
-enum TunnelFailure: Int, Sendable {
-    /// The extension holds no configuration for this profile, and none was
-    /// handed to it.
-    case configurationMissing = 1
-    /// The profile needs a password, nothing had one to give, and there was
-    /// nobody to ask — the state that did not exist before M4.5.
-    case credentialsUnavailable = 2
-    /// The server refused the sign-in details we had.
-    case authenticationFailed = 3
-
-    static let domain = "com.bossagroove.VPNPlus.tunnel"
-
-    /// The key the time of the failure travels under.
-    ///
-    /// Whether NetworkExtension hands the app our `userInfo` verbatim is not
-    /// documented, so nothing depends on this arriving — an absent time is
-    /// read as "unknown", never as "old".
-    static let timeKey = "com.bossagroove.VPNPlus.failedAt"
-
-    /// `detail` is for the log and for diagnostics. It is written in the
-    /// extension, which is not localized, so it is never what a user reads.
-    func error(_ detail: String, at time: Date = Date()) -> NSError {
-        NSError(domain: Self.domain, code: rawValue, userInfo: [
-            NSLocalizedDescriptionKey: detail,
-            Self.timeKey: ISO8601DateFormatter().string(from: time),
-        ])
-    }
-
-    /// When the failure happened, if it says. The app needs this because it
-    /// may be reading a failure from before it was running, and a week-old
-    /// reason presented as news is worse than no reason at all.
-    static func time(of error: any Error) -> Date? {
-        guard let text = (error as NSError).userInfo[timeKey] as? String else { return nil }
-        return ISO8601DateFormatter().date(from: text)
-    }
-
-    /// Reads one back, for the app. Anything from elsewhere is nil rather than
-    /// guessed at.
-    init?(_ error: any Error) {
-        let error = error as NSError
-        guard error.domain == Self.domain, let known = Self(rawValue: error.code) else { return nil }
-        self = known
-    }
-}
-
 /// Why a privileged call was refused. Carries no detail an attacker could
 /// mine: the caller learns that it was wrong, not what would have been right.
 enum PrivilegedFailure: Int, Error {

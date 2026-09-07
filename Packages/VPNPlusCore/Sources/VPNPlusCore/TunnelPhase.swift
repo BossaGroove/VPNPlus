@@ -31,6 +31,13 @@ public struct TunnelPhase: Sendable, Equatable, Identifiable {
 /// Deadlines live in one place and are tunable without touching logic
 /// (feature-spec 3.6). The engine's own retry behaviour is never the
 /// user-facing timeout (D177) — these are.
+///
+/// **These values are measured, not guessed.** A8's table proposed
+/// `auth` 30 s and `setup` 15 s before anything had been timed; feature-spec
+/// 3.15 then measured ~20 connections against a production server — 0.13 s to
+/// reach it, a **4.0 s TLS handshake**, 1.6 s for the configuration, 0.10 s to
+/// apply it, 5.7–6.5 s in total. The values below are sized against that, so
+/// where they disagree with A8 it is the older number that is out of date.
 public enum Deadlines {
     public static let resolve = Duration.seconds(10)
     public static let contact = Duration.seconds(15)
@@ -43,4 +50,10 @@ public enum Deadlines {
 
     /// How long a phase runs before it is named to the user (D71).
     public static let phaseReveal = Duration.seconds(2)
+
+    /// Then force the teardown and restore anyway (D39). A tunnel that will
+    /// not come down is not a reason to leave the system half-configured —
+    /// which is the state that makes the owner disconnect defensively every
+    /// night.
+    public static let disconnect = Duration.seconds(10)
 }

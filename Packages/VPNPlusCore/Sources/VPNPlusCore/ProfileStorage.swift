@@ -164,6 +164,16 @@ public struct StoredProfileStore: ProfileStore {
         try write(index)
     }
 
+    public func setLastFailure(_ failure: FailureRecord?, for id: Profile.ID) throws {
+        var index = try profiles()
+        guard let position = index.firstIndex(where: { $0.id == id }) else {
+            throw ProfileStoreError.noSuchProfile
+        }
+        guard index[position].lastFailure != failure else { return }
+        index[position].lastFailure = failure
+        try write(index)
+    }
+
     public func finishHandover(for id: Profile.ID) throws {
         var index = try profiles()
         guard let position = index.firstIndex(where: { $0.id == id }) else {

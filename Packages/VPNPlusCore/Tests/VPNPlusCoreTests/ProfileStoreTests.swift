@@ -189,6 +189,36 @@ struct ProfileStoreTests {
         #expect(read[0].configurationHandedOver == false)
     }
 
+    // MARK: - The failure record, which outlives the state (D96)
+
+    /// The state is not stored at all — that is what makes D96 true. What is
+    /// stored is the record, and it has to survive a relaunch to be worth
+    /// keeping.
+    @Test func theLastFailureIsKeptAndCanBeCleared() throws {
+        let (store, _, _) = makeStore()
+        let one = profile()
+        try store.add(one, configuration: Data("client".utf8))
+        #expect(try store.profiles().first?.lastFailure == nil)
+
+        let record = FailureRecord(
+            profile: one.id, at: Date(timeIntervalSince1970: 1_000),
+            reason: .credentialsUnavailable, phase: "auth",
+            elapsed: .seconds(12), recoveryAttempts: 2)
+        try store.setLastFailure(record, for: one.id)
+        #expect(try store.profiles().first?.lastFailure == record)
+
+        try store.setLastFailure(nil, for: one.id)
+        #expect(try store.profiles().first?.lastFailure == nil)
+    }
+
+    @Test func recordingAFailureForSomethingThatIsNotThereFails() throws {
+        let (store, _, _) = makeStore()
+        let record = FailureRecord(profile: UUID(), at: Date(), reason: .unknown)
+        #expect(throws: ProfileStoreError.noSuchProfile) {
+            try store.setLastFailure(record, for: UUID())
+        }
+    }
+
     // MARK: - Overrides
 
     @Test func overridesRoundTripAndAnEmptyRecordIsRemoved() throws {
