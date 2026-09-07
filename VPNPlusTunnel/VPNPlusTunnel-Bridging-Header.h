@@ -13,23 +13,4 @@
 //
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <https://www.gnu.org/licenses/>.
-// The C surface of the engine shim. Swift sees this header and nothing else
-// of openvpn3 (D179): no openvpn3 type appears in a Swift signature. What is
-// here is what M1 needs to prove the engine is linked; M2 grows it into the
-// TunnelAdapter contract.
-
-#pragma once
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/// The engine's version string, for example "3.11.7". Static storage; never free it.
-const char *vpnplus_engine_version(void);
-
-/// The engine's own description of the platform it was built for. Static storage.
-const char *vpnplus_engine_platform(void);
-
-#ifdef __cplusplus
-}
-#endif
+#include "VPNPlusEngine.h"

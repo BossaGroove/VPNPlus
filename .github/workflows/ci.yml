@@ -64,6 +64,16 @@ jobs:
               CODE_SIGNING_ALLOWED=NO build | tail -5
           done
 
+      # The engine's tests (profile validation, D189) live in an Xcode test
+      # bundle because they need the C++ library, which a Swift package cannot
+      # build.
+      - name: Test the engine
+        run: |
+          set -o pipefail
+          xcodebuild -project VPNPlus.xcodeproj -scheme VPNPlus \
+            -configuration Debug -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO test | grep -E "Test run|✔|✘|TEST" 
+
       # sysextd matches an activation request against the bundle's DIRECTORY
       # NAME in Contents/Library/SystemExtensions and never opens the bundle.
       # A wrongly named extension fails with "extension not found" at runtime

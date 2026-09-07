@@ -38,6 +38,8 @@ targets:
   VPNPlus:
     type: application
     platform: macOS
+    scheme:
+      testTargets: [VPNPlusEngineTests]
     sources:
       - path: VPNPlus
         excludes: ["*.entitlements", "Info.plist"]
@@ -87,6 +89,9 @@ targets:
       - package: VPNPlusCore
         product: VPNPlusCore
       - sdk: NetworkExtension.framework
+      - target: VPNPlusEngine
+      # The engine is C++ and this target is not; the linker needs telling.
+      - sdk: libc++.tbd
       # openvpn3's macOS build links these four (cmake/findcoredeps.cmake).
       - sdk: SystemConfiguration.framework
       - sdk: IOKit.framework
@@ -124,23 +129,42 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.bossagroove.VPNPlus.tunnel
         MARKETING_VERSION: "0.0.1"
         CURRENT_PROJECT_VERSION: "1"
-        # ── The engine ──────────────────────────────────────────────────────
-        # openvpn3 is compiled into this target from the pinned submodule
-        # (ThirdParty/README.md); its C dependencies come from
-        # Scripts/build-deps.sh, which must have run before this builds.
+        # Swift sees the engine through one C header (D179).
+        SWIFT_OBJC_BRIDGING_HEADER: VPNPlusTunnel/VPNPlusTunnel-Bridging-Header.h
+        HEADER_SEARCH_PATHS: [$(SRCROOT)/VPNPlusEngine/include]
+        # A static library carries no link dependencies of its own, so the
+        # engine's libraries and frameworks are linked here (see VPNPlusEngine).
+        LIBRARY_SEARCH_PATHS: [$(SRCROOT)/ThirdParty/out/lib]
+        OTHER_LDFLAGS: [-lssl, -lcrypto, -llz4, -lfmt]
+      configs:
+        Debug:
+          CODE_SIGN_ENTITLEMENTS: VPNPlusTunnel/VPNPlusTunnel.debug.entitlements
+        Release:
+          CODE_SIGN_ENTITLEMENTS: VPNPlusTunnel/VPNPlusTunnel.release.entitlements
+
+  # The engine: openvpn3 compiled into one static library behind a C header.
+  # No Swift here, no openvpn3 outside it (D179). Its C dependencies come from
+  # Scripts/build-deps.sh, which must have run before this builds; consumers
+  # link those libraries themselves.
+  VPNPlusEngine:
+    type: library.static
+    platform: macOS
+    sources:
+      - path: VPNPlusEngine
+    settings:
+      base:
+        PRODUCT_NAME: VPNPlusEngine
         CLANG_CXX_LANGUAGE_STANDARD: c++20
         CLANG_CXX_LIBRARY: libc++
         GCC_C_LANGUAGE_STANDARD: gnu11
-        SWIFT_OBJC_BRIDGING_HEADER: VPNPlusTunnel/Engine/VPNPlusTunnel-Bridging-Header.h
+        SKIP_INSTALL: YES
+        HEADER_SEARCH_PATHS: [$(SRCROOT)/VPNPlusEngine/include]
         # System header paths, so third-party code is held to its own warning
         # standard and ours stays warning-clean. ovpncli.cpp is included
         # through this path too, so it counts as system code as well.
         SYSTEM_HEADER_SEARCH_PATHS:
           - $(SRCROOT)/ThirdParty/openvpn3
           - $(SRCROOT)/ThirdParty/out/include
-        LIBRARY_SEARCH_PATHS:
-          - $(SRCROOT)/ThirdParty/out/lib
-        OTHER_LDFLAGS: [-lssl, -lcrypto, -llz4, -lfmt]
         # The define set openvpn3's own client is built with on macOS
         # (add_corelibrary_dependencies), plus the tun-builder interface,
         # which is how the engine hands us settings instead of editing routes
@@ -153,8 +177,25 @@ targets:
           - USE_OPENSSL
           - USE_TUN_BUILDER
           - ENABLE_EXTERNAL_PKI
-      configs:
-        Debug:
-          CODE_SIGN_ENTITLEMENTS: VPNPlusTunnel/VPNPlusTunnel.debug.entitlements
-        Release:
-          CODE_SIGN_ENTITLEMENTS: VPNPlusTunnel/VPNPlusTunnel.release.entitlements
+
+  VPNPlusEngineTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: VPNPlusEngineTests
+    dependencies:
+      - target: VPNPlusEngine
+      - sdk: libc++.tbd
+      - sdk: SystemConfiguration.framework
+      - sdk: IOKit.framework
+      - sdk: CoreServices.framework
+      - sdk: CoreFoundation.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bossagroove.VPNPlus.EngineTests
+        SWIFT_OBJC_BRIDGING_HEADER: VPNPlusEngineTests/VPNPlusEngineTests-Bridging-Header.h
+        HEADER_SEARCH_PATHS: [$(SRCROOT)/VPNPlusEngine/include]
+        LIBRARY_SEARCH_PATHS: [$(SRCROOT)/ThirdParty/out/lib]
+        OTHER_LDFLAGS: [-lssl, -lcrypto, -llz4, -lfmt]
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""

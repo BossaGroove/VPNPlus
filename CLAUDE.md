@@ -73,7 +73,10 @@ xcodegen generate                                    # after any project.yml cha
 xcodebuild -project VPNPlus.xcodeproj -scheme VPNPlus \
   -configuration Debug -destination 'platform=macOS' \
   CODE_SIGNING_ALLOWED=NO build
-swift test --package-path Packages/VPNPlusCore
+swift test --package-path Packages/VPNPlusCore                  # the protocol-agnostic core
+xcodebuild -project VPNPlus.xcodeproj -scheme VPNPlus \
+  -configuration Debug -destination 'platform=macOS' \
+  CODE_SIGNING_ALLOWED=NO test                                   # the engine (C++), via its test bundle
 ```
 
 The engine is compiled into the tunnel extension from `ThirdParty/openvpn3`
