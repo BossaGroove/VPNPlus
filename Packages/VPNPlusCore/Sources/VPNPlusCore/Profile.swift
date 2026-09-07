@@ -49,19 +49,43 @@ public struct Profile: Sendable, Equatable, Identifiable, Codable {
     /// Directives the user chose to set aside, stored with the profile so the
     /// same decision is applied every time it is parsed (D187).
     public var acceptedWaivers: [String]
+    /// What the configuration says about itself, kept so the app never needs
+    /// the configuration text again once the extension owns it. Nothing
+    /// secret is in here.
+    public var descriptor: ProfileDescriptor?
+    /// True once the extension holds this profile's configuration. Until then
+    /// the app still has it and hands it over on the next connection.
+    public var configurationHandedOver: Bool
 
     public init(
         id: UUID = UUID(),
         origin: Origin,
         title: String,
         waivedDirectives: [String] = [],
-        acceptedWaivers: [String] = []
+        acceptedWaivers: [String] = [],
+        descriptor: ProfileDescriptor? = nil,
+        configurationHandedOver: Bool = false
     ) {
         self.id = id
         self.origin = origin
         self.title = title
         self.waivedDirectives = waivedDirectives
         self.acceptedWaivers = acceptedWaivers
+        self.descriptor = descriptor
+        self.configurationHandedOver = configurationHandedOver
+    }
+
+    /// Decoding a profile stored before these fields existed must not fail: a
+    /// user who updates VPN Plus keeps their profiles.
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(UUID.self, forKey: .id)
+        origin = try values.decode(Origin.self, forKey: .origin)
+        title = try values.decode(String.self, forKey: .title)
+        waivedDirectives = try values.decodeIfPresent([String].self, forKey: .waivedDirectives) ?? []
+        acceptedWaivers = try values.decodeIfPresent([String].self, forKey: .acceptedWaivers) ?? []
+        descriptor = try values.decodeIfPresent(ProfileDescriptor.self, forKey: .descriptor)
+        configurationHandedOver = try values.decodeIfPresent(Bool.self, forKey: .configurationHandedOver) ?? false
     }
 }
 
@@ -93,6 +117,15 @@ public protocol ProfileStore: Sendable {
         title: String,
         for id: Profile.ID
     ) throws -> [OverrideConflict]
+
+    /// Records what the configuration says about itself, so the app never has
+    /// to read the configuration again.
+    func setDescriptor(_ descriptor: ProfileDescriptor, for id: Profile.ID) throws
+
+    /// Marks the configuration as handed over to the extension **and deletes
+    /// the app's own copy**. Two copies of a private key is worse than none,
+    /// so this is one operation rather than two (D190).
+    func finishHandover(for id: Profile.ID) throws
 
     /// Removes the profile and every secret it owns.
     func remove(_ id: Profile.ID) throws

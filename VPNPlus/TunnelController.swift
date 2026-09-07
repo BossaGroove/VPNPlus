@@ -56,7 +56,7 @@ final class TunnelController {
 
     /// Loads the existing configuration or creates one. Saving is what raises
     /// the "would like to add VPN configurations" prompt — C4 counts it.
-    func prepare() async throws {
+    func prepare(profile: UUID? = nil) async throws {
         let existing = try await NETunnelProviderManager.loadAllFromPreferences()
         let manager = existing.first ?? NETunnelProviderManager()
 
@@ -66,7 +66,9 @@ final class TunnelController {
         // is stored (M3). Until then, the app's name.
         proto.serverAddress = "VPN Plus"
         // Handles and switches only, never secrets (D191). Nothing yet.
-        proto.providerConfiguration = [:]
+        // Handles, never secrets (D191): this dictionary lives in the system's
+        // VPN preferences and is readable with admin rights.
+        proto.providerConfiguration = profile.map { ["profile": $0.uuidString as NSString] } ?? [:]
 
         manager.protocolConfiguration = proto
         manager.localizedDescription = "VPN Plus"
@@ -83,13 +85,17 @@ final class TunnelController {
     /// until then nothing here persists, and a start from System Settings has
     /// nothing to connect with (D75 is knowingly broken in M2).
     func connect(
-        profile: String,
+        profile: String?,
         username: String,
         password: String,
         server: ServerEndpoint = ServerEndpoint()
     ) throws {
         guard let session = manager?.connection as? NETunnelProviderSession else { return }
-        var options: [String: NSObject] = ["profile": profile as NSString]
+        var options: [String: NSObject] = [:]
+        // Sent only while a profile has not yet been handed over: the provider
+        // stores what it receives, so the first connection completes the move
+        // and later ones carry nothing but the id in providerConfiguration.
+        if let profile { options["profile"] = profile as NSString }
         if !username.isEmpty { options["username"] = username as NSString }
         if !password.isEmpty { options["password"] = password as NSString }
         // Only what the user chose: an override equal to the profile's own

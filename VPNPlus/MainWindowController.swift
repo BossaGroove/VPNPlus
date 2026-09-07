@@ -63,6 +63,7 @@ final class MainWindowController: NSWindowController {
         tunnel.onChange = { [weak self] in self?.renderTunnel($0) }
         render(installer.status)
         renderProfiles()
+        importer.handOverPending()
         installer.activate()
     }
 
@@ -197,19 +198,28 @@ final class MainWindowController: NSWindowController {
     /// The profile and the user's overrides, composed — the only way this
     /// window learns what to show (D188).
     private func compose(_ profile: Profile) -> ProfileSettings? {
-        guard let configuration = try? store.configuration(for: profile.id),
-              let text = String(data: configuration, encoding: .utf8),
-              let descriptor = ProfileImport.describe(text, setAside: profile.waivedDirectives)
-        else { return nil }
+        guard let descriptor = descriptor(for: profile) else { return nil }
         let overrides = (try? store.overrides(for: profile.id)) ?? Overrides()
         return ProfileSettings.compose(descriptor, with: overrides)
     }
 
-    private func configure(_ profile: Profile) {
+    /// What the profile says about itself. Stored at import, because once the
+    /// extension owns the configuration the app cannot read it again — and
+    /// re-deriving it from a copy the app kept would be that second copy.
+    private func descriptor(for profile: Profile) -> ProfileDescriptor? {
+        if let stored = profile.descriptor { return stored }
+        // A profile imported before descriptors were stored: derive it once
+        // from the copy the app still holds, and keep it.
         guard let configuration = try? store.configuration(for: profile.id),
               let text = String(data: configuration, encoding: .utf8),
-              let descriptor = ProfileImport.describe(text, setAside: profile.waivedDirectives)
-        else { return }
+              let derived = ProfileImport.describe(text, setAside: profile.waivedDirectives)
+        else { return nil }
+        try? store.setDescriptor(derived, for: profile.id)
+        return derived
+    }
+
+    private func configure(_ profile: Profile) {
+        guard let descriptor = descriptor(for: profile) else { return }
         let overrides = (try? store.overrides(for: profile.id)) ?? Overrides()
         let sheet = ProfileConfigurationSheet(
             profile: profile, descriptor: descriptor, overrides: overrides
@@ -265,11 +275,18 @@ final class MainWindowController: NSWindowController {
     /// Connecting reads the stored profile and the user's overrides. No file
     /// picker, and the configuration surface is never on the way here (2.13).
     private func connect(to profile: Profile) {
-        guard let configuration = try? store.configuration(for: profile.id),
-              let text = String(data: configuration, encoding: .utf8)
-        else {
-            tunnelLabel.stringValue = String(localized: "Couldn't read that profile")
-            return
+        // The configuration is sent only while the extension does not yet hold
+        // it; after that the provider reads its own copy and the start options
+        // carry no secret at all.
+        var text: String?
+        if !profile.configurationHandedOver {
+            guard let configuration = try? store.configuration(for: profile.id),
+                  let readable = String(data: configuration, encoding: .utf8)
+            else {
+                tunnelLabel.stringValue = String(localized: "Couldn't read that profile")
+                return
+            }
+            text = readable
         }
         let settings = compose(profile)
         let username: String
@@ -279,7 +296,7 @@ final class MainWindowController: NSWindowController {
         }
         Task {
             do {
-                try await tunnel.prepare()
+                try await tunnel.prepare(profile: profile.id)
                 try tunnel.connect(
                     profile: text,
                     username: username,
@@ -321,6 +338,12 @@ final class MainWindowController: NSWindowController {
 
     private func renderTunnel(_ status: NEVPNStatus) {
         tunnelLabel.stringValue = "Tunnel: \(status.plainLanguage)"
+        if status == .connected {
+            // The extension is certainly running now, so anything still
+            // waiting to move can move.
+            importer.handOverPending()
+            renderProfiles()
+        }
     }
 
     private func render(_ status: ExtensionInstaller.Status) {

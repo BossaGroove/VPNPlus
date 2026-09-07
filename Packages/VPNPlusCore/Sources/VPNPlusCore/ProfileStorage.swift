@@ -145,6 +145,28 @@ public struct StoredProfileStore: ProfileStore {
         return try overrides(for: id).conflicts(with: descriptor)
     }
 
+    public func setDescriptor(_ descriptor: ProfileDescriptor, for id: Profile.ID) throws {
+        var index = try profiles()
+        guard let position = index.firstIndex(where: { $0.id == id }) else {
+            throw ProfileStoreError.noSuchProfile
+        }
+        index[position].descriptor = descriptor
+        try write(index)
+    }
+
+    public func finishHandover(for id: Profile.ID) throws {
+        var index = try profiles()
+        guard let position = index.firstIndex(where: { $0.id == id }) else {
+            throw ProfileStoreError.noSuchProfile
+        }
+        // The flag is written before the delete: a profile marked handed-over
+        // whose local copy survives is a leak we would find, while a deleted
+        // copy with the flag unset would strand the profile.
+        index[position].configurationHandedOver = true
+        try write(index)
+        try secrets.removeSecret(for: Self.account(for: id))
+    }
+
     public func remove(_ id: Profile.ID) throws {
         // Secrets first, and unconditionally: a failure here must not leave a
         // private key behind with nothing referring to it.

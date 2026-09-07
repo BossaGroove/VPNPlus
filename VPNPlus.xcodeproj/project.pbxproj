@@ -51,7 +51,6 @@
 		CCF814AD83E789107066C510 /* ProfileStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B4A4F17AAADBDA419BA9006 /* ProfileStorage.swift */; };
 		D4877B81CA78C53416A9EA6B /* SecretStoreSpike.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D8F39FB05C4ED0524627D2F /* SecretStoreSpike.swift */; };
 		D547BAF5DF36F7768CC0271E /* VPNPlusCore in Frameworks */ = {isa = PBXBuildFile; productRef = E5AD49E779DF062A87D93C4D /* VPNPlusCore */; };
-		DCDB190D9DB8DAD997852E7E /* PrivilegedChannelSpike.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A86B80B02CE25828BC8B719 /* PrivilegedChannelSpike.swift */; };
 		DD1118C0F8E834F09160946A /* InstallLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 014171C7BC3E81B7ACFD6DA1 /* InstallLocation.swift */; };
 		E07A107241DDC403F27A17FB /* EngineShim.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05D57C00265B12AEF250D992 /* EngineShim.cpp */; };
 		E331C45DCD7FC398D5538B6F /* TunnelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0C0DB62A25CADB2DFD5CB5F /* TunnelController.swift */; };
@@ -128,7 +127,6 @@
 		208361D78664FDC72939DDB7 /* VPNPlusEngine.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VPNPlusEngine.h; sourceTree = "<group>"; };
 		23BAA2476B265EB039506C3B /* ProfileConfigurationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileConfigurationSheet.swift; sourceTree = "<group>"; };
 		2455A69E951DCA668094ABA2 /* VPNPlusEngineTests-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "VPNPlusEngineTests-Bridging-Header.h"; sourceTree = "<group>"; };
-		2A86B80B02CE25828BC8B719 /* PrivilegedChannelSpike.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivilegedChannelSpike.swift; sourceTree = "<group>"; };
 		3CBF178DBF0AF1CAED795117 /* TestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFixtures.swift; sourceTree = "<group>"; };
 		3EE7FB96CCF503AA5008C88B /* VPNPlusCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = VPNPlusCore; path = Packages/VPNPlusCore; sourceTree = SOURCE_ROOT; };
 		43BD04530C7322F12A73C014 /* Engine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine.swift; sourceTree = "<group>"; };
@@ -251,7 +249,6 @@
 				B5E1663DC8DD11E37C655963 /* ImportMessage.swift */,
 				014171C7BC3E81B7ACFD6DA1 /* InstallLocation.swift */,
 				9CD75F5958AB78A8340EB4A4 /* MainWindowController.swift */,
-				2A86B80B02CE25828BC8B719 /* PrivilegedChannelSpike.swift */,
 				CA3DDF22608AF05265B0B92A /* PrivilegedClient.swift */,
 				23BAA2476B265EB039506C3B /* ProfileConfigurationSheet.swift */,
 				AD459008A5079558FEE30141 /* ProfileImport.swift */,
@@ -509,7 +506,6 @@
 				7F0560F6228F685A72CFAA58 /* ImportMessage.swift in Sources */,
 				DD1118C0F8E834F09160946A /* InstallLocation.swift in Sources */,
 				7676B0812A5C4D64B97AC9DA /* MainWindowController.swift in Sources */,
-				DCDB190D9DB8DAD997852E7E /* PrivilegedChannelSpike.swift in Sources */,
 				5160165F03B03582C20F8B45 /* PrivilegedClient.swift in Sources */,
 				C7EECD2776988F15EFB8617A /* PrivilegedInterface.swift in Sources */,
 				4357428D4CBBFB99481CA99C /* ProfileConfigurationSheet.swift in Sources */,

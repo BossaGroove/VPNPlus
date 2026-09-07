@@ -73,12 +73,11 @@ struct PrivilegedClient {
     ) async throws {
         let connection = NSXPCConnection(machServiceName: PrivilegedChannel.machServiceName, options: [])
         connection.remoteObjectInterface = NSXPCInterface(with: PrivilegedInterface.self)
-        do {
-            try connection.setCodeSigningRequirement(requirement)
-        } catch {
-            Self.log.error("could not pin the extension's identity: \(error.localizedDescription, privacy: .public)")
-            throw Failure.unavailable
-        }
+        // This does not report failure: a requirement that is malformed, or
+        // that the other side does not satisfy, surfaces later as the
+        // *connection* failing — which M4.2 measured, and which the error
+        // handler below turns into a thrown error rather than a hang (D217).
+        connection.setCodeSigningRequirement(requirement)
         connection.resume()
         defer { connection.invalidate() }
 
@@ -111,9 +110,7 @@ struct PrivilegedClient {
         try await setSecretRaw(value, kind: kind.rawValue, for: profile, pinning: requirement)
     }
 
-    /// M4.2 SPIKE ONLY — removed at M4.6. Sends a raw kind so the spike can
-    /// offer values the typed API forbids, and check they are refused.
-    func setSecretRaw(
+    private func setSecretRaw(
         _ value: Data,
         kind: Int,
         for profile: UUID,

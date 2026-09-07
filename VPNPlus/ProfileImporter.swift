@@ -39,6 +39,21 @@ final class ProfileImporter {
         self.store = store
     }
 
+    /// Hands over every configuration the extension does not have yet.
+    ///
+    /// Called at launch and after each import. The extension is unreachable
+    /// until it has run since boot (M4.2), so this quietly does nothing when
+    /// it cannot; a profile that has not moved yet still connects, and the
+    /// connection itself completes the move.
+    func handOverPending() {
+        let waiting = ((try? store.profiles()) ?? []).filter { !$0.configurationHandedOver }
+        guard !waiting.isEmpty else { return }
+        for profile in waiting {
+            guard let configuration = try? store.configuration(for: profile.id) else { continue }
+            handOver(configuration, for: profile.id)
+        }
+    }
+
     /// Presents the Open panel (2.1).
     func chooseFile(over window: NSWindow?) {
         let panel = NSOpenPanel()
@@ -107,7 +122,9 @@ final class ProfileImporter {
         if let existing = try store.profiles().first(where: { $0.origin.filename == filename }) {
             let conflicts = try store.replaceConfiguration(
                 configuration, descriptor: descriptor, title: title, for: existing.id)
+            try store.setDescriptor(descriptor, for: existing.id)
             log.notice("replaced \(filename, privacy: .public); \(conflicts.count, privacy: .public) overrides now contradicted")
+            handOver(configuration, for: existing.id)
             return
         }
 
@@ -115,9 +132,30 @@ final class ProfileImporter {
             origin: Profile.Origin(filename: filename, importedAt: Date()),
             title: title,
             waivedDirectives: descriptor.waivedDirectives,
-            acceptedWaivers: waivers)
+            acceptedWaivers: waivers,
+            descriptor: descriptor)
         try store.add(profile, configuration: configuration)
         log.notice("imported \(filename, privacy: .public)")
+        handOver(configuration, for: profile.id)
+    }
+
+    /// Gives the configuration to the extension, which owns it from then on,
+    /// and drops the app's copy.
+    ///
+    /// The extension is only reachable once it has run since boot (M4.2), so
+    /// this may not succeed now — and that is not an error the user should be
+    /// told about. The app keeps its copy, hands it over on the next
+    /// connection instead, and the profile works either way.
+    private func handOver(_ configuration: Data, for id: Profile.ID) {
+        Task { [store, log] in
+            do {
+                try await PrivilegedClient().setSecret(configuration, kind: .configuration, for: id)
+                try store.finishHandover(for: id)
+                log.notice("the extension now holds the configuration for \(id.uuidString, privacy: .public)")
+            } catch {
+                log.notice("the extension is not reachable yet; handing over at the next connection")
+            }
+        }
     }
 
     // MARK: - Asking

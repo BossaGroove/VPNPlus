@@ -57,12 +57,10 @@ extension PrivilegedService: NSXPCListenerDelegate {
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {
         // Pinned identity first: if this throws or the requirement does not
         // match, nothing of ours ever sees a message from this caller.
-        do {
-            try connection.setCodeSigningRequirement(PrivilegedChannel.appRequirement)
-        } catch {
-            log.error("refused a connection: could not pin the requirement: \(error.localizedDescription, privacy: .public)")
-            return false
-        }
+        // As on the client: no failure is reported here. An unsatisfied
+        // requirement rejects the caller when it tries to talk, before any of
+        // our code sees a message — measured at M4.2.
+        connection.setCodeSigningRequirement(PrivilegedChannel.appRequirement)
 
         connection.exportedInterface = NSXPCInterface(with: PrivilegedInterface.self)
         connection.exportedObject = self

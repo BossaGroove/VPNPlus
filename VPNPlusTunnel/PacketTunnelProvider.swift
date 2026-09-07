@@ -68,6 +68,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     private var username: String?
     private var password: String?
     private var serverOverride = Engine.ServerOverride()
+    private let secrets = ExtensionSecretStore()
     private var deadline: DispatchWorkItem?
     private var transportPoll: DispatchWorkItem?
 
@@ -82,13 +83,37 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         // the profile check so it can be triggered without one.
         SecretStoreSpike.run()
 
-        // M2 ONLY — the profile and credentials arrive in the start options,
-        // straight from the app's test path. M3 stores profiles and M4 moves
-        // credentials behind the XPC interface; a start from System Settings
-        // (D75) cannot work until then, and says so.
-        guard let profile = options?["profile"] as? String, !profile.isEmpty else {
-            log.error("no profile in the start options; until M3 a connection must start from the app")
-            completionHandler(Failure("No profile was given. Until M3, connect from the VPN Plus window."))
+        // Which profile this is, from providerConfiguration — a handle, never
+        // a secret (D191). A connection from System Settings carries this and
+        // nothing else, which is what makes D75 possible.
+        let configuration = (protocolConfiguration as? NETunnelProviderProtocol)?.providerConfiguration
+        let identifier = (configuration?["profile"] as? String).flatMap(UUID.init(uuidString:))
+
+        // The configuration text: what the app handed over, if this is the
+        // first connection since importing, else our own stored copy.
+        var profile = options?["profile"] as? String
+        if let identifier, let handed = profile {
+            // Keep it, so every later connection — including one started from
+            // System Settings with no app running — needs nothing from anyone.
+            do {
+                try secrets.set(Data(handed.utf8), for: SecretKind.configuration.account(for: identifier))
+                log.notice("stored the configuration for \(identifier.uuidString, privacy: .public)")
+            } catch {
+                log.error("could not store the configuration: \(error.localizedDescription, privacy: .public)")
+            }
+        } else if let identifier {
+            do {
+                let stored = try secrets.secret(for: SecretKind.configuration.account(for: identifier))
+                profile = stored.flatMap { String(data: $0, encoding: .utf8) }
+                log.notice("read our own configuration for \(identifier.uuidString, privacy: .public): \(profile == nil ? "absent" : "present", privacy: .public)")
+            } catch {
+                log.error("could not read the configuration: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+
+        guard let profile, !profile.isEmpty else {
+            log.error("no configuration for this profile, in the options or our own store")
+            completionHandler(Failure("VPN Plus does not have this profile's settings. Open VPN Plus and connect once."))
             return
         }
         self.profile = profile

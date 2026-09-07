@@ -38,8 +38,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowController = controller
         NSApp.activate(ignoringOtherApps: true)
 
-        // M4.2 SPIKE ONLY — removed at M4.6.
-        Task { await PrivilegedChannelSpike.run() }
     }
 
     /// Double-clicking a profile in the Finder, and dropping one on the app

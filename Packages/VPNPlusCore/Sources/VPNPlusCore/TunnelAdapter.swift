@@ -19,7 +19,7 @@ import Foundation
 /// What a profile needs from the user before it can connect. WireGuard
 /// profiles are always `.none`, which is a first-class state and not
 /// OpenVPN's `autologin` seen through a UI (D185).
-public enum CredentialRequirement: Sendable, Equatable {
+public enum CredentialRequirement: Sendable, Equatable, Codable {
     case none
     case usernamePassword(usernameLocked: String?)
     case privateKeyPassphrase
@@ -44,7 +44,11 @@ public struct ServerEndpoint: Sendable, Equatable, Codable {
 }
 
 /// The result of inspecting a configuration, with no protocol detail in it.
-public struct ProfileDescriptor: Sendable, Equatable {
+/// Everything a list or a settings surface needs about a profile, and
+/// **nothing secret**: no key, no certificate, no password. That is what makes
+/// it storable in preferences once the configuration text has moved to the
+/// extension (D190, D191).
+public struct ProfileDescriptor: Sendable, Equatable, Codable {
     public let displayName: String
     public let server: ServerEndpoint
     public let credentials: [CredentialRequirement]
