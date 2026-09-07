@@ -15,6 +15,7 @@
 		20A72A340ACB7C5286938572 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 13133B04CBB3D94810E7E1E6 /* CoreFoundation.framework */; };
 		4465665E03BC198916CB20FD /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F7D913D6471B1A325F2359F /* PacketTunnelProvider.swift */; };
 		4D78EEA5FE37B5814C55C253 /* libVPNPlusEngine.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FBDBC35E7CE4C4696A7A964 /* libVPNPlusEngine.a */; };
+		60B41A883578D99B0ED546C2 /* RunTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20028CE67B99ED88EE431F26 /* RunTests.swift */; };
 		6C51C48E20E2916D8F16FDC1 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E855E821FD66EF1537305B0 /* SystemConfiguration.framework */; };
 		7676B0812A5C4D64B97AC9DA /* MainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CD75F5958AB78A8340EB4A4 /* MainWindowController.swift */; };
 		78A892EEA3E7C7ABFACD60E5 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA1E04DC0D4A5A19A907C8A0 /* NetworkExtension.framework */; };
@@ -93,6 +94,7 @@
 		05D57C00265B12AEF250D992 /* EngineShim.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = EngineShim.cpp; sourceTree = "<group>"; };
 		10BC1655F49A221682EA0E4A /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		13133B04CBB3D94810E7E1E6 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		20028CE67B99ED88EE431F26 /* RunTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunTests.swift; sourceTree = "<group>"; };
 		208361D78664FDC72939DDB7 /* VPNPlusEngine.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VPNPlusEngine.h; sourceTree = "<group>"; };
 		2455A69E951DCA668094ABA2 /* VPNPlusEngineTests-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "VPNPlusEngineTests-Bridging-Header.h"; sourceTree = "<group>"; };
 		3EE7FB96CCF503AA5008C88B /* VPNPlusCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = VPNPlusCore; path = Packages/VPNPlusCore; sourceTree = SOURCE_ROOT; };
@@ -160,6 +162,7 @@
 		2DE2E0A5CAD45528B03C00D1 /* VPNPlusEngineTests */ = {
 			isa = PBXGroup;
 			children = (
+				20028CE67B99ED88EE431F26 /* RunTests.swift */,
 				7902FE342F46EC63BBD69985 /* ValidateTests.swift */,
 				2455A69E951DCA668094ABA2 /* VPNPlusEngineTests-Bridging-Header.h */,
 			);
@@ -413,6 +416,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				60B41A883578D99B0ED546C2 /* RunTests.swift in Sources */,
 				0D8358E4AB9B02338F7070BB /* ValidateTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
