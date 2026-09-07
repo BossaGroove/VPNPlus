@@ -49,6 +49,14 @@ targets:
       - target: VPNPlusTunnel
         embed: true
         codeSign: false
+      # Import validates with the same parse a connection would use (D189), so
+      # the app links the engine as well. It calls only the parsing functions.
+      - target: VPNPlusEngine
+      - sdk: libc++.tbd
+      - sdk: SystemConfiguration.framework
+      - sdk: IOKit.framework
+      - sdk: CoreServices.framework
+      - sdk: CoreFoundation.framework
     # XcodeGen GENERATES this file from the properties below — it does not
     # merge with whatever is on disk. Anything hand-written at this path is
     # silently overwritten, so every key the bundle needs must be here.
@@ -62,6 +70,19 @@ targets:
         LSApplicationCategoryType: public.app-category.utilities
         NSPrincipalClass: NSApplication
         NSHumanReadableCopyright: GPL-3.0-or-later
+        # A .ovpn file has no system-declared type, so VPN Plus declares one
+        # and claims it. This is what makes double-click import work (2.1).
+        UTExportedTypeDeclarations:
+          - UTTypeIdentifier: com.bossagroove.VPNPlus.ovpn-profile
+            UTTypeDescription: OpenVPN Profile
+            UTTypeConformsTo: [public.plain-text]
+            UTTypeTagSpecification:
+              public.filename-extension: [ovpn]
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: OpenVPN Profile
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [com.bossagroove.VPNPlus.ovpn-profile]
     settings:
       base:
         # User-facing name, with the space. The extension keeps a symbol-safe
@@ -73,6 +94,10 @@ targets:
         # The extension is embedded here, which is what makes a Sparkle update
         # carry it and keeps every update free of an installer (D169).
         SYSTEM_EXTENSION_FOLDER_PATH: Contents/Library/SystemExtensions
+        SWIFT_OBJC_BRIDGING_HEADER: VPNPlus/VPNPlus-Bridging-Header.h
+        HEADER_SEARCH_PATHS: [$(SRCROOT)/VPNPlusEngine/include]
+        LIBRARY_SEARCH_PATHS: [$(SRCROOT)/ThirdParty/out/lib]
+        OTHER_LDFLAGS: [-lssl, -lcrypto, -llz4, -lfmt]
       configs:
         Debug:
           CODE_SIGN_ENTITLEMENTS: VPNPlus/VPNPlus.debug.entitlements

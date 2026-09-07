@@ -25,6 +25,8 @@ import VPNPlusCore
 final class MainWindowController: NSWindowController {
     private let installer = ExtensionInstaller(identifier: "com.bossagroove.VPNPlus.tunnel")
     private let tunnel = TunnelController()
+    private let store: any ProfileStore = StoredProfileStore.live
+    private lazy var importer = ProfileImporter(store: store)
 
     private let statusLabel = NSTextField(labelWithString: "")
     private let detailLabel = NSTextField(wrappingLabelWithString: "")
@@ -32,14 +34,13 @@ final class MainWindowController: NSWindowController {
     private let connectButton = NSButton(title: "Connect", target: nil, action: nil)
     private let disconnectButton = NSButton(title: "Disconnect", target: nil, action: nil)
 
-    // M2 ONLY — the test path. A profile chosen from disk is held in memory
-    // for this run and never written anywhere; credentials are typed each
-    // time. M3 (profiles) and M4 (credentials) replace all of this.
-    private let chooseButton = NSButton(title: "Choose Profile…", target: nil, action: nil)
-    private let profileLabel = NSTextField(labelWithString: "No profile chosen")
+    // M3 ONLY — a provisional surface. Import is real and stores profiles; the
+    // list, the picker and the configuration sheet the design calls for arrive
+    // with M3.5 and M5. Credentials are still typed each time, until M4.
+    private let importButton = NSButton(title: "", target: nil, action: nil)
+    private let profileLabel = NSTextField(labelWithString: "")
     private let usernameField = NSTextField(string: "")
     private let passwordField = NSSecureTextField(string: "")
-    private var profileText: String?
 
     init() {
         let window = NSWindow(
@@ -55,14 +56,26 @@ final class MainWindowController: NSWindowController {
         super.init(window: window)
 
         buildLayout()
+        acceptDrops()
+        importer.onChange = { [weak self] in self?.renderProfiles() }
         installer.onChange = { [weak self] in self?.render($0) }
         tunnel.onChange = { [weak self] in self?.renderTunnel($0) }
         render(installer.status)
+        renderProfiles()
         installer.activate()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("not supported") }
+
+    /// The window accepts a dropped profile (2.1).
+    private func acceptDrops() {
+        guard let content = window?.contentView else { return }
+        let target = DropView(frame: content.bounds)
+        target.autoresizingMask = [.width, .height]
+        target.onDrop = { [weak self] url in self?.importProfile(at: url) }
+        content.addSubview(target, positioned: .below, relativeTo: nil)
+    }
 
     private func buildLayout() {
         statusLabel.font = .preferredFont(forTextStyle: .title2)
@@ -75,8 +88,9 @@ final class MainWindowController: NSWindowController {
         disconnectButton.target = self
         disconnectButton.action = #selector(disconnect)
 
-        chooseButton.target = self
-        chooseButton.action = #selector(chooseProfile)
+        importButton.title = String(localized: "Import Profile…")
+        importButton.target = self
+        importButton.action = #selector(importProfileFromPanel(_:))
         profileLabel.textColor = .secondaryLabelColor
         usernameField.placeholderString = "Username (if the profile asks)"
         passwordField.placeholderString = "Password"
@@ -84,7 +98,7 @@ final class MainWindowController: NSWindowController {
             field.translatesAutoresizingMaskIntoConstraints = false
             field.widthAnchor.constraint(equalToConstant: 280).isActive = true
         }
-        let testPath = NSStackView(views: [chooseButton, profileLabel])
+        let testPath = NSStackView(views: [importButton, profileLabel])
         testPath.orientation = .horizontal
         testPath.spacing = 8
 
@@ -107,31 +121,47 @@ final class MainWindowController: NSWindowController {
         ])
     }
 
-    @objc private func chooseProfile() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.init(filenameExtension: "ovpn") ?? .data, .data]
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.message = "Choose an OpenVPN profile. It stays in memory for this run only."
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do {
-            profileText = try String(contentsOf: url, encoding: .utf8)
-            profileLabel.stringValue = url.lastPathComponent
-        } catch {
-            profileText = nil
-            profileLabel.stringValue = "Could not read \(url.lastPathComponent)"
+    /// File > Import Profile…, and the button (2.1).
+    @objc func importProfileFromPanel(_ sender: Any?) {
+        importer.chooseFile(over: window)
+    }
+
+    /// A profile double-clicked in the Finder or dropped on the app icon (2.1).
+    func importProfile(at url: URL) {
+        importer.importProfile(at: url, over: window)
+    }
+
+    private func renderProfiles() {
+        let profiles = (try? store.profiles()) ?? []
+        guard let first = profiles.first else {
+            profileLabel.stringValue = String(localized: "No profiles yet — import one, or drop it on this window")
+            return
         }
+        let waived = first.waivedDirectives.count
+        // A count, never a buried list (D187). The list is one click behind it,
+        // in the import sheet now and in the profile's own surface at M5.
+        profileLabel.stringValue = profiles.count == 1
+            ? (waived == 0
+                ? first.title
+                : String(localized: "\(first.title) — \(waived) settings not used"))
+            : String(localized: "\(profiles.count) profiles, starting with \(first.title)")
     }
 
     @objc private func connect() {
-        guard let profileText else {
-            tunnelLabel.stringValue = "Tunnel: choose a profile first"
+        // M3.5 turns this into a selection; for now the first stored profile is
+        // the one that connects, which is already better than a file picker
+        // per run.
+        guard let profile = (try? store.profiles())?.first,
+              let configuration = try? store.configuration(for: profile.id),
+              let text = String(data: configuration, encoding: .utf8)
+        else {
+            tunnelLabel.stringValue = String(localized: "Import a profile first")
             return
         }
         Task {
             do {
                 try await tunnel.prepare()
-                try tunnel.connect(profile: profileText, username: usernameField.stringValue, password: passwordField.stringValue)
+                try tunnel.connect(profile: text, username: usernameField.stringValue, password: passwordField.stringValue)
             } catch {
                 tunnelLabel.stringValue = "Tunnel: \(error.localizedDescription)"
             }
@@ -160,8 +190,8 @@ final class MainWindowController: NSWindowController {
                 macOS is asking you to allow VPN Plus in System Settings.                 This window will notice when you have.
                 """
         case .active:
-            statusLabel.stringValue = "Network component ready"
-            detailLabel.stringValue = "Test path (M2): choose a profile, enter credentials if it needs them, Connect."
+            statusLabel.stringValue = String(localized: "Network component ready")
+            detailLabel.stringValue = String(localized: "Import a profile, then Connect. Credentials are typed each time until they can be saved.")
         case .failed(let message):
             statusLabel.stringValue = "Setup did not finish"
             detailLabel.stringValue = message
