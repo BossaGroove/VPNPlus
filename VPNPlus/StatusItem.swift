@@ -104,8 +104,15 @@ final class StatusItemController: NSObject {
             // Filling up: something is happening.
             animate(["shield", "shield.lefthalf.filled"], every: 0.6)
         case .reconnecting:
-            // Flashing between empty and full, faster: it *was* full.
-            animate(["shield", "shield.fill"], every: 0.35)
+            // Sweeping left to right, faster — and **never showing the filled
+            // shield**, which belongs to Connected alone.
+            //
+            // The first attempt at this alternated outline and filled, so half
+            // its frames *were* the connected icon: a glance at a recovering
+            // tunnel could read as a working one, which is the confusion D18
+            // and A16 both exist to prevent. Seen by rendering the symbols
+            // rather than by reasoning about their names.
+            animate(["shield.lefthalf.filled", "shield.righthalf.filled"], every: 0.35)
         }
 
         item.button?.title = label(for: connection)
