@@ -142,18 +142,24 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         options: [String: NSObject]?,
         completionHandler: @escaping (Error?) -> Void
     ) {
-        log.notice("provider start uid=\(getuid(), privacy: .public) euid=\(geteuid(), privacy: .public)")
-        log.notice("engine openvpn3 \(String(cString: vpnplus_engine_version()), privacy: .public) (\(String(cString: vpnplus_engine_platform()), privacy: .public))")
+        log.notice(
+            "provider start uid=\(getuid(), privacy: .public) euid=\(geteuid(), privacy: .public)")
+        log.notice(
+            "engine openvpn3 \(String(cString: vpnplus_engine_version()), privacy: .public) (\(String(cString: vpnplus_engine_platform()), privacy: .public))"
+        )
 
         // Which profile this is, from providerConfiguration — a handle, never
         // a secret (D191). A connection from System Settings carries this and
         // nothing else, which is what makes D75 possible.
-        let configuration = (protocolConfiguration as? NETunnelProviderProtocol)?.providerConfiguration
+        let configuration = (protocolConfiguration as? NETunnelProviderProtocol)?
+            .providerConfiguration
         let identifier = (configuration?["profile"] as? String).flatMap(UUID.init(uuidString:))
         self.identifier = identifier
 
         let completion = Completion(completionHandler)
-        state.withLock { $0.startCompletion = completion; $0.stopping = false }
+        state.withLock {
+            $0.startCompletion = completion; $0.stopping = false
+        }
 
         // The model's attempt begins **here**, before any guard below can
         // fail, because a failure needs something to be a failure *of*. The
@@ -169,25 +175,36 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             // Keep it, so every later connection — including one started from
             // System Settings with no app running — needs nothing from anyone.
             do {
-                try secrets.set(Data(handed.utf8), for: SecretKind.configuration.account(for: identifier))
-                log.notice("stored the configuration for \(identifier.uuidString, privacy: .public)")
+                try secrets.set(
+                    Data(handed.utf8), for: SecretKind.configuration.account(for: identifier))
+                log.notice(
+                    "stored the configuration for \(identifier.uuidString, privacy: .public)")
             } catch {
-                log.error("could not store the configuration: \(error.localizedDescription, privacy: .public)")
+                log.error(
+                    "could not store the configuration: \(error.localizedDescription, privacy: .public)"
+                )
             }
         } else if let identifier {
             do {
-                let stored = try secrets.secret(for: SecretKind.configuration.account(for: identifier))
+                let stored = try secrets.secret(
+                    for: SecretKind.configuration.account(for: identifier))
                 profile = stored.flatMap { String(data: $0, encoding: .utf8) }
-                log.notice("read our own configuration for \(identifier.uuidString, privacy: .public): \(profile == nil ? "absent" : "present", privacy: .public)")
+                log.notice(
+                    "read our own configuration for \(identifier.uuidString, privacy: .public): \(profile == nil ? "absent" : "present", privacy: .public)"
+                )
             } catch {
-                log.error("could not read the configuration: \(error.localizedDescription, privacy: .public)")
+                log.error(
+                    "could not read the configuration: \(error.localizedDescription, privacy: .public)"
+                )
             }
         }
 
         guard let profile, !profile.isEmpty else {
             log.error("no configuration for this profile, in the options or our own store")
-            failAttempt(TunnelFailure.configurationMissing.error(
-                "The extension holds no configuration for this profile and none was handed to it."))
+            failAttempt(
+                TunnelFailure.configurationMissing.error(
+                    "The extension holds no configuration for this profile and none was handed to it."
+                ))
             return
         }
         self.profile = profile
@@ -201,8 +218,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         // one reason the app can turn into words (B8 open item 2).
         if current.isEmpty, Engine.needsSignIn(profile: profile) {
             log.error("this profile needs sign-in details and there are none to offer")
-            failAttempt(TunnelFailure.credentialsUnavailable.error(
-                "This profile needs a password and the extension has none saved for it."))
+            failAttempt(
+                TunnelFailure.credentialsUnavailable.error(
+                    "This profile needs a password and the extension has none saved for it."))
             return
         }
 
@@ -225,7 +243,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             port: options?["serverPort"] as? String ?? "",
             transport: options?["serverTransport"] as? String ?? "")
         if !serverOverride.isEmpty {
-            log.notice("server override: \(self.serverOverride.host, privacy: .public):\(self.serverOverride.port, privacy: .public) \(self.serverOverride.transport, privacy: .public)")
+            log.notice(
+                "server override: \(self.serverOverride.host, privacy: .public):\(self.serverOverride.port, privacy: .public) \(self.serverOverride.transport, privacy: .public)"
+            )
         }
 
         startEngine()
@@ -236,14 +256,20 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     /// items, and whatever the app supplied for a session it was asked not to
     /// remember.
     private func readCredentials(from options: [String: NSObject]?) {
-        if let username = options?["username"] as? String, let password = options?["password"] as? String {
+        if let username = options?["username"] as? String,
+            let password = options?["password"] as? String
+        {
             supplied = StoredCredentials(username: username, password: password)
         }
         guard let identifier else { return }
-        if let data = ((try? secrets.secret(for: SecretKind.password.account(for: identifier))) ?? nil) {
+        if let data =
+            ((try? secrets.secret(for: SecretKind.password.account(for: identifier))) ?? nil)
+        {
             saved = StoredCredentials(data)
         }
-        if let data = ((try? secrets.secret(for: SecretKind.sessionToken.account(for: identifier))) ?? nil) {
+        if let data =
+            ((try? secrets.secret(for: SecretKind.sessionToken.account(for: identifier))) ?? nil)
+        {
             token = StoredSessionToken(data)
         }
     }
@@ -254,14 +280,18 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             // The server may name its own user for the token
             // (`auth-token-user`); using ours instead would fail an
             // authentication that would otherwise have worked.
-            let username = token.username.isEmpty
+            let username =
+                token.username.isEmpty
                 ? (saved?.username ?? supplied?.username ?? "")
                 : token.username
             return SignIn(username: username, password: token.token, source: .token)
         }
-        if let saved { return SignIn(username: saved.username, password: saved.password, source: .saved) }
+        if let saved {
+            return SignIn(username: saved.username, password: saved.password, source: .saved)
+        }
         if let supplied {
-            return SignIn(username: supplied.username, password: supplied.password, source: .supplied)
+            return SignIn(
+                username: supplied.username, password: supplied.password, source: .supplied)
         }
         return SignIn()
     }
@@ -322,9 +352,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     private func pollTransport() {
         transportPoll?.cancel()
         let item = DispatchWorkItem { [weak self] in
-            guard let self, let engine, !state.withLock({ $0.isConnected || $0.stopping }) else { return }
+            guard let self, let engine, !state.withLock({ $0.isConnected || $0.stopping }) else {
+                return
+            }
             let stats = engine.transportCounters
-            log.notice("transport: in=\(stats.bytesIn, privacy: .public) out=\(stats.bytesOut, privacy: .public) lastPacket=\(engine.millisecondsSinceLastPacket.map(String.init) ?? "never", privacy: .public)ms")
+            log.notice(
+                "transport: in=\(stats.bytesIn, privacy: .public) out=\(stats.bytesOut, privacy: .public) lastPacket=\(engine.millisecondsSinceLastPacket.map(String.init) ?? "never", privacy: .public)ms"
+            )
             pollTransport()
         }
         transportPoll = item
@@ -347,14 +381,20 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             return (before, s.connection)
         }
         if before.state != after.state {
-            log.notice("state \(before.state.rawValue, privacy: .public) → \(after.state.rawValue, privacy: .public)")
-        } else if before.attempt?.phase?.id != after.attempt?.phase?.id, let phase = after.attempt?.phase {
+            log.notice(
+                "state \(before.state.rawValue, privacy: .public) → \(after.state.rawValue, privacy: .public)"
+            )
+        } else if before.attempt?.phase?.id != after.attempt?.phase?.id,
+            let phase = after.attempt?.phase
+        {
             log.notice("phase \(phase.id, privacy: .public)")
         } else if before == after {
             // The table does not describe this combination. Worth a line: the
             // model deliberately does not invent a transition, so the only
             // record that it happened is here.
-            log.notice("no transition for \(String(describing: event), privacy: .public) in \(before.state.rawValue, privacy: .public)")
+            log.notice(
+                "no transition for \(String(describing: event), privacy: .public) in \(before.state.rawValue, privacy: .public)"
+            )
             return after
         }
         report()
@@ -363,7 +403,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
 
     /// The current report, and the doorbell.
     private func report() {
-        let report = state.withLock { TunnelReport(connection: $0.connection, foreignTunnel: self.foreignTunnel) }
+        let report = state.withLock {
+            TunnelReport(connection: $0.connection, foreignTunnel: self.foreignTunnel)
+        }
         lastReport = report
         notify_post(TunnelReportChannel.notification)
     }
@@ -371,8 +413,12 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     /// Answers the app's question. The only thing this returns is the report:
     /// no secret crosses, and nothing the caller says changes what we do.
     override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)?) {
-        let report = state.withLock { TunnelReport(connection: $0.connection, foreignTunnel: self.foreignTunnel) }
-        log.notice("answering with \(report.state.rawValue, privacy: .public) (pid \(getpid(), privacy: .public))")
+        let report = state.withLock {
+            TunnelReport(connection: $0.connection, foreignTunnel: self.foreignTunnel)
+        }
+        log.notice(
+            "answering with \(report.state.rawValue, privacy: .public) (pid \(getpid(), privacy: .public))"
+        )
         completionHandler?(try? JSONEncoder().encode(report))
     }
 
@@ -387,12 +433,18 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         phaseDeadline?.cancel()
         let seconds = Int(phase.deadline.components.seconds)
         let item = DispatchWorkItem { [weak self] in
-            guard let self, !state.withLock({ $0.isConnected || $0.stopping || $0.restarting }) else { return }
+            guard let self, !state.withLock({ $0.isConnected || $0.stopping || $0.restarting })
+            else { return }
             // Still in the phase we armed for? A later phase has its own.
-            guard state.withLock({ $0.connection.attempt?.phase?.id }) == phase.rawValue else { return }
-            log.error("phase \(phase.rawValue, privacy: .public) exceeded \(seconds, privacy: .public) s; ending the attempt")
-            failAttempt(TunnelFailure.timedOut.error(
-                "The step \(phase.rawValue) did not finish within \(seconds) seconds."))
+            guard state.withLock({ $0.connection.attempt?.phase?.id }) == phase.rawValue else {
+                return
+            }
+            log.error(
+                "phase \(phase.rawValue, privacy: .public) exceeded \(seconds, privacy: .public) s; ending the attempt"
+            )
+            failAttempt(
+                TunnelFailure.timedOut.error(
+                    "The step \(phase.rawValue) did not finish within \(seconds) seconds."))
         }
         phaseDeadline = item
         DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(seconds), execute: item)
@@ -406,8 +458,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             log.error("no connection after \(seconds, privacy: .public) s; ending the attempt")
             // A reason the app can turn into words, now that there is a code
             // for it. M5.2 makes this five phase deadlines instead of one.
-            failAttempt(TunnelFailure.timedOut.error(
-                "The connection did not complete within \(seconds) seconds."))
+            failAttempt(
+                TunnelFailure.timedOut.error(
+                    "The connection did not complete within \(seconds) seconds."))
         }
         deadline = item
         DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(seconds), execute: item)
@@ -417,14 +470,52 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     /// otherwise cancels the tunnel so every surface shows Disconnected.
     private func failAttempt(_ failure: any Error) {
         // The model learns the reason before any surface does, because the
-        // model is what the surfaces read.
-        apply(.failed(TunnelFailure(failure) ?? .unknown))
+        // model is what the surfaces read — and **it also decides what
+        // happens next**: from a recovery attempt with tries left it returns
+        // to Reconnecting rather than Failed (D86).
+        let after = apply(.failed(TunnelFailure(failure) ?? .unknown))
+
+        if case .reconnecting(let attempt) = after {
+            // Still recovering. Ending the tunnel here would contradict the
+            // state both surfaces are showing — and would take the user's
+            // network away in order to tell them we are still trying.
+            scheduleRecovery(attempt)
+            return
+        }
+
         let pending = state.withLock { $0.startCompletion != nil }
         if pending {
             finishStart(with: failure)
         }
         engine?.stop()
         cancelTunnelWithError(failure)
+    }
+
+    /// The next recovery attempt, after its backoff.
+    ///
+    /// **Counted, bounded, and visible** (D86): the count is in the model, the
+    /// bound is `Recovery.maxAttempts`, and both surfaces are already showing
+    /// "attempt 2 of 5" because they read the same model. What was missing was
+    /// this — the provider actually waiting and trying again, instead of
+    /// cancelling a tunnel the model said was recovering.
+    ///
+    /// The wait is not politeness. A drop usually means the network went away,
+    /// and the owner's most frequent failure is a server that accepts the
+    /// sign-in and then withholds the configuration — hammering either makes
+    /// it worse.
+    private func scheduleRecovery(_ attempt: Attempt) {
+        let wait = Recovery.backoff(before: attempt.recovery)
+        log.notice(
+            "recovery attempt \(attempt.recovery, privacy: .public) of \(Recovery.maxAttempts, privacy: .public) in \(Int(wait.components.seconds), privacy: .public) s"
+        )
+        deadline?.cancel()
+        phaseDeadline?.cancel()
+        transportPoll?.cancel()
+        engine?.stop()
+        DispatchQueue.global().asyncAfter(deadline: .now() + wait.timeInterval) { [weak self] in
+            guard let self, !state.withLock({ $0.stopping }) else { return }
+            restartFresh(reason: "recovery attempt \(attempt.recovery)")
+        }
     }
 
     /// Replaces the engine with a fresh session, keeping the tunnel. B3'
@@ -445,7 +536,10 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         if wasConnected {
             reasserting = true
             // Recovery, counted from here (D86) — not a fresh attempt, which
-            // is what makes the bound mean anything.
+            // is what makes the bound mean anything. Already-recovering is
+            // left alone: the count belongs to the failure that started the
+            // attempt, and incrementing it for every fresh engine would
+            // exhaust the bound without anything having failed.
             apply(.dropped)
         }
         let old = engine
@@ -462,9 +556,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             let cleared = DispatchSemaphore(value: 0)
             setTunnelNetworkSettings(nil) { [log] error in
                 if let error {
-                    log.error("could not clear the tunnel settings: \(error.localizedDescription, privacy: .public)")
+                    log.error(
+                        "could not clear the tunnel settings: \(error.localizedDescription, privacy: .public)"
+                    )
                 } else {
-                    log.notice("tunnel settings cleared; the physical network is primary while we reconnect")
+                    log.notice(
+                        "tunnel settings cleared; the physical network is primary while we reconnect"
+                    )
                 }
                 cleared.signal()
             }
@@ -482,9 +580,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             let ms = Int(Date().timeIntervalSince(waited) * 1000)
             switch owner {
             case .tunnel(let name):
-                log.error("\(name, privacy: .public) still owns the default route after \(ms, privacy: .public) ms; reconnecting anyway")
+                log.error(
+                    "\(name, privacy: .public) still owns the default route after \(ms, privacy: .public) ms; reconnecting anyway"
+                )
             case .physical(let name):
-                log.notice("the default route is back on \(name, privacy: .public) after \(ms, privacy: .public) ms")
+                log.notice(
+                    "the default route is back on \(name, privacy: .public) after \(ms, privacy: .public) ms"
+                )
             case .none:
                 log.notice("no default route after \(ms, privacy: .public) ms; reconnecting anyway")
             }
@@ -520,12 +622,16 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         pathMonitor.pathUpdateHandler = { [weak self] path in
             guard let self else { return }
             let now = Self.describe(path)
-            let (connected, since) = state.withLock { ($0.isConnected, $0.connection.session?.since) }
+            let (connected, since) = state.withLock {
+                ($0.isConnected, $0.connection.session?.since)
+            }
             let settleSeconds = since.map { Date().timeIntervalSince($0) } ?? 0
             let previous = lastPathDescription
             lastPathDescription = now
             guard now != previous else { return }
-            log.notice("network path: \(now, privacy: .public) (was \(previous.isEmpty ? "unknown" : previous, privacy: .public)); connected=\(connected, privacy: .public) since=\(Int(settleSeconds), privacy: .public)s")
+            log.notice(
+                "network path: \(now, privacy: .public) (was \(previous.isEmpty ? "unknown" : previous, privacy: .public)); connected=\(connected, privacy: .public) since=\(Int(settleSeconds), privacy: .public)s"
+            )
             guard connected, settleSeconds > 5, !previous.isEmpty else { return }
             if path.status == .satisfied {
                 // C measured that the engine's own reconnect on this path is
@@ -562,8 +668,10 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         }
         // Our own utun appears once the tunnel is up; the physical interfaces
         // are what a change is measured against.
-        let interfaces = path.availableInterfaces.map(\.name).filter { !$0.hasPrefix("utun") }.sorted()
-        return "\(status) via \(interfaces.joined(separator: ","))\(path.isExpensive ? " expensive" : "")"
+        let interfaces = path.availableInterfaces.map(\.name).filter { !$0.hasPrefix("utun") }
+            .sorted()
+        return
+            "\(status) via \(interfaces.joined(separator: ","))\(path.isExpensive ? " expensive" : "")"
     }
 
     override func stopTunnel(
@@ -590,7 +698,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     // MARK: - Engine callbacks (connect thread)
 
     private func handle(_ event: Engine.Event) {
-        log.notice("event \(event.name, privacy: .public) \(event.info, privacy: .public)\(event.isFatal ? " (fatal)" : "", privacy: .public)")
+        log.notice(
+            "event \(event.name, privacy: .public) \(event.info, privacy: .public)\(event.isFatal ? " (fatal)" : "", privacy: .public)"
+        )
 
         // A phase boundary moves the model and re-arms the clock. Events that
         // are not boundaries leave the phase alone: a phase we cannot place is
@@ -603,7 +713,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         switch event.name {
         case "CONNECTED":
             if let info = engine?.connectionInfo {
-                log.notice("connected to \(info.serverHost, privacy: .public):\(info.serverPort, privacy: .public) via \(info.serverProto, privacy: .public), tunnel address \(info.vpnIPv4, privacy: .public) on \(info.tunName, privacy: .public)")
+                log.notice(
+                    "connected to \(info.serverHost, privacy: .public):\(info.serverPort, privacy: .public) via \(info.serverProto, privacy: .public), tunnel address \(info.vpnIPv4, privacy: .public) on \(info.tunName, privacy: .public)"
+                )
             }
             // `reasserting` first, and the report after it: the app checks a
             // report against the session's status and rejects one the system
@@ -644,7 +756,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             // What the user has to do differs, so the two are not one failure:
             // a refused password means the details are wrong, while a refused
             // token with nothing behind it means nobody here can sign in.
-            let failure: TunnelFailure = current.isToken ? .credentialsUnavailable : .authenticationFailed
+            let failure: TunnelFailure =
+                current.isToken ? .credentialsUnavailable : .authenticationFailed
             failAttempt(failure.error("\(event.name): \(event.info)"))
         default:
             if event.isFatal {
@@ -666,7 +779,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         token = fresh
         guard let identifier else { return }
         guard saved != nil else {
-            log.notice("the server issued a session token; not stored, because this profile's sign-in details are not saved")
+            log.notice(
+                "the server issued a session token; not stored, because this profile's sign-in details are not saved"
+            )
             return
         }
         guard rotated, let encoded = fresh.encoded else { return }
@@ -674,7 +789,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             try secrets.set(encoded, for: SecretKind.sessionToken.account(for: identifier))
             log.notice("stored the session token for \(identifier.uuidString, privacy: .public)")
         } catch {
-            log.error("could not store the session token: \(error.localizedDescription, privacy: .public)")
+            log.error(
+                "could not store the session token: \(error.localizedDescription, privacy: .public)"
+            )
         }
     }
 
@@ -692,7 +809,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             do {
                 try secrets.remove(for: SecretKind.sessionToken.account(for: identifier))
             } catch {
-                log.error("could not remove the refused session token: \(error.localizedDescription, privacy: .public)")
+                log.error(
+                    "could not remove the refused session token: \(error.localizedDescription, privacy: .public)"
+                )
             }
         }
         guard !chooseSignIn().isEmpty else {
@@ -705,7 +824,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     }
 
     private func runEnded(_ result: Result<Void, Engine.Failure>) {
-        let (wasConnected, stopping, restarting) = state.withLock { ($0.isConnected, $0.stopping, $0.restarting) }
+        let (wasConnected, stopping, restarting) = state.withLock {
+            ($0.isConnected, $0.stopping, $0.restarting)
+        }
         switch result {
         case .success:
             log.notice("engine finished")
@@ -747,35 +868,47 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     /// Turns the engine's request into NetworkExtension settings, applies them,
     /// and hands back the utun descriptor the engine will drive (D209).
     private func establish(_ s: Engine.Settings) -> Int32? {
-        log.notice("establish: remote=\(s.remoteAddress, privacy: .public) mtu=\(s.mtu, privacy: .public) addresses=\(s.addresses.count, privacy: .public) routes=\(s.includedRoutes.count, privacy: .public) excluded=\(s.excludedRoutes.count, privacy: .public) reroute4=\(s.rerouteIPv4, privacy: .public) reroute6=\(s.rerouteIPv6, privacy: .public) dns=\(s.dnsServers.count, privacy: .public) domains=\(s.searchDomains.count, privacy: .public)")
+        log.notice(
+            "establish: remote=\(s.remoteAddress, privacy: .public) mtu=\(s.mtu, privacy: .public) addresses=\(s.addresses.count, privacy: .public) routes=\(s.includedRoutes.count, privacy: .public) excluded=\(s.excludedRoutes.count, privacy: .public) reroute4=\(s.rerouteIPv4, privacy: .public) reroute6=\(s.rerouteIPv6, privacy: .public) dns=\(s.dnsServers.count, privacy: .public) domains=\(s.searchDomains.count, privacy: .public)"
+        )
 
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: s.remoteAddress)
         if s.mtu > 0 { settings.mtu = NSNumber(value: s.mtu) }
 
         let v4 = s.addresses.filter { !$0.isIPv6 }
         if !v4.isEmpty {
-            let ipv4 = NEIPv4Settings(addresses: v4.map(\.address), subnetMasks: v4.map { Self.mask(prefix: $0.prefixLength) })
+            let ipv4 = NEIPv4Settings(
+                addresses: v4.map(\.address),
+                subnetMasks: v4.map { Self.mask(prefix: $0.prefixLength) })
             var included = s.includedRoutes.filter { !$0.isIPv6 }.map {
-                NEIPv4Route(destinationAddress: $0.address, subnetMask: Self.mask(prefix: $0.prefixLength))
+                NEIPv4Route(
+                    destinationAddress: $0.address, subnetMask: Self.mask(prefix: $0.prefixLength))
             }
             if s.rerouteIPv4 { included.insert(NEIPv4Route.default(), at: 0) }
             ipv4.includedRoutes = included
             ipv4.excludedRoutes = s.excludedRoutes.filter { !$0.isIPv6 }.map {
-                NEIPv4Route(destinationAddress: $0.address, subnetMask: Self.mask(prefix: $0.prefixLength))
+                NEIPv4Route(
+                    destinationAddress: $0.address, subnetMask: Self.mask(prefix: $0.prefixLength))
             }
             settings.ipv4Settings = ipv4  // D207: assigned after it is complete
         }
 
         let v6 = s.addresses.filter(\.isIPv6)
         if !v6.isEmpty {
-            let ipv6 = NEIPv6Settings(addresses: v6.map(\.address), networkPrefixLengths: v6.map { NSNumber(value: $0.prefixLength) })
+            let ipv6 = NEIPv6Settings(
+                addresses: v6.map(\.address),
+                networkPrefixLengths: v6.map { NSNumber(value: $0.prefixLength) })
             var included = s.includedRoutes.filter(\.isIPv6).map {
-                NEIPv6Route(destinationAddress: $0.address, networkPrefixLength: NSNumber(value: $0.prefixLength))
+                NEIPv6Route(
+                    destinationAddress: $0.address,
+                    networkPrefixLength: NSNumber(value: $0.prefixLength))
             }
             if s.rerouteIPv6 { included.insert(NEIPv6Route.default(), at: 0) }
             ipv6.includedRoutes = included
             ipv6.excludedRoutes = s.excludedRoutes.filter(\.isIPv6).map {
-                NEIPv6Route(destinationAddress: $0.address, networkPrefixLength: NSNumber(value: $0.prefixLength))
+                NEIPv6Route(
+                    destinationAddress: $0.address,
+                    networkPrefixLength: NSNumber(value: $0.prefixLength))
             }
             settings.ipv6Settings = ipv6
         }
@@ -797,27 +930,37 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         }
         applied.wait()
         if let failure {
-            log.error("setTunnelNetworkSettings failed: \(failure.localizedDescription, privacy: .public)")
+            log.error(
+                "setTunnelNetworkSettings failed: \(failure.localizedDescription, privacy: .public)"
+            )
             return nil
         }
         // The process outlives sessions, so more than one utun descriptor may
         // be open; the tunnel is the one carrying the address just applied.
         let candidates = UTunDescriptor.all()
-        log.notice("utun descriptors in this process: \(candidates.map(\.description).joined(separator: " "), privacy: .public)")
-        guard let address = v4.first?.address, let utun = UTunDescriptor.find(carrying: address) else {
-            log.error("settings applied but no utun descriptor carries \(v4.first?.address ?? "no address", privacy: .public)")
+        log.notice(
+            "utun descriptors in this process: \(candidates.map(\.description).joined(separator: " "), privacy: .public)"
+        )
+        guard let address = v4.first?.address, let utun = UTunDescriptor.find(carrying: address)
+        else {
+            log.error(
+                "settings applied but no utun descriptor carries \(v4.first?.address ?? "no address", privacy: .public)"
+            )
             return nil
         }
         // The engine owns what it is given and closes it on teardown. It gets
         // a duplicate, so NE's own descriptor — the tunnel — survives a
         // teardown and a re-establish (D209).
         let owned = dup(utun.fd)
-        log.notice("settings applied; tunnel \(utun.name, privacy: .public) fd=\(utun.fd, privacy: .public), engine gets fd=\(owned, privacy: .public)")
+        log.notice(
+            "settings applied; tunnel \(utun.name, privacy: .public) fd=\(utun.fd, privacy: .public), engine gets fd=\(owned, privacy: .public)"
+        )
         return owned < 0 ? nil : owned
     }
 
     private static func mask(prefix: Int) -> String {
-        let bits: UInt32 = prefix >= 32 ? 0xffff_ffff : prefix <= 0 ? 0 : ~UInt32(0) << UInt32(32 - prefix)
+        let bits: UInt32 =
+            prefix >= 32 ? 0xffff_ffff : prefix <= 0 ? 0 : ~UInt32(0) << UInt32(32 - prefix)
         return "\(bits >> 24).\((bits >> 16) & 0xff).\((bits >> 8) & 0xff).\(bits & 0xff)"
     }
 

@@ -78,35 +78,41 @@ final class StatusItemController: NSObject {
         tunnel.observe { [weak self] connection, _ in self?.render(connection) }
 
         #if DEBUG
-        // Development only, and only when asked:
-        //
-        //   VPNPLUS_DUMP_STATUS_ICON=1 open -a "VPN Plus"
-        //
-        // The status item cannot be screenshotted on its own — the menu bar is
-        // a single window and everybody else's items are in it, and nothing
-        // but ours belongs in an image. So the button draws itself instead,
-        // which is exact and private. It is how the reconnecting icon was
-        // caught wearing Connected's shape.
-        guard ProcessInfo.processInfo.environment["VPNPLUS_DUMP_STATUS_ICON"] != nil else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-            guard let button = self?.item.button, let window = button.window else {
-                Logger(subsystem: "com.bossagroove.VPNPlus", category: "statusItem")
-                    .error("the status item has no button or no window")
+            // Development only, and only when asked:
+            //
+            //   VPNPLUS_DUMP_STATUS_ICON=1 open -a "VPN Plus"
+            //
+            // The status item cannot be screenshotted on its own — the menu bar is
+            // a single window and everybody else's items are in it, and nothing
+            // but ours belongs in an image. So the button draws itself instead,
+            // which is exact and private. It is how the reconnecting icon was
+            // caught wearing Connected's shape.
+            guard ProcessInfo.processInfo.environment["VPNPLUS_DUMP_STATUS_ICON"] != nil else {
                 return
             }
-            let log = Logger(subsystem: "com.bossagroove.VPNPlus", category: "statusItem")
-            _ = window
-            // The button draws itself into an image. No screen capture, no
-            // coordinate conversion across two displays, and nothing but our
-            // own item can possibly be in the result.
-            guard let rep = button.bitmapImageRepForCachingDisplay(in: button.bounds) else { return }
-            button.cacheDisplay(in: button.bounds, to: rep)
-            let path = "/tmp/vpnplus-status-icon.png"
-            if let png = rep.representation(using: .png, properties: [:]) {
-                try? png.write(to: URL(fileURLWithPath: path))
-                log.notice("drew the status icon to \(path, privacy: .public) (\(Int(button.bounds.width), privacy: .public)x\(Int(button.bounds.height), privacy: .public), image \(button.image != nil ? "present" : "missing", privacy: .public))")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                guard let button = self?.item.button, let window = button.window else {
+                    Logger(subsystem: "com.bossagroove.VPNPlus", category: "statusItem")
+                        .error("the status item has no button or no window")
+                    return
+                }
+                let log = Logger(subsystem: "com.bossagroove.VPNPlus", category: "statusItem")
+                _ = window
+                // The button draws itself into an image. No screen capture, no
+                // coordinate conversion across two displays, and nothing but our
+                // own item can possibly be in the result.
+                guard let rep = button.bitmapImageRepForCachingDisplay(in: button.bounds) else {
+                    return
+                }
+                button.cacheDisplay(in: button.bounds, to: rep)
+                let path = "/tmp/vpnplus-status-icon.png"
+                if let png = rep.representation(using: .png, properties: [:]) {
+                    try? png.write(to: URL(fileURLWithPath: path))
+                    log.notice(
+                        "drew the status icon to \(path, privacy: .public) (\(Int(button.bounds.width), privacy: .public)x\(Int(button.bounds.height), privacy: .public), image \(button.image != nil ? "present" : "missing", privacy: .public))"
+                    )
+                }
             }
-        }
         #endif
     }
 

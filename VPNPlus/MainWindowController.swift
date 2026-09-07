@@ -693,21 +693,39 @@ final class MainWindowController: NSWindowController {
             return
         }
 
-        Task {
-            // Stored before connecting, not after: an interrupted connection
-            // must not cost the user their password (D219).
-            await apply(decision, to: profile)
-            do {
-                try await tunnel.prepare(profile: profile.id)
-                try tunnel.connect(
-                    profile: text,
-                    username: decision.sessionUsername,
-                    password: decision.sessionPassword,
-                    server: overrideServer(for: profile, settings: catalogue.settings(of: profile)))
-            } catch {
-                Self.log.error(
-                    "could not start the tunnel: \(error.localizedDescription, privacy: .public)")
+        let start: () -> Void = { [weak self] in
+            guard let self else { return }
+            Task {
+                // Stored before connecting, not after: an interrupted
+                // connection must not cost the user their password (D219).
+                await self.apply(decision, to: profile)
+                do {
+                    // Named after the profile, so the System Settings entry
+                    // says which one it will connect (A13).
+                    try await self.tunnel.prepare(
+                        profile: profile.id, name: self.title(of: profile))
+                    try self.tunnel.connect(
+                        profile: text,
+                        username: decision.sessionUsername,
+                        password: decision.sessionPassword,
+                        server: self.overrideServer(
+                            for: profile, settings: self.catalogue.settings(of: profile)))
+                } catch {
+                    Self.log.error(
+                        "could not start the tunnel: \(error.localizedDescription, privacy: .public)"
+                    )
+                }
             }
+        }
+
+        // **Switching is one click** (D70). Something else is up, or coming
+        // up, for a different profile: the app performs the disconnect *and*
+        // the connect, and the user is never told to disconnect first.
+        let current = tunnel.connection
+        if current.state != .disconnected, current.profile != profile.id {
+            tunnel.replaceSession(with: profile.id, then: start)
+        } else {
+            start()
         }
     }
 

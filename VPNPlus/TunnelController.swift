@@ -99,14 +99,24 @@ final class TunnelController {
 
     /// Loads the existing configuration or creates one. Saving is what raises
     /// the "would like to add VPN configurations" prompt — C4 counts it.
-    func prepare(profile: UUID? = nil) async throws {
+    /// `name` becomes the configuration's name in **System Settings**.
+    ///
+    /// C6 leaves us one OS-level VPN configuration, so macOS shows a single
+    /// entry — and a single entry called "VPN Plus" gives no indication of
+    /// *which* profile it will connect. A user toggling it from System
+    /// Settings expecting Singapore may get Hong Kong, and nothing anywhere
+    /// told them otherwise.
+    ///
+    /// So we name it after the active profile and rewrite it on every switch,
+    /// which we are doing anyway — rewriting that configuration is *how*
+    /// switching works. Free, honest, and it turns C6's constraint from a trap
+    /// into a label (A13). Neither incumbent does this.
+    func prepare(profile: UUID? = nil, name: String? = nil) async throws {
         let existing = try await NETunnelProviderManager.loadAllFromPreferences()
         let manager = existing.first ?? NETunnelProviderManager()
 
         let proto = NETunnelProviderProtocol()
         proto.providerBundleIdentifier = "com.bossagroove.VPNPlus.tunnel"
-        // Shown by System Settings; the first `remote` of the profile once one
-        // is stored (M3). Until then, the app's name.
         proto.serverAddress = "VPN Plus"
         // Handles and switches only, never secrets (D191). Nothing yet.
         // Handles, never secrets (D191): this dictionary lives in the system's
@@ -114,7 +124,8 @@ final class TunnelController {
         proto.providerConfiguration = profile.map { ["profile": $0.uuidString as NSString] } ?? [:]
 
         manager.protocolConfiguration = proto
-        manager.localizedDescription = "VPN Plus"
+        manager.localizedDescription =
+            name.map { String(localized: "VPN Plus — \($0)") } ?? "VPN Plus"
         manager.isEnabled = true
 
         try await manager.saveToPreferences()
@@ -151,6 +162,56 @@ final class TunnelController {
         if !server.port.isEmpty { options["serverPort"] = server.port as NSString }
         if !server.transport.isEmpty { options["serverTransport"] = server.transport as NSString }
         try session.startVPNTunnel(options: options)
+    }
+
+    /// Brings the current session down and starts the next one — **as one
+    /// operation** (D70).
+    ///
+    /// The user clicks Connect on another profile, once. That is the whole
+    /// interaction: they are never asked to disconnect first, and the profile
+    /// list is never disabled. OpenVPN Connect makes the user do both steps,
+    /// which is the failure this exists to remove.
+    ///
+    /// `destination` is held so both surfaces can narrate **one** identity
+    /// throughout: the promoted region shows what the user asked for from the
+    /// moment they ask (A13), not the profile that happens to be coming down.
+    func replaceSession(with destination: Profile.ID, then start: @escaping () -> Void) {
+        pendingSwitch = destination
+        Self.log.notice(
+            "switching to \(destination.uuidString, privacy: .public); tearing the current session down first"
+        )
+        connection = decorate(connection)
+        disconnect()
+
+        // The second half begins when the first finishes, and only then — so
+        // no surface ever has a Disconnected state to render in between.
+        observe { [weak self] connection, _ in
+            guard let self, pendingSwitch == destination, connection.state == .disconnected else {
+                return
+            }
+            pendingSwitch = nil
+            Self.log.notice("teardown finished; connecting the profile the user asked for")
+            start()
+        }
+    }
+
+    /// The profile the user asked for while another was still coming down.
+    private(set) var pendingSwitch: Profile.ID?
+
+    /// Adds the switch's intent to a state that cannot carry it on its own.
+    ///
+    /// The provider reports a teardown; only the app knows it is the first
+    /// half of something. Held here rather than in the provider because the
+    /// user told *the app*, and a report that has to be enriched is better
+    /// than a provider that has to be told our plans.
+    private func decorate(_ connection: Connection) -> Connection {
+        guard let pendingSwitch, case .disconnecting(let teardown) = connection else {
+            return connection
+        }
+        return .disconnecting(
+            Teardown(
+                profile: teardown.profile, startedAt: teardown.startedAt,
+                switchingTo: pendingSwitch))
     }
 
     func disconnect() {
@@ -235,8 +296,9 @@ final class TunnelController {
         // The system says *whether*; the provider says *what*. Both, in that
         // order, and never what we last asked for (D75).
         if let observed = Self.tunnelState(for: status) {
-            connection = ConnectionMachine.next(
-                connection, on: .observed(observed, profile: configuredProfile))
+            connection = decorate(
+                ConnectionMachine.next(
+                    connection, on: .observed(observed, profile: configuredProfile)))
         }
         fetchReport()
         schedulePoll()
@@ -351,7 +413,7 @@ final class TunnelController {
         }
 
         let before = connection.state
-        connection = report.connection
+        connection = decorate(report.connection)
         if before != connection.state {
             Self.log.notice(
                 "model \(before.rawValue, privacy: .public) → \(self.connection.state.rawValue, privacy: .public) (from the provider)"
