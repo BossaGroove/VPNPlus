@@ -15,6 +15,7 @@
 // with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import Foundation
+import Network
 import NetworkExtension
 import os
 
@@ -34,6 +35,11 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
 
     private var engine: Engine?
     private var runThread: Thread?
+    // NEProvider.defaultPath is not offered to macOS system extensions, so the
+    // Network framework's monitor watches the physical path instead.
+    private let pathMonitor = NWPathMonitor()
+    private var lastPathDescription = ""
+    private var connectedAt: Date?
     private let finished = DispatchSemaphore(value: 0)
     private let state = OSAllocatedUnfairLock(initialState: State())
 
@@ -102,21 +108,66 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         thread.qualityOfService = .userInitiated
         runThread = thread
         thread.start()
+
+        observeDefaultPath()
     }
 
-    override func stopTunnel(
-        with reason: NEProviderStopReason,
-        completionHandler: @escaping () -> Void
-    ) {
-        log.notice("provider stop reason=\(reason.rawValue, privacy: .public)")
-        state.withLock { $0.stopping = true }
-        guard let engine else { completionHandler(); return }
-        engine.stop()
-        // The connect thread returns once the engine has wound down; give it a
-        // bounded moment so a stuck engine cannot hold the stop forever.
-        _ = finished.wait(timeout: .now() + 5)
-        self.engine = nil
+    // MARK: - Sleep, wake, and the network changing under us (J11)
+
+    /// D206: macOS tells the provider nothing about the transport after wake;
+    /// the socket may be dead for minutes before a keepalive notices. So the
+    /// engine is paused on sleep and resumed on wake, which rebuilds the
+    /// transport deterministically while the tunnel itself persists.
+    override func sleep(completionHandler: @escaping () -> Void) {
+        let connected = state.withLock { $0.connected }
+        log.notice("sleep; connected=\(connected, privacy: .public)")
+        if connected { engine?.pause(reason: "sleep") }
         completionHandler()
+    }
+
+    override func wake() {
+        let connected = state.withLock { $0.connected }
+        log.notice("wake; connected=\(connected, privacy: .public)")
+        if connected { engine?.resume() }
+    }
+
+    /// The default path changing while connected (Wi-Fi off, cable in) means
+    /// the transport is probably dead. Reconnect the transport; the tunnel
+    /// persists. Path changes caused by our own tunnel coming up are ignored
+    /// for a few seconds after CONNECTED.
+    private func observeDefaultPath() {
+        pathMonitor.pathUpdateHandler = { [weak self] path in
+            guard let self else { return }
+            let now = Self.describe(path)
+            let (connected, since) = state.withLock { ($0.connected, connectedAt) }
+            let settleSeconds = since.map { Date().timeIntervalSince($0) } ?? 0
+            let previous = lastPathDescription
+            lastPathDescription = now
+            guard now != previous else { return }
+            log.notice("network path: \(now, privacy: .public) (was \(previous.isEmpty ? "unknown" : previous, privacy: .public)); connected=\(connected, privacy: .public) since=\(Int(settleSeconds), privacy: .public)s")
+            guard connected, settleSeconds > 5, !previous.isEmpty else { return }
+            if path.status == .satisfied {
+                log.notice("network changed while connected: reconnecting the transport")
+                engine?.reconnect(after: 0)
+            } else {
+                log.notice("no network path; the engine keeps trying and reconnects when one returns")
+            }
+        }
+        pathMonitor.start(queue: DispatchQueue(label: "com.bossagroove.VPNPlus.path"))
+    }
+
+    private static func describe(_ path: NWPath) -> String {
+        let status: String
+        switch path.status {
+        case .satisfied: status = "satisfied"
+        case .unsatisfied: status = "unsatisfied"
+        case .requiresConnection: status = "requiresConnection"
+        @unknown default: status = "unknown"
+        }
+        // Our own utun appears once the tunnel is up; the physical interfaces
+        // are what a change is measured against.
+        let interfaces = path.availableInterfaces.map(\.name).filter { !$0.hasPrefix("utun") }.sorted()
+        return "\(status) via \(interfaces.joined(separator: ","))\(path.isExpensive ? " expensive" : "")"
     }
 
     // MARK: - Engine callbacks (connect thread)
@@ -129,7 +180,12 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
                 log.notice("connected to \(info.serverHost, privacy: .public):\(info.serverPort, privacy: .public) via \(info.serverProto, privacy: .public), tunnel address \(info.vpnIPv4, privacy: .public) on \(info.tunName, privacy: .public)")
             }
             state.withLock { $0.connected = true }
+            connectedAt = Date()
+            reasserting = false
             finishStart(with: nil)
+        case "RECONNECTING", "PAUSE":
+            // NE shows this as Reconnecting; the tunnel persists meanwhile.
+            if state.withLock({ $0.connected }) { reasserting = true }
         default:
             if event.isFatal {
                 finishStart(with: Failure("\(event.name): \(event.info)"))
@@ -224,8 +280,12 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             log.error("settings applied but no utun descriptor was found")
             return nil
         }
-        log.notice("settings applied; tunnel descriptor fd=\(utun.fd, privacy: .public) \(utun.name, privacy: .public)")
-        return utun.fd
+        // The engine owns what it is given and closes it on teardown. It gets
+        // a duplicate, so NE's own descriptor — the tunnel — survives a
+        // teardown and a re-establish (D209).
+        let owned = dup(utun.fd)
+        log.notice("settings applied; tunnel descriptor \(utun.name, privacy: .public) fd=\(utun.fd, privacy: .public), engine gets fd=\(owned, privacy: .public)")
+        return owned < 0 ? nil : owned
     }
 
     private static func mask(prefix: Int) -> String {

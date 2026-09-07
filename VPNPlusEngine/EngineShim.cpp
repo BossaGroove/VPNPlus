@@ -80,7 +80,10 @@ class Client final : public ClientAPI::OpenVPNClient
         config.guiVersion = client_version_;
         config.info = true;   // INFO events carry server messages the user should see
         config.dco = false;   // no data-channel offload on macOS
-        config.tunPersist = false;  // M2.5 decides
+        // Keep the tunnel across transport reconnects (sleep/wake, a network
+        // change): the routes stay, only the socket is rebuilt. If the server
+        // pushes different options the engine re-establishes anyway.
+        config.tunPersist = true;
         config.googleDnsFallback = false;
         config.allowLocalLanAccess = false;
 
@@ -343,7 +346,7 @@ class Client final : public ClientAPI::OpenVPNClient
         return callbacks_.establish(callbacks_.context, &settings);
     }
 
-    bool tun_builder_persist() override { return false; }
+    bool tun_builder_persist() override { return true; }
 
     void tun_builder_teardown(bool disconnect) override
     {
