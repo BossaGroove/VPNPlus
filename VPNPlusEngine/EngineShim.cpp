@@ -215,68 +215,76 @@ class Client final : public ClientAPI::OpenVPNClient
 
     // ── TunBuilderBase: record everything, deliver it once at establish ──
 
-    bool tun_builder_new() override { return capture_.tun_builder_new(); }
-    bool tun_builder_set_layer(int layer) override { return capture_.tun_builder_set_layer(layer); }
+    // TunBuilderCapture implements every setter but not this one, and the
+    // base returns false — which failed the first real connection at
+    // TUN_SETUP after the server had already pushed its config. A new tunnel
+    // starts from an empty capture.
+    bool tun_builder_new() override
+    {
+        capture_.reset(new TunBuilderCapture());
+        return true;
+    }
+    bool tun_builder_set_layer(int layer) override { return capture_->tun_builder_set_layer(layer); }
     bool tun_builder_set_remote_address(const std::string &address, bool ipv6) override
     {
-        return capture_.tun_builder_set_remote_address(address, ipv6);
+        return capture_->tun_builder_set_remote_address(address, ipv6);
     }
     bool tun_builder_add_address(const std::string &address, int prefix_length, const std::string &gateway, bool ipv6, bool net30) override
     {
-        return capture_.tun_builder_add_address(address, prefix_length, gateway, ipv6, net30);
+        return capture_->tun_builder_add_address(address, prefix_length, gateway, ipv6, net30);
     }
     bool tun_builder_set_route_metric_default(int metric) override
     {
-        return capture_.tun_builder_set_route_metric_default(metric);
+        return capture_->tun_builder_set_route_metric_default(metric);
     }
     bool tun_builder_reroute_gw(bool ipv4, bool ipv6, unsigned int flags) override
     {
-        return capture_.tun_builder_reroute_gw(ipv4, ipv6, flags);
+        return capture_->tun_builder_reroute_gw(ipv4, ipv6, flags);
     }
     bool tun_builder_add_route(const std::string &address, int prefix_length, int metric, bool ipv6) override
     {
-        return capture_.tun_builder_add_route(address, prefix_length, metric, ipv6);
+        return capture_->tun_builder_add_route(address, prefix_length, metric, ipv6);
     }
     bool tun_builder_exclude_route(const std::string &address, int prefix_length, int metric, bool ipv6) override
     {
-        return capture_.tun_builder_exclude_route(address, prefix_length, metric, ipv6);
+        return capture_->tun_builder_exclude_route(address, prefix_length, metric, ipv6);
     }
     bool tun_builder_set_dns_options(const DnsOptions &dns) override
     {
-        return capture_.tun_builder_set_dns_options(dns);
+        return capture_->tun_builder_set_dns_options(dns);
     }
-    bool tun_builder_set_mtu(int mtu) override { return capture_.tun_builder_set_mtu(mtu); }
+    bool tun_builder_set_mtu(int mtu) override { return capture_->tun_builder_set_mtu(mtu); }
     bool tun_builder_set_session_name(const std::string &name) override
     {
-        return capture_.tun_builder_set_session_name(name);
+        return capture_->tun_builder_set_session_name(name);
     }
     bool tun_builder_add_proxy_bypass(const std::string &host) override
     {
-        return capture_.tun_builder_add_proxy_bypass(host);
+        return capture_->tun_builder_add_proxy_bypass(host);
     }
     bool tun_builder_set_proxy_auto_config_url(const std::string &url) override
     {
-        return capture_.tun_builder_set_proxy_auto_config_url(url);
+        return capture_->tun_builder_set_proxy_auto_config_url(url);
     }
     bool tun_builder_set_proxy_http(const std::string &host, int port) override
     {
-        return capture_.tun_builder_set_proxy_http(host, port);
+        return capture_->tun_builder_set_proxy_http(host, port);
     }
     bool tun_builder_set_proxy_https(const std::string &host, int port) override
     {
-        return capture_.tun_builder_set_proxy_https(host, port);
+        return capture_->tun_builder_set_proxy_https(host, port);
     }
     bool tun_builder_add_wins_server(const std::string &address) override
     {
-        return capture_.tun_builder_add_wins_server(address);
+        return capture_->tun_builder_add_wins_server(address);
     }
     bool tun_builder_set_allow_family(int af, bool allow) override
     {
-        return capture_.tun_builder_set_allow_family(af, allow);
+        return capture_->tun_builder_set_allow_family(af, allow);
     }
     bool tun_builder_set_allow_local_dns(bool allow) override
     {
-        return capture_.tun_builder_set_allow_local_dns(allow);
+        return capture_->tun_builder_set_allow_local_dns(allow);
     }
 
     int tun_builder_establish() override
@@ -287,17 +295,17 @@ class Client final : public ClientAPI::OpenVPNClient
         // Flatten the capture into C. The vectors below own the storage the
         // pointers refer to for the duration of the callback.
         std::vector<vpnplus_address> addresses;
-        for (const auto &a : capture_.tunnel_addresses)
+        for (const auto &a : capture_->tunnel_addresses)
             addresses.push_back({a.address.c_str(), a.prefix_length, a.gateway.c_str(), a.ipv6});
 
         std::vector<vpnplus_route> included, excluded;
-        for (const auto &r : capture_.add_routes)
+        for (const auto &r : capture_->add_routes)
             included.push_back({r.address.c_str(), r.prefix_length, r.ipv6});
-        for (const auto &r : capture_.exclude_routes)
+        for (const auto &r : capture_->exclude_routes)
             excluded.push_back({r.address.c_str(), r.prefix_length, r.ipv6});
 
         std::vector<std::string> dns_storage, domain_storage;
-        for (const auto &[priority, server] : capture_.dns_options.servers)
+        for (const auto &[priority, server] : capture_->dns_options.servers)
         {
             (void)priority;
             for (const auto &addr : server.addresses)
@@ -305,7 +313,7 @@ class Client final : public ClientAPI::OpenVPNClient
             for (const auto &d : server.domains)
                 domain_storage.push_back(d.domain);
         }
-        for (const auto &d : capture_.dns_options.search_domains)
+        for (const auto &d : capture_->dns_options.search_domains)
             domain_storage.push_back(d.domain);
         std::vector<const char *> dns, domains;
         for (const auto &s : dns_storage)
@@ -314,19 +322,19 @@ class Client final : public ClientAPI::OpenVPNClient
             domains.push_back(s.c_str());
 
         vpnplus_tun_settings settings{};
-        settings.remote_address = capture_.remote_address.address.c_str();
-        settings.remote_ipv6 = capture_.remote_address.ipv6;
-        settings.session_name = capture_.session_name.c_str();
-        settings.mtu = capture_.mtu;
+        settings.remote_address = capture_->remote_address.address.c_str();
+        settings.remote_ipv6 = capture_->remote_address.ipv6;
+        settings.session_name = capture_->session_name.c_str();
+        settings.mtu = capture_->mtu;
         settings.addresses = addresses.data();
         settings.address_count = addresses.size();
         settings.included_routes = included.data();
         settings.included_route_count = included.size();
         settings.excluded_routes = excluded.data();
         settings.excluded_route_count = excluded.size();
-        settings.reroute_ipv4 = capture_.reroute_gw.ipv4;
-        settings.reroute_ipv6 = capture_.reroute_gw.ipv6;
-        settings.block_ipv6 = capture_.block_ipv6;
+        settings.reroute_ipv4 = capture_->reroute_gw.ipv4;
+        settings.reroute_ipv6 = capture_->reroute_gw.ipv6;
+        settings.block_ipv6 = capture_->block_ipv6;
         settings.dns_servers = dns.data();
         settings.dns_server_count = dns.size();
         settings.search_domains = domains.data();
@@ -346,7 +354,8 @@ class Client final : public ClientAPI::OpenVPNClient
   private:
     vpnplus_engine_callbacks callbacks_;
     std::string client_version_;
-    TunBuilderCapture capture_;
+    // Reference-counted and non-copyable, hence the pointer.
+    TunBuilderCapture::Ptr capture_{new TunBuilderCapture()};
 };
 
 } // namespace
