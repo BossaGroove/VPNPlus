@@ -78,6 +78,26 @@ final class StatusItemController: NSObject {
         tunnel.observe { [weak self] connection, _ in self?.render(connection) }
 
         #if DEBUG
+        // Development only: **the app opens its own status menu on request.**
+        //
+        //   notifyutil -p com.bossagroove.VPNPlus.debug.popStatusMenu
+        //
+        // Because the alternative was asking the owner to open the menu and
+        // leave it open — which is not a thing anybody can do, since clicking
+        // away to say "it's open" closes it. An instruction that cannot be
+        // followed is worse than no instruction.
+        var popToken: Int32 = NOTIFY_TOKEN_INVALID
+        notify_register_dispatch(
+            "com.bossagroove.VPNPlus.debug.popStatusMenu", &popToken, DispatchQueue.main
+        ) { _ in
+            MainActor.assumeIsolated { [weak self] in
+                guard let self, let button = item.button, let menu = item.menu else { return }
+                menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height), in: button)
+            }
+        }
+        #endif
+
+        #if DEBUG
             // Development only, and only when asked:
             //
             //   VPNPLUS_DUMP_STATUS_ICON=1 open -a "VPN Plus"
@@ -87,31 +107,26 @@ final class StatusItemController: NSObject {
             // but ours belongs in an image. So the button draws itself instead,
             // which is exact and private. It is how the reconnecting icon was
             // caught wearing Connected's shape.
+            // And the icon, on request, for the same reason: it is the only
+            // way to see an *animation* without watching somebody's menu bar.
+            //
+            //   notifyutil -p com.bossagroove.VPNPlus.debug.dumpStatusIcon
+            //
+            // Firing it a few times during a connect shows the frames turning
+            // over, which is the only claim about this surface that a still
+            // image cannot settle.
+            var dumpToken: Int32 = NOTIFY_TOKEN_INVALID
+            notify_register_dispatch(
+                "com.bossagroove.VPNPlus.debug.dumpStatusIcon", &dumpToken, DispatchQueue.main
+            ) { _ in
+                MainActor.assumeIsolated { [weak self] in self?.dumpIcon() }
+            }
+
             guard ProcessInfo.processInfo.environment["VPNPLUS_DUMP_STATUS_ICON"] != nil else {
                 return
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-                guard let button = self?.item.button, let window = button.window else {
-                    Logger(subsystem: "com.bossagroove.VPNPlus", category: "statusItem")
-                        .error("the status item has no button or no window")
-                    return
-                }
-                let log = Logger(subsystem: "com.bossagroove.VPNPlus", category: "statusItem")
-                _ = window
-                // The button draws itself into an image. No screen capture, no
-                // coordinate conversion across two displays, and nothing but our
-                // own item can possibly be in the result.
-                guard let rep = button.bitmapImageRepForCachingDisplay(in: button.bounds) else {
-                    return
-                }
-                button.cacheDisplay(in: button.bounds, to: rep)
-                let path = "/tmp/vpnplus-status-icon.png"
-                if let png = rep.representation(using: .png, properties: [:]) {
-                    try? png.write(to: URL(fileURLWithPath: path))
-                    log.notice(
-                        "drew the status icon to \(path, privacy: .public) (\(Int(button.bounds.width), privacy: .public)x\(Int(button.bounds.height), privacy: .public), image \(button.image != nil ? "present" : "missing", privacy: .public))"
-                    )
-                }
+                self?.dumpIcon()
             }
         #endif
     }
@@ -160,6 +175,28 @@ final class StatusItemController: NSObject {
         // accessibility description has to carry the state in words.
         item.button?.setAccessibilityLabel(tooltip(for: connection))
     }
+
+    #if DEBUG
+        /// The button draws itself to a file. No screen capture, and nothing
+        /// but our own item can be in the result — the menu bar is one window
+        /// and everybody else's items are in it.
+        ///
+        /// The result is a **template** image, drawn in the menu bar's tint,
+        /// which is near-white in dark mode: composite it onto a dark ground
+        /// before looking at it, or it reads as an empty picture.
+        private func dumpIcon() {
+            guard let button = item.button,
+                let rep = button.bitmapImageRepForCachingDisplay(in: button.bounds)
+            else { return }
+            button.cacheDisplay(in: button.bounds, to: rep)
+            let stamp = Int(Date().timeIntervalSince1970 * 1000) % 1_000_000
+            let path = "/tmp/vpnplus-status-icon-\(stamp).png"
+            guard let png = rep.representation(using: .png, properties: [:]) else { return }
+            try? png.write(to: URL(fileURLWithPath: path))
+            Logger(subsystem: "com.bossagroove.VPNPlus", category: "statusItem")
+                .notice("drew the status icon to \(path, privacy: .public)")
+        }
+    #endif
 
     private func symbol(_ name: String) {
         let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
