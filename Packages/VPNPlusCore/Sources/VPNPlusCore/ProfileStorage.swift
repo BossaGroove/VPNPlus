@@ -154,6 +154,16 @@ public struct StoredProfileStore: ProfileStore {
         try write(index)
     }
 
+    public func setCredentialsSaved(_ saved: Bool, for id: Profile.ID) throws {
+        var index = try profiles()
+        guard let position = index.firstIndex(where: { $0.id == id }) else {
+            throw ProfileStoreError.noSuchProfile
+        }
+        guard index[position].credentialsSaved != saved else { return }
+        index[position].credentialsSaved = saved
+        try write(index)
+    }
+
     public func finishHandover(for id: Profile.ID) throws {
         var index = try profiles()
         guard let position = index.firstIndex(where: { $0.id == id }) else {

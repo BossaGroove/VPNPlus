@@ -56,6 +56,15 @@ public struct Profile: Sendable, Equatable, Identifiable, Codable {
     /// True once the extension holds this profile's configuration. Until then
     /// the app still has it and hands it over on the next connection.
     public var configurationHandedOver: Bool
+    /// True when the extension is holding sign-in details for this profile.
+    ///
+    /// Not a secret and not a copy of one: it says *that* a password exists,
+    /// which any local administrator can already see from the keychain item's
+    /// metadata (D216). The app needs it because it cannot read the secret
+    /// itself — and without it an empty password field is ambiguous between
+    /// "use the one you have" and "forget the one you have", which is the
+    /// difference between connecting and losing a saved password.
+    public var credentialsSaved: Bool
 
     public init(
         id: UUID = UUID(),
@@ -64,7 +73,8 @@ public struct Profile: Sendable, Equatable, Identifiable, Codable {
         waivedDirectives: [String] = [],
         acceptedWaivers: [String] = [],
         descriptor: ProfileDescriptor? = nil,
-        configurationHandedOver: Bool = false
+        configurationHandedOver: Bool = false,
+        credentialsSaved: Bool = false
     ) {
         self.id = id
         self.origin = origin
@@ -73,6 +83,7 @@ public struct Profile: Sendable, Equatable, Identifiable, Codable {
         self.acceptedWaivers = acceptedWaivers
         self.descriptor = descriptor
         self.configurationHandedOver = configurationHandedOver
+        self.credentialsSaved = credentialsSaved
     }
 
     /// Decoding a profile stored before these fields existed must not fail: a
@@ -86,6 +97,7 @@ public struct Profile: Sendable, Equatable, Identifiable, Codable {
         acceptedWaivers = try values.decodeIfPresent([String].self, forKey: .acceptedWaivers) ?? []
         descriptor = try values.decodeIfPresent(ProfileDescriptor.self, forKey: .descriptor)
         configurationHandedOver = try values.decodeIfPresent(Bool.self, forKey: .configurationHandedOver) ?? false
+        credentialsSaved = try values.decodeIfPresent(Bool.self, forKey: .credentialsSaved) ?? false
     }
 }
 
@@ -121,6 +133,11 @@ public protocol ProfileStore: Sendable {
     /// Records what the configuration says about itself, so the app never has
     /// to read the configuration again.
     func setDescriptor(_ descriptor: ProfileDescriptor, for id: Profile.ID) throws
+
+    /// Records whether the extension is holding sign-in details for this
+    /// profile. The app cannot read them, so it has to remember that they
+    /// exist.
+    func setCredentialsSaved(_ saved: Bool, for id: Profile.ID) throws
 
     /// Marks the configuration as handed over to the extension **and deletes
     /// the app's own copy**. Two copies of a private key is worse than none,

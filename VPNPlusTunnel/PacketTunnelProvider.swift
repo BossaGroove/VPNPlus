@@ -28,8 +28,12 @@ import os
 /// strict concurrency the `async` forms cannot be overridden here, because
 /// `[String: NSObject]?` is not Sendable and the superclass method is
 /// nonisolated.
-// @unchecked Sendable: the engine's callbacks arrive on its connect thread and
-// touch this object only through the lock below and the loggers.
+// @unchecked Sendable, and what makes that sound: **one session at a time**.
+// The engine's callbacks arrive on its connect thread; the shared flags are
+// behind the lock below; and the per-session credential state is only ever
+// written by the session that owns it. A replacement session is not started
+// until `runFinished` says the previous engine's thread has returned, which is
+// the handoff that keeps two of them from ever overlapping.
 final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     private let log = Logger(subsystem: "com.bossagroove.VPNPlus", category: "provider")
     private let engineLog = Logger(subsystem: "com.bossagroove.VPNPlus", category: "engine")
@@ -62,16 +66,53 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         var restarting = false
     }
 
-    /// The configuration and sign-in details this session is using.
+    /// What this session offers the server, and in which order.
+    ///
+    /// Three sources, ranked. The **session token** first, because it is the
+    /// freshest credential and the only one that can re-establish a session
+    /// the server asked more than a password for. The **saved password**
+    /// second. The **start options** last, for a session the user asked us not
+    /// to remember — that copy is the only one and it dies with the session,
+    /// which is what "don't remember it" has to mean.
+    private struct SignIn: Sendable {
+        /// Where the credential came from, which the log names and which
+        /// decides how a refusal is read.
+        ///
+        /// The engine cannot be told that a password is really a token —
+        /// `ProvideCreds` has no field for it — so this is the only place that
+        /// knows, and the only reason a refusal can be read as "expired"
+        /// rather than "wrong" (D220).
+        enum Source: String, Sendable {
+            case none = "nothing"
+            case token = "the session token the server issued"
+            case saved = "the saved password"
+            case supplied = "the password supplied for this session only"
+        }
+
+        var username = ""
+        var password = ""
+        var source = Source.none
+        var isToken: Bool { source == .token }
+        var isEmpty: Bool { password.isEmpty }
+    }
+
+    /// The configuration and the credentials this session is using.
     ///
     /// Held for the life of the session because a transition starts a **fresh**
-    /// engine (D211) and it needs them again. When the user chose to save their
-    /// password these come from our own keychain; when they did not, this is
-    /// the only copy and it dies with the session, which is what "don't
-    /// remember it" has to mean.
+    /// engine (D211) and it needs them again.
     private var profile = ""
-    private var username: String?
-    private var password: String?
+    private var identifier: UUID?
+    /// What the user asked us to keep, read from our own store.
+    private var saved: StoredCredentials?
+    /// What the server issued, kept in memory for the session whether or not
+    /// it is also stored.
+    private var token: StoredSessionToken?
+    /// What the app handed over for this session only.
+    private var supplied: StoredCredentials?
+    private var current = SignIn()
+    /// A refused token is dropped and the password tried once. Never twice:
+    /// two rejections in a row are a rejection, not a stale token.
+    private var tokenRefused = false
     private var serverOverride = Engine.ServerOverride()
     private let secrets = ExtensionSecretStore()
     private var deadline: DispatchWorkItem?
@@ -84,15 +125,15 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         log.notice("provider start uid=\(getuid(), privacy: .public) euid=\(geteuid(), privacy: .public)")
         log.notice("engine openvpn3 \(String(cString: vpnplus_engine_version()), privacy: .public) (\(String(cString: vpnplus_engine_platform()), privacy: .public))")
 
-        // M4.1 SPIKE ONLY — removed once the answer is recorded. Runs before
-        // the profile check so it can be triggered without one.
-        SecretStoreSpike.run()
-
         // Which profile this is, from providerConfiguration — a handle, never
         // a secret (D191). A connection from System Settings carries this and
         // nothing else, which is what makes D75 possible.
         let configuration = (protocolConfiguration as? NETunnelProviderProtocol)?.providerConfiguration
         let identifier = (configuration?["profile"] as? String).flatMap(UUID.init(uuidString:))
+        self.identifier = identifier
+
+        let completion = Completion(completionHandler)
+        state.withLock { $0.startCompletion = completion; $0.connected = false; $0.stopping = false }
 
         // The configuration text: what the app handed over, if this is the
         // first connection since importing, else our own stored copy.
@@ -118,30 +159,26 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
 
         guard let profile, !profile.isEmpty else {
             log.error("no configuration for this profile, in the options or our own store")
-            completionHandler(Failure("VPN Plus does not have this profile's settings. Open VPN Plus and connect once."))
+            failAttempt(TunnelFailure.configurationMissing.error(
+                "The extension holds no configuration for this profile and none was handed to it."))
             return
         }
         self.profile = profile
-        // Sign-in details: our own, if the user chose to save them, else
-        // whatever the app supplied for this session only.
-        var username = options?["username"] as? String
-        var password = options?["password"] as? String
-        var saved: StoredCredentials?
-        if let identifier,
-           let data = ((try? secrets.secret(for: SecretKind.password.account(for: identifier))) ?? nil) {
-            saved = StoredCredentials(data)
+        readCredentials(from: options)
+        current = chooseSignIn()
+
+        // A profile that needs a password and has none cannot be helped by
+        // trying: the engine would carry the emptiness all the way to the
+        // server and come back with a rejection, which is a different thing
+        // with a different remedy. So it is refused here, at once, with the
+        // one reason the app can turn into words (B8 open item 2).
+        if current.isEmpty, Engine.needsSignIn(profile: profile) {
+            log.error("this profile needs sign-in details and there are none to offer")
+            failAttempt(TunnelFailure.credentialsUnavailable.error(
+                "This profile needs a password and the extension has none saved for it."))
+            return
         }
-        if let identifier, let credentials = saved {
-            username = credentials.username
-            password = credentials.password
-            log.notice("using saved sign-in details for \(identifier.uuidString, privacy: .public)")
-        } else if password != nil {
-            log.notice("using sign-in details supplied for this session only")
-        } else {
-            log.notice("no sign-in details: neither saved nor supplied")
-        }
-        self.username = username
-        self.password = password
+
         self.serverOverride = Engine.ServerOverride(
             host: options?["serverHost"] as? String ?? "",
             port: options?["serverPort"] as? String ?? "",
@@ -150,10 +187,42 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             log.notice("server override: \(self.serverOverride.host, privacy: .public):\(self.serverOverride.port, privacy: .public) \(self.serverOverride.transport, privacy: .public)")
         }
 
-        let completion = Completion(completionHandler)
-        state.withLock { $0.startCompletion = completion; $0.connected = false; $0.stopping = false }
         startEngine()
         observeDefaultPath()
+    }
+
+    /// Reads every credential this session might use: our own two stored
+    /// items, and whatever the app supplied for a session it was asked not to
+    /// remember.
+    private func readCredentials(from options: [String: NSObject]?) {
+        if let username = options?["username"] as? String, let password = options?["password"] as? String {
+            supplied = StoredCredentials(username: username, password: password)
+        }
+        guard let identifier else { return }
+        if let data = ((try? secrets.secret(for: SecretKind.password.account(for: identifier))) ?? nil) {
+            saved = StoredCredentials(data)
+        }
+        if let data = ((try? secrets.secret(for: SecretKind.sessionToken.account(for: identifier))) ?? nil) {
+            token = StoredSessionToken(data)
+        }
+    }
+
+    /// The freshest credential available, and where it came from.
+    private func chooseSignIn() -> SignIn {
+        if let token {
+            // The server may name its own user for the token
+            // (`auth-token-user`); using ours instead would fail an
+            // authentication that would otherwise have worked.
+            let username = token.username.isEmpty
+                ? (saved?.username ?? supplied?.username ?? "")
+                : token.username
+            return SignIn(username: username, password: token.token, source: .token)
+        }
+        if let saved { return SignIn(username: saved.username, password: saved.password, source: .saved) }
+        if let supplied {
+            return SignIn(username: supplied.username, password: supplied.password, source: .supplied)
+        }
+        return SignIn()
     }
 
     /// Creates an engine for the stored profile and runs it on its own thread.
@@ -174,8 +243,16 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             log.notice("engine teardown disconnect=\(disconnect, privacy: .public)")
         }
 
+        // Chosen afresh for every session, so a token captured a moment ago
+        // is what a reconnect after wake offers.
+        current = chooseSignIn()
+        log.notice("signing in with \(self.current.source.rawValue, privacy: .public)")
         do {
-            try engine.prepare(profile: profile, username: username, password: password, server: serverOverride)
+            try engine.prepare(
+                profile: profile,
+                username: current.username,
+                password: current.password,
+                server: serverOverride)
         } catch {
             log.error("prepare failed: \(error.localizedDescription, privacy: .public)")
             failAttempt(Failure("\(error)"))
@@ -232,7 +309,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
 
     /// Ends the current attempt honestly: fails the start if one is pending,
     /// otherwise cancels the tunnel so every surface shows Disconnected.
-    private func failAttempt(_ failure: Failure) {
+    private func failAttempt(_ failure: any Error) {
         let pending = state.withLock { $0.startCompletion != nil }
         if pending {
             finishStart(with: failure)
@@ -245,14 +322,18 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     /// measured that a resumed session never gets its config from the owner's
     /// server while a fresh one does (A2), so this is what sleep/wake uses.
     private func restartFresh(reason: String) {
-        let already = state.withLock { s -> Bool in
-            if s.restarting { return true }
+        let (already, wasConnected) = state.withLock { s -> (Bool, Bool) in
+            if s.restarting { return (true, s.connected) }
+            let connected = s.connected
             s.restarting = true; s.connected = false
-            return false
+            return (false, connected)
         }
         if already { return }
         log.notice("starting a fresh session: \(reason, privacy: .public)")
-        reasserting = true
+        // Only a tunnel that was up can be reasserted. Saying so before the
+        // first connection would show "Reconnecting" for something that has
+        // never connected.
+        if wasConnected { reasserting = true }
         let old = engine
         let done = runFinished
         old?.stop()
@@ -374,6 +455,10 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             deadline?.cancel()
             transportPoll?.cancel()
             reasserting = false
+            rememberSessionToken()
+            // A token that worked has earned the fallback back: the *next*
+            // token to be refused is a new one, and stale for its own reasons.
+            tokenRefused = false
             finishStart(with: nil)
         case "RECONNECTING":
             // The engine wants a second session in the same client. Against the
@@ -385,6 +470,20 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             }
         case "PAUSE":
             reasserting = true
+        case "NEED_CREDS":
+            // The engine has nothing to sign in with. Not a rejection: sending
+            // the user to check a password that was never offered would be
+            // the wrong remedy.
+            failAttempt(TunnelFailure.credentialsUnavailable.error("\(event.name): \(event.info)"))
+        case "AUTH_FAILED", "SESSION_EXPIRED":
+            // The server refused what we offered. If that was a token, it is
+            // stale rather than wrong, and there may be a password behind it.
+            if retryWithoutTheToken() { return }
+            // What the user has to do differs, so the two are not one failure:
+            // a refused password means the details are wrong, while a refused
+            // token with nothing behind it means nobody here can sign in.
+            let failure: TunnelFailure = current.isToken ? .credentialsUnavailable : .authenticationFailed
+            failAttempt(failure.error("\(event.name): \(event.info)"))
         default:
             if event.isFatal {
                 finishStart(with: Failure("\(event.name): \(event.info)"))
@@ -392,17 +491,76 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         }
     }
 
+    /// Keeps the token the server issued, when it issued one.
+    ///
+    /// Always in memory, so a fresh session after wake offers the freshest
+    /// credential. Stored only for a profile whose sign-in details the user
+    /// agreed to keep: a token is not the password, but keeping one would
+    /// still let this profile connect with nobody present, and that is a
+    /// capability the user declined (D220).
+    private func rememberSessionToken() {
+        guard let fresh = engine?.sessionToken else { return }
+        let rotated = token?.token != fresh.token
+        token = fresh
+        guard let identifier else { return }
+        guard saved != nil else {
+            log.notice("the server issued a session token; not stored, because this profile's sign-in details are not saved")
+            return
+        }
+        guard rotated, let encoded = fresh.encoded else { return }
+        do {
+            try secrets.set(encoded, for: SecretKind.sessionToken.account(for: identifier))
+            log.notice("stored the session token for \(identifier.uuidString, privacy: .public)")
+        } catch {
+            log.error("could not store the session token: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// Drops a refused session token and starts a fresh session with whatever
+    /// is behind it. Returns false when there is nothing behind it, or when
+    /// what was refused was never a token — in both cases the caller ends the
+    /// attempt honestly.
+    private func retryWithoutTheToken() -> Bool {
+        guard current.isToken, !tokenRefused else { return false }
+        tokenRefused = true
+        token = nil
+        if let identifier {
+            // A token the server has refused is worse than no token: it will
+            // be refused again on every connection until something removes it.
+            do {
+                try secrets.remove(for: SecretKind.sessionToken.account(for: identifier))
+            } catch {
+                log.error("could not remove the refused session token: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        guard !chooseSignIn().isEmpty else {
+            log.notice("the session token was refused and there is no password behind it")
+            return false
+        }
+        log.notice("the session token was refused; trying the password behind it")
+        restartFresh(reason: "the session token was refused")
+        return true
+    }
+
     private func runEnded(_ result: Result<Void, Engine.Failure>) {
         let (wasConnected, stopping, restarting) = state.withLock { ($0.connected, $0.stopping, $0.restarting) }
         switch result {
         case .success:
             log.notice("engine finished")
-            finishStart(with: Failure("The connection ended before it was established."))
         case .failure(let failure):
             log.error("engine ended with error: \(failure.message, privacy: .public)")
+        }
+        // A fresh session is taking this one's place, and its outcome is the
+        // tunnel's. Failing the pending start here would end an attempt that
+        // is still running — which is what the token fallback does before the
+        // tunnel has ever come up.
+        if restarting { return }
+        switch result {
+        case .success:
+            finishStart(with: Failure("The connection ended before it was established."))
+        case .failure(let failure):
             finishStart(with: Failure(failure.message))
         }
-        if restarting { return }
         if wasConnected, !stopping {
             // The tunnel was up and the engine ended on its own: let NE tear the
             // session down so System Settings and the app see Disconnected.

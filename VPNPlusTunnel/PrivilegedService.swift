@@ -72,8 +72,8 @@ extension PrivilegedService: NSXPCListenerDelegate {
 
 extension PrivilegedService: PrivilegedInterface {
     func setSecret(profile: UUID, kind: Int, value: Data, reply: @escaping ((any Error)?) -> Void) {
-        guard let kind = SecretKind(rawValue: kind) else {
-            log.error("rejected a secret: unknown kind \(kind, privacy: .public)")
+        guard let kind = SecretKind(rawValue: kind), kind.settableByApp else {
+            log.error("rejected a secret: kind \(kind, privacy: .public) is not one the app may store")
             reply(PrivilegedFailure.malformedRequest.asError)
             return
         }
@@ -95,6 +95,22 @@ extension PrivilegedService: PrivilegedInterface {
             reply(nil)
         } catch {
             log.error("could not store a secret: \(error.localizedDescription, privacy: .public)")
+            reply(PrivilegedFailure.storageFailed.asError)
+        }
+    }
+
+    func deleteSecret(profile: UUID, kind: Int, reply: @escaping ((any Error)?) -> Void) {
+        guard let kind = SecretKind(rawValue: kind) else {
+            log.error("rejected a deletion: unknown kind \(kind, privacy: .public)")
+            reply(PrivilegedFailure.malformedRequest.asError)
+            return
+        }
+        do {
+            try secrets.remove(for: kind.account(for: profile))
+            log.notice("removed one secret for \(profile.uuidString, privacy: .public)")
+            reply(nil)
+        } catch {
+            log.error("could not remove a secret: \(error.localizedDescription, privacy: .public)")
             reply(PrivilegedFailure.storageFailed.asError)
         }
     }

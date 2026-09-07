@@ -130,6 +130,65 @@ struct ProfileStoreTests {
         #expect(try store.profiles().isEmpty)
     }
 
+    // MARK: - Knowing that a password exists without holding it
+
+    /// The app cannot read what the extension holds, so it records *that* a
+    /// password exists. Without this an empty password field is ambiguous
+    /// between "use the one you have" and "forget it".
+    @Test func whetherSignInDetailsAreSavedIsRecordedAndIsNotASecret() throws {
+        let (store, _, metadata) = makeStore()
+        let one = profile()
+        try store.add(one, configuration: Data("client".utf8))
+        #expect(try store.profiles().first?.credentialsSaved == false)
+
+        try store.setCredentialsSaved(true, for: one.id)
+        #expect(try store.profiles().first?.credentialsSaved == true)
+
+        // A flag, never the password it describes.
+        for key in metadata.keys {
+            let stored = String(decoding: metadata.data(for: key) ?? Data(), as: UTF8.self)
+            #expect(!stored.contains("hunter2"))
+        }
+
+        try store.setCredentialsSaved(false, for: one.id)
+        #expect(try store.profiles().first?.credentialsSaved == false)
+    }
+
+    @Test func recordingSavedDetailsForSomethingThatIsNotThereFails() throws {
+        let (store, _, _) = makeStore()
+        #expect(throws: ProfileStoreError.noSuchProfile) { try store.setCredentialsSaved(true, for: UUID()) }
+    }
+
+    /// Reissuing a profile leaves the saved password alone, which is D188 seen
+    /// from the credential side: a new file is new *settings*, not a new
+    /// account.
+    @Test func replacingTheConfigurationKeepsTheSavedSignInDetails() throws {
+        let (store, _, _) = makeStore()
+        let one = profile()
+        try store.add(one, configuration: Data("client".utf8))
+        try store.setCredentialsSaved(true, for: one.id)
+        _ = try store.replaceConfiguration(
+            Data("client\nremote other.example.invalid 1194".utf8),
+            descriptor: descriptor(), title: "Company SG", for: one.id)
+        #expect(try store.profiles().first?.credentialsSaved == true)
+    }
+
+    /// A profile stored before this field existed still decodes.
+    @Test func aProfileFromAnEarlierVersionHasNoSavedDetails() throws {
+        let (store, _, metadata) = makeStore()
+        let one = profile()
+        try store.add(one, configuration: Data("client".utf8))
+        let older = """
+            [{"id":"\(one.id.uuidString)","title":"Company SG",\
+            "origin":{"filename":"company.ovpn","importedAt":0}}]
+            """
+        metadata.setData(Data(older.utf8), for: "profiles.index")
+        let read = try store.profiles()
+        #expect(read.count == 1)
+        #expect(read[0].credentialsSaved == false)
+        #expect(read[0].configurationHandedOver == false)
+    }
+
     // MARK: - Overrides
 
     @Test func overridesRoundTripAndAnEmptyRecordIsRemoved() throws {

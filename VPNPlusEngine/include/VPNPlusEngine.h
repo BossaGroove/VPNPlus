@@ -240,6 +240,19 @@ typedef struct {
 /// Valid once the CONNECTED event has been delivered. Returns false before that.
 bool vpnplus_engine_connection_info(vpnplus_engine *engine, vpnplus_connection_info *out);
 
+/// A server-issued session token, which stands in for the password on a later
+/// connection. `username` may be the server's own choice rather than the one
+/// the user typed.
+typedef struct {
+    char username[256];
+    char token[512];  ///< the protocol caps this at 256 characters
+} vpnplus_session_token;
+
+/// Fills `out` with the token the server issued this session, and returns
+/// false when it issued none — which is the common case. Valid once the
+/// connection has been established.
+bool vpnplus_engine_session_token(vpnplus_engine *engine, vpnplus_session_token *out);
+
 typedef struct {
     long long bytes_in;
     long long bytes_out;

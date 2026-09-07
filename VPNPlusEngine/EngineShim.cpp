@@ -100,6 +100,18 @@ class Client final : public ClientAPI::OpenVPNClient
         config.tunPersist = false;
         config.googleDnsFallback = false;
         config.allowLocalLanAccess = false;
+        // Ask the server for a session token where it offers one, so a later
+        // connection can be made with something the server can revoke rather
+        // than with the user's password (D220).
+        //
+        // Two facts about this flag, both from the engine's own source and
+        // neither obvious from its name. It gates only `IV_AUTO_SESS`, and only
+        // for a profile that needs no credentials at all — so for a profile
+        // with a username and password it changes nothing. What does the work
+        // for those is the engine honouring a pushed `auth-token` regardless,
+        // which is why the token path exists for the profiles that need it
+        // most.
+        config.autologinSessions = true;
 
         const ClientAPI::EvalConfig eval = eval_config(config);
         if (eval.error)
@@ -137,6 +149,18 @@ class Client final : public ClientAPI::OpenVPNClient
             message = status.status.empty() ? status.message : status.status + ": " + status.message;
             return false;
         }
+        return true;
+    }
+
+    /// The session token the server issued, if it issued one. Only ever true
+    /// after a `PUSH_REPLY` carrying `auth-token`.
+    bool session_token_into(vpnplus_session_token &out)
+    {
+        ClientAPI::SessionToken token;
+        if (!session_token(token))
+            return false;
+        copy_field(out.username, sizeof out.username, token.username);
+        copy_field(out.token, sizeof out.token, token.session_id);
         return true;
     }
 
@@ -778,6 +802,14 @@ extern "C" bool vpnplus_engine_connection_info(vpnplus_engine *engine, vpnplus_c
         return false;
     std::memset(out, 0, sizeof *out);
     return engine->client->connection_info_into(*out);
+}
+
+extern "C" bool vpnplus_engine_session_token(vpnplus_engine *engine, vpnplus_session_token *out)
+{
+    if (engine == nullptr || out == nullptr)
+        return false;
+    std::memset(out, 0, sizeof *out);
+    return engine->client->session_token_into(*out);
 }
 
 extern "C" void vpnplus_engine_transport_stats(vpnplus_engine *engine, vpnplus_transport_stats *out)

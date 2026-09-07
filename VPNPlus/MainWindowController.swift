@@ -34,6 +34,10 @@ final class MainWindowController: NSWindowController {
     private let statusLabel = NSTextField(labelWithString: "")
     private let detailLabel = NSTextField(wrappingLabelWithString: "")
     private let tunnelLabel = NSTextField(labelWithString: "Tunnel: not set up")
+    /// Where a failure or a notice appears. The designed surface is M5's and
+    /// the curated copy M6's; this shows the messages M4 can already write
+    /// rather than leaving them in the log where nobody looks.
+    private let messageLabel = NSTextField(wrappingLabelWithString: "")
     private let connectButton = NSButton(title: "Connect", target: nil, action: nil)
     private let disconnectButton = NSButton(title: "Disconnect", target: nil, action: nil)
 
@@ -68,6 +72,10 @@ final class MainWindowController: NSWindowController {
         renderProfiles()
         importer.handOverPending()
         installer.activate()
+        // Nothing is created and nothing is saved: this only asks the system
+        // what it already has, so the window can report on a connection it
+        // was not there for.
+        Task { await tunnel.load() }
     }
 
     @available(*, unavailable)
@@ -87,6 +95,8 @@ final class MainWindowController: NSWindowController {
         detailLabel.textColor = .secondaryLabelColor
         detailLabel.preferredMaxLayoutWidth = 480
         tunnelLabel.textColor = .secondaryLabelColor
+        messageLabel.preferredMaxLayoutWidth = 480
+        messageLabel.isHidden = true
 
         connectButton.target = self
         connectButton.action = #selector(connectSelected)
@@ -123,7 +133,7 @@ final class MainWindowController: NSWindowController {
 
         let stack = NSStackView(views: [
             statusLabel, detailLabel, profiles, emptyLabel, testPath,
-            tunnelLabel, usernameField, passwordField, buttons,
+            tunnelLabel, messageLabel, usernameField, passwordField, buttons,
         ])
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -171,8 +181,7 @@ final class MainWindowController: NSWindowController {
         connectButton.isEnabled = true
 
         // The sign-in fields follow what the profile asks for, which the model
-        // decided (D128). Credentials themselves are still typed each time,
-        // until M4 can store them.
+        // decided (D128).
         let settings = compose(profile)
         switch settings?.signIn {
         case .credentials(let username, _, _):
@@ -188,7 +197,12 @@ final class MainWindowController: NSWindowController {
                 usernameField.stringValue = value.value
                 usernameField.placeholderString = String(localized: "Username")
             }
-            passwordField.placeholderString = String(localized: "Password")
+            // An empty field over a saved password means "use the one you
+            // have", so it must not look like an empty field.
+            passwordField.stringValue = ""
+            passwordField.placeholderString = profile.credentialsSaved
+                ? String(localized: "Saved")
+                : String(localized: "Password")
         case .notNeeded:
             usernameField.isHidden = true
             passwordField.isHidden = true
@@ -307,19 +321,33 @@ final class MainWindowController: NSWindowController {
         case .credentials(.fixed(let fixed), _, _): username = fixed
         default: username = usernameField.stringValue
         }
-        let password = passwordField.stringValue
+        rememberUsername(username, for: profile, settings: settings)
+        let decision = credentials(
+            typedUsername: username,
+            typedPassword: passwordField.stringValue,
+            profile: profile,
+            settings: settings)
+
+        if case .missing = decision {
+            // A prompt, not a failure (A10): nothing is wrong, the app simply
+            // does not have what it needs yet.
+            show(message: String(localized: "Type your password to connect to \(profile.title)."))
+            return
+        }
+
+        clearMessage()
         Task {
+            // Stored before connecting, not after: a connection that is
+            // interrupted must not cost the user their password, and the
+            // extension needs it on the very next attempt whatever happens to
+            // this one (D219).
+            await apply(decision, to: profile)
             do {
-                // Saved before connecting, not after: a connection that is
-                // interrupted must not cost the user their password, and the
-                // extension needs them on the very next attempt whatever
-                // happens to this one.
-                await save(username: username, password: password, for: profile, settings: settings)
                 try await tunnel.prepare(profile: profile.id)
                 try tunnel.connect(
                     profile: text,
-                    username: username,
-                    password: password,
+                    username: decision.sessionUsername,
+                    password: decision.sessionPassword,
                     server: overrideServer(for: profile, settings: settings))
             } catch {
                 tunnelLabel.stringValue = "Tunnel: \(error.localizedDescription)"
@@ -327,34 +355,126 @@ final class MainWindowController: NSWindowController {
         }
     }
 
-    /// Gives the sign-in details to the extension, or makes sure it is holding
-    /// none — whichever the profile and the user's choice call for.
-    ///
-    /// A profile that forbids saving the password is honoured against our own
-    /// default, never the other way round (D129), and choosing not to save
-    /// **deletes** what was saved before rather than leaving it behind.
-    private func save(
-        username: String,
-        password: String,
-        for profile: Profile,
-        settings: ProfileSettings?
-    ) async {
-        var wanted = false
-        if case .credentials(_, .offered(let on), _) = settings?.signIn { wanted = on }
+    /// What to do with the sign-in details before connecting: what the
+    /// extension should be holding afterwards, and what this one connection
+    /// has to carry itself.
+    private enum Credentials {
+        /// Store these with the extension, and carry nothing.
+        case store(username: String, password: String)
+        /// The extension is already holding what it needs.
+        case useWhatIsStored
+        /// Carry these for this session only, and make sure the extension is
+        /// holding none.
+        case sessionOnly(username: String, password: String)
+        /// The profile signs in by itself.
+        case notNeeded
+        /// Something is needed and nothing is available.
+        case missing
 
+        var sessionUsername: String {
+            switch self {
+            case .sessionOnly(let username, _): username
+            // Not even the username is sent when the extension holds it:
+            // one copy, one owner (D218).
+            default: ""
+            }
+        }
+
+        var sessionPassword: String {
+            switch self {
+            case .sessionOnly(_, let password): password
+            default: ""
+            }
+        }
+    }
+
+    /// Decides, from the profile's own rules and the user's choice, where this
+    /// profile's sign-in details should live.
+    ///
+    /// A profile that forbids saving is honoured against our own default,
+    /// never the other way round (D129). And an **empty password field over a
+    /// saved password means "use the one you have"**, not "forget it": the app
+    /// cannot read the stored secret, so without knowing that one exists those
+    /// two are the same keystroke — and taking the second reading would delete
+    /// a password every time someone pressed Connect twice.
+    private func credentials(
+        typedUsername: String,
+        typedPassword: String,
+        profile: Profile,
+        settings: ProfileSettings?
+    ) -> Credentials {
+        guard case .credentials(_, let saving, _) = settings?.signIn else { return .notNeeded }
+        let maySave: Bool
+        switch saving {
+        case .offered(let on): maySave = on
+        case .forbiddenByProfile: maySave = false
+        }
+        if !typedPassword.isEmpty {
+            return maySave
+                ? .store(username: typedUsername, password: typedPassword)
+                : .sessionOnly(username: typedUsername, password: typedPassword)
+        }
+        if maySave, profile.credentialsSaved { return .useWhatIsStored }
+        return .missing
+    }
+
+    /// Carries the decision out, and says so when it could not be.
+    private func apply(_ decision: Credentials, to profile: Profile) async {
         let client = PrivilegedClient()
         do {
-            if wanted, !password.isEmpty {
+            switch decision {
+            case .store(let username, let password):
                 try await client.setCredentials(username: username, password: password, for: profile.id)
-            } else {
-                try await client.deleteSecrets(for: profile.id)
+                try? store.setCredentialsSaved(true, for: profile.id)
+            case .notNeeded where !profile.credentialsSaved:
+                // A profile that signs in by itself was never offered the
+                // choice, so there is nothing to forget and no reason to ask
+                // root to forget it on every connection.
+                break
+            case .sessionOnly, .notNeeded:
+                // Choosing not to save *removes* what was saved before, so the
+                // choice describes the present state rather than the last one
+                // (D219). The sign-in details only: taking the configuration
+                // with them would make the user find the original file again.
+                try await client.forgetCredentials(for: profile.id)
+                try? store.setCredentialsSaved(false, for: profile.id)
+            case .useWhatIsStored, .missing:
+                break
             }
         } catch {
-            // Not worth stopping a connection over, and not worth a dialog:
-            // the connection still works with what is in the start options.
-            // M4.5 gives the user a way to see that nothing was saved.
             Self.log.notice("could not update the saved sign-in details: \(error.localizedDescription, privacy: .public)")
+            // The promise M4.4 made: the user finds out that nothing was
+            // saved, instead of discovering it at the next connection.
+            show(message: String(localized: "VPN Plus couldn't save your password. This connection will still work; the next one will ask for it again."))
         }
+        renderProfiles()
+    }
+
+    /// Keeps a typed username with the user's other choices, so the field is
+    /// filled in next time.
+    ///
+    /// It has to be kept *somewhere*: the username travels to the extension
+    /// with the password, and the app cannot read that back — so a second
+    /// connection with an empty field would otherwise store an empty username
+    /// over a good one. It belongs in the overrides record, which is where the
+    /// user's own choices already live (2.14), and it is not a secret: it is
+    /// the user's, which is why it goes in *their* preferences and never into
+    /// the system-wide VPN configuration (D191).
+    private func rememberUsername(_ username: String, for profile: Profile, settings: ProfileSettings?) {
+        guard case .credentials(.editable, _, _) = settings?.signIn, !username.isEmpty else { return }
+        var overrides = (try? store.overrides(for: profile.id)) ?? Overrides()
+        guard overrides.username != username else { return }
+        overrides.username = username
+        try? store.setOverrides(overrides, for: profile.id)
+    }
+
+    private func show(message: String) {
+        messageLabel.stringValue = message
+        messageLabel.isHidden = message.isEmpty
+    }
+
+    private func clearMessage() {
+        show(message: "")
     }
 
     /// Only what the user actually chose: where the composed value equals the
@@ -387,12 +507,71 @@ final class MainWindowController: NSWindowController {
 
     private func renderTunnel(_ status: NEVPNStatus) {
         tunnelLabel.stringValue = "Tunnel: \(status.plainLanguage)"
-        if status == .connected {
+        switch status {
+        case .connected:
+            clearMessage()
             // The extension is certainly running now, so anything still
             // waiting to move can move.
             importer.handOverPending()
             renderProfiles()
+        case .connecting:
+            clearMessage()
+        case .disconnected:
+            Task { await showLastFailure() }
+        default:
+            break
         }
+    }
+
+    /// Asks NetworkExtension why the last attempt ended, and says it in words.
+    ///
+    /// This is what lets a connection started from **System Settings**, with
+    /// this app not running at the time, explain itself when the app is next
+    /// opened — the surface B8's open item 2 said did not exist.
+    private func showLastFailure() async {
+        guard let failure = await tunnel.lastFailure() else { return }
+        Self.log.notice("last disconnect: \(failure.detail, privacy: .public) at \(failure.at?.description ?? "an unrecorded time", privacy: .public)")
+
+        // A reason found at launch may be from any time at all, and a week-old
+        // failure presented as news is worse than saying nothing. Anything
+        // recent is shown; so is anything whose time did not survive the trip,
+        // because silence would be the worse guess. M5 records its own
+        // attempts and will not have to reason about this.
+        if let at = failure.at, Date().timeIntervalSince(at) > 15 * 60 { return }
+
+        let name = configuredProfileTitle()
+        switch failure.kind {
+        case .credentialsUnavailable:
+            // A10 M21. The remedy, not the mechanism: what to do, and what it
+            // buys them next time.
+            show(message: String(localized: """
+                Couldn't connect to \(name). It needs your password, and VPN Plus wasn't running to ask for it. \
+                Connect once from VPN Plus and let it remember your password — after that, starting \(name) from \
+                System Settings or the menu bar will work on its own.
+                """))
+        case .configurationMissing:
+            show(message: String(localized: """
+                Couldn't connect to \(name). VPN Plus doesn't have that profile's settings any more. \
+                Import the profile again.
+                """))
+        case .authenticationFailed:
+            // A10 M1's territory; M6 writes the version with both remedies.
+            show(message: String(localized: """
+                Couldn't sign in to \(name). The server didn't accept your username or password.
+                """))
+        case nil:
+            // Not ours: the system's own, or a reason M6 has yet to map.
+            break
+        }
+    }
+
+    /// The name of the profile the system configuration points at, which is
+    /// the one that just failed — not whatever happens to be selected.
+    private func configuredProfileTitle() -> String {
+        guard let identifier = tunnel.configuredProfile,
+              let profile = ((try? store.profiles()) ?? []).first(where: { $0.id == identifier })
+        else { return String(localized: "this VPN") }
+        return profile.title
     }
 
     private func render(_ status: ExtensionInstaller.Status) {
@@ -410,7 +589,7 @@ final class MainWindowController: NSWindowController {
                 """
         case .active:
             statusLabel.stringValue = String(localized: "Network component ready")
-            detailLabel.stringValue = String(localized: "Import a profile, then Connect. Credentials are typed each time until they can be saved.")
+            detailLabel.stringValue = String(localized: "Import a profile, then Connect. Your password is remembered unless you say otherwise.")
         case .failed(let message):
             statusLabel.stringValue = "Setup did not finish"
             detailLabel.stringValue = message

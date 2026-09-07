@@ -129,8 +129,40 @@ struct PrivilegedClient {
             throw Failure.unavailable
         }
         try await setSecret(encoded, kind: .password, for: profile)
+        // A session token stands in for the password it was issued against.
+        // New details mean the old token may belong to a different account, or
+        // to a password the user has just changed because it stopped working.
+        //
+        // Not fatal if it fails: the extension tries the token first, and a
+        // refused token falls back to the password it has just been given, so
+        // the worst case is one slower connection.
+        do {
+            try await deleteSecret(kind: .sessionToken, for: profile)
+        } catch {
+            Self.log.notice("could not clear the old session token: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
+    /// Makes the extension forget the sign-in details for one profile, and
+    /// the session token that stands in for them.
+    ///
+    /// Deliberately **not** `deleteSecrets`: that takes the configuration with
+    /// it, and a user who unticks "remember my password" has not asked to find
+    /// the original file again.
+    func forgetCredentials(for profile: UUID) async throws {
+        try await deleteSecret(kind: .password, for: profile)
+        // A token outliving the password it stands in for would keep signing
+        // the user in after they asked us to stop.
+        try await deleteSecret(kind: .sessionToken, for: profile)
+    }
+
+    func deleteSecret(kind: SecretKind, for profile: UUID) async throws {
+        try await perform(pinning: PrivilegedChannel.extensionRequirement) { proxy, finish in
+            proxy.deleteSecret(profile: profile, kind: kind.rawValue, reply: finish)
+        }
+    }
+
+    /// Everything, for a profile that is being deleted.
     func deleteSecrets(for profile: UUID) async throws {
         try await perform(pinning: PrivilegedChannel.extensionRequirement) { proxy, finish in
             proxy.deleteSecrets(profile: profile, reply: finish)

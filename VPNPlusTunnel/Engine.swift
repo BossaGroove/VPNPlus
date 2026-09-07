@@ -172,6 +172,40 @@ final class Engine: @unchecked Sendable {
             gateway6: s(raw.gateway6), clientIP: s(raw.client_ip), tunName: s(raw.tun_name))
     }
 
+    /// The token the server issued for this session, or nil when it issued
+    /// none — which is the common case. Read after the connection is up.
+    var sessionToken: StoredSessionToken? {
+        guard let handle else { return nil }
+        var raw = vpnplus_session_token()
+        guard vpnplus_engine_session_token(handle, &raw) else { return nil }
+        func s<T>(_ field: T) -> String {
+            withUnsafeBytes(of: field) { buffer in
+                String(decoding: buffer.prefix { $0 != 0 }, as: UTF8.self)
+            }
+        }
+        let token = s(raw.token)
+        guard !token.isEmpty else { return nil }
+        return StoredSessionToken(username: s(raw.username), token: token)
+    }
+
+    /// Whether this profile needs a username and password from someone, read
+    /// without connecting and without a network.
+    ///
+    /// The provider asks before it starts an attempt, because a profile that
+    /// needs a password and has none cannot be helped by trying: the engine
+    /// would carry the failure all the way to the server's authentication
+    /// stage and report it as a rejection, which is a different thing and a
+    /// different remedy.
+    static func needsSignIn(profile: String) -> Bool {
+        var info = vpnplus_profile_info()
+        guard vpnplus_engine_describe(profile, &info, nil, nil) else {
+            // Unreadable here means unreadable at prepare() too, which reports
+            // it properly. Not this function's question.
+            return false
+        }
+        return !info.autologin
+    }
+
     /// Bytes and packets the transport has carried this session.
     var transportCounters: (bytesIn: Int64, bytesOut: Int64) {
         guard let handle else { return (0, 0) }

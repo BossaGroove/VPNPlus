@@ -54,6 +54,22 @@ final class TunnelController {
         if let observer { NotificationCenter.default.removeObserver(observer) }
     }
 
+    /// Loads the configuration that already exists, without creating or
+    /// saving anything.
+    ///
+    /// Called at launch so the window can say what the *system* is doing
+    /// before the user has asked for anything — including why a connection
+    /// they started from System Settings, with this app not running, did not
+    /// work (D75). Saving is what raises the configuration prompt; loading
+    /// raises nothing.
+    func load() async {
+        guard let existing = try? await NETunnelProviderManager.loadAllFromPreferences(),
+              let manager = existing.first
+        else { return }
+        self.manager = manager
+        refreshStatus()
+    }
+
     /// Loads the existing configuration or creates one. Saving is what raises
     /// the "would like to add VPN configurations" prompt — C4 counts it.
     func prepare(profile: UUID? = nil) async throws {
@@ -111,6 +127,48 @@ final class TunnelController {
 
     func disconnect() {
         (manager?.connection as? NETunnelProviderSession)?.stopVPNTunnel()
+    }
+
+    /// Why the last attempt ended, as the provider itself reported it.
+    ///
+    /// NetworkExtension keeps the error the provider cancelled with, which is
+    /// the only way a connection started from **System Settings**, with this
+    /// app not running, can explain itself to the user afterwards (D75). The
+    /// code crosses; the words are ours (A10).
+    func lastFailure() async -> Failure? {
+        guard let connection = manager?.connection else { return nil }
+        return await withCheckedContinuation { continuation in
+            connection.fetchLastDisconnectError { error in
+                guard let error else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                // Read here rather than handed on: an Error is not Sendable,
+                // and nothing past this point needs the object itself.
+                continuation.resume(returning: Failure(
+                    kind: TunnelFailure(error),
+                    detail: error.localizedDescription,
+                    at: TunnelFailure.time(of: error)))
+            }
+        }
+    }
+
+    struct Failure: Sendable {
+        /// Nil when the failure came from somewhere other than our provider.
+        let kind: TunnelFailure?
+        /// The provider's own words, for the log. Not localized.
+        let detail: String
+        /// When it happened, when it says. Nil is "unknown", never "old".
+        let at: Date?
+    }
+
+    /// Which profile the system configuration is pointing at — a handle, which
+    /// is all `providerConfiguration` ever holds (D191).
+    var configuredProfile: UUID? {
+        guard let proto = manager?.protocolConfiguration as? NETunnelProviderProtocol,
+              let identifier = proto.providerConfiguration?["profile"] as? String
+        else { return nil }
+        return UUID(uuidString: identifier)
     }
 
     private func refreshStatus() {

@@ -78,4 +78,53 @@ struct RunTests {
         #expect(!names.contains("CONNECTED"))
         #expect(recorder.logCount > 0)
     }
+
+    // MARK: - The session token (M4.5)
+
+    /// There is no token until a server issues one, and asking before then is
+    /// answered with "none" rather than with an empty string that reads like
+    /// a token. The provider offers what this returns, so a false positive
+    /// here would mean signing in with nothing.
+    @Test func thereIsNoSessionTokenBeforeAServerIssuesOne() throws {
+        var callbacks = vpnplus_engine_callbacks()
+        callbacks.establish = { _, _ in -1 }
+        callbacks.teardown = { _, _ in }
+        let engine = try #require(vpnplus_engine_create(&callbacks, "VPNPlusTests/0"))
+        defer { vpnplus_engine_destroy(engine) }
+
+        var token = vpnplus_session_token()
+        #expect(!vpnplus_engine_session_token(engine, &token))
+
+        var message = [CChar](repeating: 0, count: 1024)
+        let prepared = vpnplus_engine_prepare(
+            engine, Self.unreachableProfile, "user", "pass", nil, &message, message.count)
+        #expect(prepared, "prepare: \(String(cString: message))")
+        // Credentials provided is not a session: the token is the server's to
+        // issue and nobody else's.
+        #expect(!vpnplus_engine_session_token(engine, &token))
+    }
+
+    @Test func askingNothingForASessionTokenIsNotACrash() {
+        var token = vpnplus_session_token()
+        #expect(!vpnplus_engine_session_token(nil, &token))
+    }
+
+    /// The fact the provider's "nobody to ask" state rests on: a profile that
+    /// needs no credentials says so, and one that needs them says so too. If
+    /// this ever inverted, VPN Plus would refuse to connect profiles that were
+    /// never going to ask the user for anything.
+    @Test func aProfileThatNeedsNoCredentialsSaysSo() {
+        let withoutSignIn = TestFixtures.minimalProfile
+            .replacingOccurrences(of: "auth-user-pass\n", with: "")
+        var info = vpnplus_profile_info()
+        #expect(vpnplus_engine_describe(withoutSignIn, &info, nil, nil))
+        #expect(info.autologin)
+        // openvpn3's own rule, worth pinning: saving a password is meaningless
+        // for a profile that has none, so it is not offered (D129's mechanism).
+        #expect(!info.allow_password_save)
+
+        var asks = vpnplus_profile_info()
+        #expect(vpnplus_engine_describe(TestFixtures.minimalProfile, &asks, nil, nil))
+        #expect(!asks.autologin)
+    }
 }
