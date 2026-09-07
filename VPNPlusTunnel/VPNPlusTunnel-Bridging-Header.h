@@ -13,4 +13,8 @@
 //
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <https://www.gnu.org/licenses/>.
+// Darwin notifications: the one mechanism that carries a signal from a root
+// system extension to a user-session app without a shared container or an
+// entitlement. There is no Swift overlay for it, so it arrives this way.
+#include <notify.h>
 #include "VPNPlusEngine.h"

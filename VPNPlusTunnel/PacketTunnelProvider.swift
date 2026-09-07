@@ -44,7 +44,6 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     // framework's path monitor, which watches the physical path here.
     private let pathMonitor = NWPathMonitor()
     private var lastPathDescription = ""
-    private var connectedAt: Date?
     /// Signalled when the current engine's run() returns. One per session:
     /// a shared semaphore accumulates a count and stops being a barrier.
     private var runFinished: DispatchSemaphore?
@@ -59,12 +58,24 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
 
     private struct State: Sendable {
         var startCompletion: Completion?
-        var connected = false
+        /// **The** state, as A8 models it and as the app is told it (M5.1).
+        /// Everything user-visible is read from here, so there is no second
+        /// answer to "what is happening" for the two to disagree about.
+        var connection = Connection.disconnected
+        /// Mechanics, not states: neither is anything a user is shown.
         var stopping = false
         /// The engine is being replaced by a fresh one; its ending must not
         /// end the tunnel.
         var restarting = false
+
+        var isConnected: Bool { connection.state == .connected }
     }
+
+    /// The profile a connection that named none is reported under. The app
+    /// never starts one without an id — it puts the id in
+    /// `providerConfiguration` — so this exists to keep a report coherent
+    /// rather than to be matched to anything.
+    private static let unidentified = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
 
     /// What this session offers the server, and in which order.
     ///
@@ -116,7 +127,16 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     private var serverOverride = Engine.ServerOverride()
     private let secrets = ExtensionSecretStore()
     private var deadline: DispatchWorkItem?
+    /// Every phase has one of its own (feature-spec 3.5). One attempt deadline
+    /// could only ever say "it took too long"; a phase deadline says which
+    /// step, which is the difference between a timeout and a diagnosis.
+    private var phaseDeadline: DispatchWorkItem?
     private var transportPoll: DispatchWorkItem?
+    /// The interface that already owned the default route when this attempt
+    /// started, if one did (D204).
+    private var foreignTunnel: String?
+    /// Kept only so the log can say what was last reported.
+    private var lastReport: TunnelReport?
 
     override func startTunnel(
         options: [String: NSObject]?,
@@ -133,7 +153,14 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         self.identifier = identifier
 
         let completion = Completion(completionHandler)
-        state.withLock { $0.startCompletion = completion; $0.connected = false; $0.stopping = false }
+        state.withLock { $0.startCompletion = completion; $0.stopping = false }
+
+        // The model's attempt begins **here**, before any guard below can
+        // fail, because a failure needs something to be a failure *of*. The
+        // first version of this ran after the guards, and a profile with no
+        // password reported "disconnected" to an app that was waiting to be
+        // told why (measured, 22:41:23).
+        apply(.connect(identifier ?? Self.unidentified))
 
         // The configuration text: what the app handed over, if this is the
         // first connection since importing, else our own stored copy.
@@ -177,6 +204,20 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             failAttempt(TunnelFailure.credentialsUnavailable.error(
                 "This profile needs a password and the extension has none saved for it."))
             return
+        }
+
+        // D204: a daemon-based VPN is invisible to `NEVPNStatus` and plain in
+        // the routing table. We do not refuse — A9 has yet to decide whether
+        // this is a warning or a wall, and M6 owns the words — but the user
+        // will not be left with an unexplained failure either.
+        switch DefaultRoute.owner() {
+        case .tunnel(let name):
+            foreignTunnel = name
+            log.error("another tunnel (\(name, privacy: .public)) already owns the default route")
+        case .physical(let name):
+            log.notice("the default route belongs to \(name, privacy: .public)")
+        case .none:
+            log.notice("no default route to read before connecting")
         }
 
         self.serverOverride = Engine.ServerOverride(
@@ -281,7 +322,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     private func pollTransport() {
         transportPoll?.cancel()
         let item = DispatchWorkItem { [weak self] in
-            guard let self, let engine, !state.withLock({ $0.connected || $0.stopping }) else { return }
+            guard let self, let engine, !state.withLock({ $0.isConnected || $0.stopping }) else { return }
             let stats = engine.transportCounters
             log.notice("transport: in=\(stats.bytesIn, privacy: .public) out=\(stats.bytesOut, privacy: .public) lastPacket=\(engine.millisecondsSinceLastPacket.map(String.init) ?? "never", privacy: .public)ms")
             pollTransport()
@@ -290,16 +331,78 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         DispatchQueue.global().asyncAfter(deadline: .now() + 3, execute: item)
     }
 
+    // MARK: - The model, and telling the app about it
+
+    /// Applies one event to the model, logs the transition, and rings the
+    /// doorbell if anything the app can see has changed.
+    ///
+    /// Every user-visible state change in this file goes through here. That is
+    /// the point: the app is not told what we did, it is told what we *are*
+    /// (D75), and there is one place that decides what that is.
+    @discardableResult
+    private func apply(_ event: TunnelEvent) -> Connection {
+        let (before, after) = state.withLock { s -> (Connection, Connection) in
+            let before = s.connection
+            s.connection = ConnectionMachine.next(before, on: event, at: Date())
+            return (before, s.connection)
+        }
+        if before.state != after.state {
+            log.notice("state \(before.state.rawValue, privacy: .public) → \(after.state.rawValue, privacy: .public)")
+        } else if before.attempt?.phase?.id != after.attempt?.phase?.id, let phase = after.attempt?.phase {
+            log.notice("phase \(phase.id, privacy: .public)")
+        } else if before == after {
+            // The table does not describe this combination. Worth a line: the
+            // model deliberately does not invent a transition, so the only
+            // record that it happened is here.
+            log.notice("no transition for \(String(describing: event), privacy: .public) in \(before.state.rawValue, privacy: .public)")
+            return after
+        }
+        report()
+        return after
+    }
+
+    /// The current report, and the doorbell.
+    private func report() {
+        let report = state.withLock { TunnelReport(connection: $0.connection, foreignTunnel: self.foreignTunnel) }
+        lastReport = report
+        notify_post(TunnelReportChannel.notification)
+    }
+
+    /// Answers the app's question. The only thing this returns is the report:
+    /// no secret crosses, and nothing the caller says changes what we do.
+    override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)?) {
+        let report = state.withLock { TunnelReport(connection: $0.connection, foreignTunnel: self.foreignTunnel) }
+        log.notice("answering with \(report.state.rawValue, privacy: .public) (pid \(getpid(), privacy: .public))")
+        completionHandler?(try? JSONEncoder().encode(report))
+    }
+
     // MARK: - Deadlines (D177, A8)
 
     /// The engine never gives up on its own. This does: an attempt that has not
     /// reached CONNECTED within the attempt deadline ends the tunnel, so the
     /// user gets the network back and a reason instead of "Reconnecting".
+    /// Arms the deadline for the phase just entered, and cancels the last
+    /// one. A phase that ends normally is never the one that fires.
+    private func armPhaseDeadline(_ phase: OpenVPNPhase) {
+        phaseDeadline?.cancel()
+        let seconds = Int(phase.deadline.components.seconds)
+        let item = DispatchWorkItem { [weak self] in
+            guard let self, !state.withLock({ $0.isConnected || $0.stopping || $0.restarting }) else { return }
+            // Still in the phase we armed for? A later phase has its own.
+            guard state.withLock({ $0.connection.attempt?.phase?.id }) == phase.rawValue else { return }
+            log.error("phase \(phase.rawValue, privacy: .public) exceeded \(seconds, privacy: .public) s; ending the attempt")
+            failAttempt(TunnelFailure.timedOut.error(
+                "The step \(phase.rawValue) did not finish within \(seconds) seconds."))
+        }
+        phaseDeadline = item
+        DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(seconds), execute: item)
+    }
+
     private func armDeadline() {
         deadline?.cancel()
         let seconds = Int(Deadlines.attempt.components.seconds)
         let item = DispatchWorkItem { [weak self] in
-            guard let self, !state.withLock({ $0.connected }) else { return }
+            guard let self, !state.withLock({ $0.isConnected }) else { return }
             log.error("no connection after \(seconds, privacy: .public) s; ending the attempt")
             // A reason the app can turn into words, now that there is a code
             // for it. M5.2 makes this five phase deadlines instead of one.
@@ -313,6 +416,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     /// Ends the current attempt honestly: fails the start if one is pending,
     /// otherwise cancels the tunnel so every surface shows Disconnected.
     private func failAttempt(_ failure: any Error) {
+        // The model learns the reason before any surface does, because the
+        // model is what the surfaces read.
+        apply(.failed(TunnelFailure(failure) ?? .unknown))
         let pending = state.withLock { $0.startCompletion != nil }
         if pending {
             finishStart(with: failure)
@@ -326,9 +432,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     /// server while a fresh one does (A2), so this is what sleep/wake uses.
     private func restartFresh(reason: String) {
         let (already, wasConnected) = state.withLock { s -> (Bool, Bool) in
-            if s.restarting { return (true, s.connected) }
-            let connected = s.connected
-            s.restarting = true; s.connected = false
+            if s.restarting { return (true, s.isConnected) }
+            let connected = s.isConnected
+            s.restarting = true
             return (false, connected)
         }
         if already { return }
@@ -336,7 +442,12 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         // Only a tunnel that was up can be reasserted. Saying so before the
         // first connection would show "Reconnecting" for something that has
         // never connected.
-        if wasConnected { reasserting = true }
+        if wasConnected {
+            reasserting = true
+            // Recovery, counted from here (D86) — not a fresh attempt, which
+            // is what makes the bound mean anything.
+            apply(.dropped)
+        }
         let old = engine
         let done = runFinished
         old?.stop()
@@ -358,6 +469,25 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
                 cleared.signal()
             }
             _ = cleared.wait(timeout: .now() + 5)
+            // D205: `NEVPNStatus` says Disconnected while routes can persist
+            // for up to ~15 s more, and every reconnect that failed in M2.5
+            // did so with a dead tunnel still holding the route. So this waits
+            // for the path rather than trusting the transition.
+            // Two seconds, not five, and the elapsed time is logged: M2.5
+            // measured a 6.5 s reconnect that the user keeps their network
+            // through, and a wait that made it 11 s would be a worse answer to
+            // the same question. If this ever costs time, the log says so.
+            let waited = Date()
+            let owner = DefaultRoute.waitForCleanPath(within: .seconds(2))
+            let ms = Int(Date().timeIntervalSince(waited) * 1000)
+            switch owner {
+            case .tunnel(let name):
+                log.error("\(name, privacy: .public) still owns the default route after \(ms, privacy: .public) ms; reconnecting anyway")
+            case .physical(let name):
+                log.notice("the default route is back on \(name, privacy: .public) after \(ms, privacy: .public) ms")
+            case .none:
+                log.notice("no default route after \(ms, privacy: .public) ms; reconnecting anyway")
+            }
             state.withLock { $0.restarting = false }
             startEngine()
         }
@@ -370,14 +500,14 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     /// engine is paused on sleep and resumed on wake, which rebuilds the
     /// transport deterministically while the tunnel itself persists.
     override func sleep(completionHandler: @escaping () -> Void) {
-        let connected = state.withLock { $0.connected }
+        let connected = state.withLock { $0.isConnected }
         log.notice("sleep; connected=\(connected, privacy: .public)")
         if connected { engine?.pause(reason: "sleep") }
         completionHandler()
     }
 
     override func wake() {
-        let connected = state.withLock { $0.connected }
+        let connected = state.withLock { $0.isConnected }
         log.notice("wake; connected=\(connected, privacy: .public)")
         if connected { restartFresh(reason: "wake") }
     }
@@ -390,7 +520,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         pathMonitor.pathUpdateHandler = { [weak self] path in
             guard let self else { return }
             let now = Self.describe(path)
-            let (connected, since) = state.withLock { ($0.connected, connectedAt) }
+            let (connected, since) = state.withLock { ($0.isConnected, $0.connection.session?.since) }
             let settleSeconds = since.map { Date().timeIntervalSince($0) } ?? 0
             let previous = lastPathDescription
             lastPathDescription = now
@@ -432,7 +562,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     ) {
         log.notice("provider stop reason=\(reason.rawValue, privacy: .public)")
         state.withLock { $0.stopping = true }
+        apply(.disconnect)
         deadline?.cancel()
+        phaseDeadline?.cancel()
         transportPoll?.cancel()
         pathMonitor.cancel()
         guard let engine else { completionHandler(); return }
@@ -441,6 +573,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         // bounded moment so a stuck engine cannot hold the stop forever.
         _ = runFinished?.wait(timeout: .now() + 5)
         self.engine = nil
+        apply(.tornDown)
         completionHandler()
     }
 
@@ -448,14 +581,23 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
 
     private func handle(_ event: Engine.Event) {
         log.notice("event \(event.name, privacy: .public) \(event.info, privacy: .public)\(event.isFatal ? " (fatal)" : "", privacy: .public)")
+
+        // A phase boundary moves the model and re-arms the clock. Events that
+        // are not boundaries leave the phase alone: a phase we cannot place is
+        // worse than the one we already have.
+        if let phase = OpenVPNPhase.beginning(with: event.name) {
+            apply(.entered(phase.asPhase))
+            armPhaseDeadline(phase)
+        }
+
         switch event.name {
         case "CONNECTED":
             if let info = engine?.connectionInfo {
                 log.notice("connected to \(info.serverHost, privacy: .public):\(info.serverPort, privacy: .public) via \(info.serverProto, privacy: .public), tunnel address \(info.vpnIPv4, privacy: .public) on \(info.tunName, privacy: .public)")
             }
-            state.withLock { $0.connected = true }
-            connectedAt = Date()
+            apply(.established)
             deadline?.cancel()
+            phaseDeadline?.cancel()
             transportPoll?.cancel()
             reasserting = false
             rememberSessionToken()
@@ -468,7 +610,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             // owner's server that session is never answered (B, B2, B3', C),
             // while a fresh client is — so every reconnect becomes a fresh
             // engine, under the attempt deadline armed by startEngine().
-            if state.withLock({ $0.connected }) {
+            if state.withLock({ $0.isConnected }) {
                 restartFresh(reason: "engine reconnecting")
             }
         case "PAUSE":
@@ -546,7 +688,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     }
 
     private func runEnded(_ result: Result<Void, Engine.Failure>) {
-        let (wasConnected, stopping, restarting) = state.withLock { ($0.connected, $0.stopping, $0.restarting) }
+        let (wasConnected, stopping, restarting) = state.withLock { ($0.isConnected, $0.stopping, $0.restarting) }
         switch result {
         case .success:
             log.notice("engine finished")
@@ -560,8 +702,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         if restarting { return }
         switch result {
         case .success:
+            if !stopping { apply(.tornDown) }
             finishStart(with: Failure("The connection ended before it was established."))
         case .failure(let failure):
+            // The engine's own message is not a code. M6 maps them; until
+            // then the honest answer is that we do not know which of A9's
+            // modes this was, and the model says exactly that.
+            if !stopping { apply(.failed(.unknown)) }
             finishStart(with: Failure(failure.message))
         }
         if wasConnected, !stopping {

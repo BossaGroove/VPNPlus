@@ -48,10 +48,12 @@ final class TunnelController {
             // from System Settings reaches us.
             MainActor.assumeIsolated { self?.refreshStatus() }
         }
+        watchReports()
     }
 
     deinit {
         if let observer { NotificationCenter.default.removeObserver(observer) }
+        if reportToken != NOTIFY_TOKEN_INVALID { notify_cancel(reportToken) }
     }
 
     /// Loads the configuration that already exists, without creating or
@@ -63,11 +65,18 @@ final class TunnelController {
     /// work (D75). Saving is what raises the configuration prompt; loading
     /// raises nothing.
     func load() async {
-        guard let existing = try? await NETunnelProviderManager.loadAllFromPreferences(),
-              let manager = existing.first
-        else { return }
-        self.manager = manager
-        refreshStatus()
+        do {
+            let existing = try await NETunnelProviderManager.loadAllFromPreferences()
+            guard let manager = existing.first else {
+                Self.log.notice("no VPN configuration to load")
+                return
+            }
+            self.manager = manager
+            Self.log.notice("loaded the existing configuration; status \(manager.connection.status.rawValue, privacy: .public)")
+            refreshStatus()
+        } catch {
+            Self.log.error("could not load the configuration: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     /// Loads the existing configuration or creates one. Saving is what raises
@@ -162,6 +171,26 @@ final class TunnelController {
         }
     }
 
+    /// Takes the provider's last word from the one place it outlives the
+    /// provider, and puts it into the model.
+    ///
+    /// `fetchLastDisconnectError` and the report cover each other: the report
+    /// is richer and needs a living provider, while the error survives its
+    /// death. An attempt that fails in 27 ms has nothing left to ask — and it
+    /// is exactly the attempt whose reason the user most needs.
+    func recoverFailureIfNeeded() async {
+        guard connection.state == .disconnected,
+              let failure = await lastFailure(), let kind = failure.kind
+        else { return }
+        // Only a recent one: a reason from last week is not what just
+        // happened, and the model may not claim otherwise (D96).
+        if let at = failure.at, Date().timeIntervalSince(at) > 15 * 60 { return }
+        let record = FailureRecord(
+            profile: configuredProfile ?? UUID(), at: failure.at ?? Date(), reason: kind)
+        connection = ConnectionMachine.next(connection, on: .recoveredFailure(record))
+        Self.log.notice("recovered a failure the provider did not live to report: \(kind.rawValue, privacy: .public)")
+    }
+
     struct Failure: Sendable {
         /// Nil when the failure came from somewhere other than our provider.
         let kind: TunnelFailure?
@@ -182,6 +211,160 @@ final class TunnelController {
 
     private func refreshStatus() {
         status = manager?.connection.status ?? .invalid
+        // The system says *whether*; the provider says *what*. Both, in that
+        // order, and never what we last asked for (D75).
+        if let observed = Self.tunnelState(for: status) {
+            connection = ConnectionMachine.next(
+                connection, on: .observed(observed, profile: configuredProfile))
+        }
+        fetchReport()
+        schedulePoll()
+        // Nothing running, and possibly a reason lying about: pick it up.
+        if status == .disconnected { Task { await recoverFailureIfNeeded() } }
+    }
+
+    // MARK: - What the provider says about itself (M5.2)
+
+    /// The model, as the app holds it.
+    ///
+    /// A **mirror**, not a second opinion: the provider runs A8's machine and
+    /// reports the result, and where it cannot speak the system's own status
+    /// is read instead (D75). Nothing here is derived from what the app just
+    /// asked for.
+    private(set) var connection = Connection.disconnected {
+        didSet { if connection != oldValue { onConnection?(connection) } }
+    }
+
+    var onConnection: ((Connection) -> Void)?
+
+    private nonisolated(unsafe) var reportToken: Int32 = NOTIFY_TOKEN_INVALID
+    private var poll: DispatchWorkItem?
+
+    /// Listens for the provider's doorbell.
+    ///
+    /// The notification carries no payload — it says only *there is a reason
+    /// to ask* — and the answer comes back over XPC where it can be typed.
+    private func watchReports() {
+        var token: Int32 = NOTIFY_TOKEN_INVALID
+        let status = notify_register_dispatch(
+            TunnelReportChannel.notification, &token, DispatchQueue.main
+        ) { _ in
+            MainActor.assumeIsolated {
+                Self.log.notice("the provider rang")
+                self.fetchReport()
+            }
+        }
+        guard status == NOTIFY_STATUS_OK else {
+            Self.log.error("could not listen for provider reports: \(status, privacy: .public)")
+            return
+        }
+        reportToken = token
+    }
+
+    /// Asks the provider what it is doing.
+    ///
+    /// Fails quietly when there is nothing to ask — before a tunnel starts
+    /// there is no provider, and that is the ordinary case rather than an
+    /// error. The system's status still answers the question we can always
+    /// ask, which is *is anything running*.
+    func fetchReport() {
+        guard let session = manager?.connection as? NETunnelProviderSession else {
+            Self.log.notice("no session to ask for a report")
+            return
+        }
+        do {
+            try session.sendProviderMessage(Data()) { [weak self] reply in
+                guard let self else { return }
+                guard let reply, let report = try? JSONDecoder().decode(TunnelReport.self, from: reply) else {
+                    Self.log.notice("the provider replied with nothing usable")
+                    return
+                }
+                MainActor.assumeIsolated { self.adopt(report) }
+            }
+        } catch {
+            // Ordinary: before a tunnel starts, and after one ends, there is
+            // no provider to ask. Logged while M5.2 is being measured.
+            Self.log.notice("cannot ask for a report: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// Takes the provider's report, when the system agrees that it could be
+    /// true.
+    ///
+    /// The provider is authoritative about *what it is doing*; the system is
+    /// authoritative about *whether it is running at all*. When they
+    /// disagree the system wins, because a provider that has died cannot
+    /// retract its last word.
+    private func adopt(_ report: TunnelReport) {
+        guard report.version == TunnelReport.currentVersion else {
+            Self.log.error("ignoring a report from a different version of the extension")
+            return
+        }
+        let observed = (manager?.connection.status).flatMap(TunnelController.tunnelState(for:))
+        // Failed is the exception: it *is* a disconnected tunnel, plus the
+        // reason the system has no opinion about.
+        let agrees = observed == nil || observed == report.state
+            || (report.state == .failed && observed == .disconnected)
+        guard agrees else {
+            Self.log.notice("the provider reports \(report.state.rawValue, privacy: .public) while the system says \(observed?.rawValue ?? "nothing", privacy: .public); trusting the system")
+            return
+        }
+        // A report that knows less than we do does not get to erase what we
+        // know. **NetworkExtension does not keep one provider object per
+        // configuration**: measured at 22:50:03, a message sent after a
+        // session ended was answered *by the same process* from a freshly
+        // created provider whose model was still `disconnected` — 24 ms after
+        // the real one had concluded `failed`. It looks authoritative and is
+        // not.
+        //
+        // This is the same rule the machine applies to an observation: Failed
+        // is a disconnected tunnel plus a reason, and only the user leaves it.
+        if report.state == .disconnected, connection.state == .failed {
+            Self.log.notice("ignoring a disconnected report over a failure the user has not seen yet")
+            return
+        }
+
+        let before = connection.state
+        connection = report.connection
+        if before != connection.state {
+            Self.log.notice("model \(before.rawValue, privacy: .public) → \(self.connection.state.rawValue, privacy: .public) (from the provider)")
+        }
+        if let phase = report.phase {
+            Self.log.notice("phase \(phase, privacy: .public)")
+        }
+        if let foreign = report.foreignTunnel {
+            Self.log.error("another tunnel (\(foreign, privacy: .public)) owned the default route when this attempt started")
+        }
+        schedulePoll()
+    }
+
+    /// Asks again, while an attempt is running, in case the doorbell was not
+    /// heard. An interface showing a step that finished ten seconds ago is
+    /// exactly the failure this milestone exists to remove.
+    private func schedulePoll() {
+        poll?.cancel()
+        guard connection.state.isTransient else { return }
+        let item = DispatchWorkItem { [weak self] in
+            MainActor.assumeIsolated { self?.fetchReport() }
+        }
+        poll = item
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + TunnelReportChannel.pollWhileAttempting, execute: item)
+    }
+
+    /// The system's six values, as A8's six. `.invalid` means there is no
+    /// configuration yet, which is not a tunnel state at all — the window
+    /// layer says that, from whether setup is complete (D93).
+    static func tunnelState(for status: NEVPNStatus) -> TunnelState? {
+        switch status {
+        case .invalid: nil
+        case .disconnected: .disconnected
+        case .connecting: .connecting
+        case .connected: .connected
+        case .reasserting: .reconnecting
+        case .disconnecting: .disconnecting
+        @unknown default: nil
+        }
     }
 }
 

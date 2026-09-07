@@ -28,6 +28,15 @@ public struct TunnelPhase: Sendable, Equatable, Identifiable {
     }
 }
 
+extension Duration {
+    /// Seconds, for the several APIs that predate `Duration` — dispatch
+    /// timeouts, `Date` arithmetic, `Timer`. One conversion, written once,
+    /// rather than the same two-line component arithmetic in five places.
+    public var timeInterval: TimeInterval {
+        TimeInterval(components.seconds) + TimeInterval(components.attoseconds) / 1e18
+    }
+}
+
 /// Deadlines live in one place and are tunable without touching logic
 /// (feature-spec 3.6). The engine's own retry behaviour is never the
 /// user-facing timeout (D177) — these are.

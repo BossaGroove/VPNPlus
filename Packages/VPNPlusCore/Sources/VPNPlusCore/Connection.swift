@@ -60,6 +60,12 @@ public enum Connection: Sendable, Equatable {
         }
     }
 
+    /// The session, if the tunnel is up.
+    public var session: Session? {
+        if case .connected(let session) = self { return session }
+        return nil
+    }
+
     /// The attempt in progress, if one is. Reconnecting is an attempt too —
     /// that is why they share the type and differ only in what they mean to
     /// the user.

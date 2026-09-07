@@ -49,6 +49,15 @@ public enum TunnelEvent: Sendable, Equatable {
     /// **Reality, read rather than assumed** (D75, D95). After sleep, after
     /// anything the OS did, after a gap in observation of any kind.
     case observed(TunnelState, profile: Profile.ID?)
+    /// A failure found after the fact, from something that outlived the
+    /// process which concluded it.
+    ///
+    /// Not a duplicate of `failed`: that one *is* the failure happening, while
+    /// this one is picking a reason up off the floor. An attempt can end so
+    /// fast that there is nothing left to ask by the time anyone asks — and
+    /// the model still has to be able to say Failed, or the reason is stranded
+    /// somewhere the window cannot render it.
+    case recoveredFailure(FailureRecord)
 }
 
 /// A8's transition table, and nothing beyond it.
@@ -75,6 +84,11 @@ public enum ConnectionMachine {
         // Reality outranks everything, including anything we just asked for.
         case (_, .observed(let state, let profile)):
             return observe(state, profile: profile, from: from, at: now)
+
+        // A reason recovered after the fact. Only where there is nothing to
+        // contradict it: anything live outranks a dead reason (D226).
+        case (.disconnected, .recoveredFailure(let record)):
+            return .failed(record)
 
         // Starting an attempt. From Disconnected or Failed it is simply an
         // attempt; from Connected or an attempt on *another* profile it is a
@@ -134,9 +148,18 @@ public enum ConnectionMachine {
             }
             return .disconnected
 
-        case (.failed, .disconnect), (.disconnected, .disconnect):
+        case (.disconnected, .disconnect):
             // Nothing to do, and no state that says "more disconnected".
             return .disconnected
+
+        // Note what is **not** here: `(.failed, .disconnect)`.
+        //
+        // Ending a failed attempt is the *mechanics* of the failure — the
+        // provider cancels the tunnel, and the system then tears it down — so
+        // treating that as the user disconnecting erased the reason 44 ms
+        // after it was recorded (measured, 22:47:29). A8 is explicit: Failed
+        // is terminal and leaves only when the user retries or connects
+        // something else. It falls through to `default` and stays.
 
         // Losing a tunnel that was up. Recovery starts immediately and is
         // counted from one (D86).
@@ -212,6 +235,12 @@ public enum ConnectionMachine {
 
         switch state {
         case .disconnected:
+            // **Failed is a disconnected tunnel with a reason**, and the
+            // reason is ours: the system has no opinion about it and reports
+            // Disconnected either way. Letting an observation clear it would
+            // erase the answer the user is looking at, and A8 says Failed is
+            // terminal until *they* act (found while wiring M5.2).
+            if case .failed = from { return from }
             return .disconnected
         case .connected:
             guard let profile = profile ?? from.profile else { return .disconnected }

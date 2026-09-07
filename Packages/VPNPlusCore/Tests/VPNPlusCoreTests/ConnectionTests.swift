@@ -246,6 +246,40 @@ struct ConnectionTests {
         #expect(session.since == start + 50)
     }
 
+    /// Failed is a disconnected tunnel with a reason, and the system reports
+    /// only the first half. An observation must not erase the half the user is
+    /// reading.
+    @Test func observingDisconnectedDoesNotEraseAFailure() {
+        let record = FailureRecord(profile: singapore, at: start, reason: .authenticationFailed)
+        let failed = Connection.failed(record)
+        #expect(ConnectionMachine.next(failed, on: .observed(.disconnected, profile: nil), at: start + 5) == failed)
+        // The user acting is what leaves it (A8 rule 4).
+        #expect(ConnectionMachine.next(failed, on: .connect(singapore), at: start + 5).state == .connecting)
+    }
+
+    /// An attempt can end faster than anyone can ask about it — 27 ms, when a
+    /// profile has no password. The reason survives elsewhere, and the model
+    /// has to be able to take it, or Failed is unrenderable.
+    @Test func aReasonFoundAfterwardsCanStillBecomeFailed() {
+        let record = FailureRecord(profile: singapore, at: start, reason: .credentialsUnavailable)
+        #expect(ConnectionMachine.next(.disconnected, on: .recoveredFailure(record), at: start + 1)
+            == .failed(record))
+        // But never over the top of something live (D226).
+        let connected = Connection.connected(Session(profile: singapore, since: start))
+        #expect(ConnectionMachine.next(connected, on: .recoveredFailure(record), at: start + 1) == connected)
+    }
+
+    /// The teardown that follows a failed attempt is the failure's own
+    /// mechanics, not the user dismissing it. A8: Failed is terminal.
+    @Test func tearingDownAfterAFailureDoesNotEraseIt() {
+        let record = FailureRecord(profile: singapore, at: start, reason: .authenticationFailed)
+        var state = Connection.failed(record)
+        state = ConnectionMachine.next(state, on: .disconnect, at: start + 1)
+        #expect(state == .failed(record))
+        state = ConnectionMachine.next(state, on: .tornDown, at: start + 2)
+        #expect(state == .failed(record), "the reason outlives the tunnel that failed to come up")
+    }
+
     @Test func anImpossibleEventChangesNothing() {
         // The model never invents a transition; the caller that saw the
         // impossible event has the context to log it.

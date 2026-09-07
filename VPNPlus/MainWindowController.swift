@@ -41,6 +41,8 @@ final class MainWindowController: NSWindowController {
     /// the curated copy M6's; this shows the messages M4 can already write
     /// rather than leaving them in the log where nobody looks.
     private let messageLabel = NSTextField(wrappingLabelWithString: "")
+    /// Keeps the clocks honest while something is happening.
+    private var tick: Timer?
     private let connectButton = NSButton(title: "Connect", target: nil, action: nil)
     private let disconnectButton = NSButton(title: "Disconnect", target: nil, action: nil)
 
@@ -86,6 +88,7 @@ final class MainWindowController: NSWindowController {
         importer.onChange = { [weak self] in self?.renderProfiles() }
         installer.onChange = { [weak self] in self?.render($0) }
         tunnel.onChange = { [weak self] in self?.renderTunnel($0) }
+        tunnel.onConnection = { [weak self] in self?.renderConnection($0) }
         render(installer.status)
         renderProfiles()
         importer.handOverPending()
@@ -538,8 +541,27 @@ final class MainWindowController: NSWindowController {
         tunnel.disconnect()
     }
 
+    /// The model, in words. A8's states and phases, from the one place that
+    /// knows them — and the clock ticks because a number that stopped is how
+    /// A1 found OpenVPN Connect lying about a connection.
+    private func renderConnection(_ connection: Connection) {
+        tunnelLabel.stringValue = connection.summary()
+        tick?.invalidate()
+        guard connection.state.isTransient || connection.state == .connected else { return }
+        tick = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.tunnelLabel.stringValue = self.tunnel.connection.summary()
+            }
+        }
+    }
+
     private func renderTunnel(_ status: NEVPNStatus) {
-        tunnelLabel.stringValue = "Tunnel: \(status.plainLanguage)"
+        // The system's own view, kept only until M5.4 renders the model
+        // properly. Where the two can differ, the model is the one shown.
+        if case .disconnected = tunnel.connection, status == .invalid {
+            tunnelLabel.stringValue = String(localized: "Not set up")
+        }
         switch status {
         case .connected:
             clearMessage()

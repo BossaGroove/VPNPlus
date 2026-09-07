@@ -18,7 +18,7 @@ import Foundation
 
 /// Every state a tunnel can be observed in. Six values, and no protocol
 /// appears in any of them — see feature-spec 3.1.
-public enum TunnelState: String, Sendable, CaseIterable {
+public enum TunnelState: String, Sendable, CaseIterable, Codable {
     case disconnected
     case connecting
     case connected
