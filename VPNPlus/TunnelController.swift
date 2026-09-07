@@ -18,26 +18,12 @@ import Foundation
 import NetworkExtension
 import os
 
-/// Creates and drives the VPN configuration. M0 needs this only so C4 has a
-/// tunnel to run experiments against — the real connection model is
-/// docs/ux/state-model.md and arrives with the engine.
+/// Creates and drives the VPN configuration. The real connection model
+/// (docs/ux/state-model.md) arrives with the engine in M2 and M5; this is the
+/// minimum needed to start and stop the tunnel and observe its status.
 @MainActor
 final class TunnelController {
     static let log = Logger(subsystem: "com.bossagroove.VPNPlus", category: "tunnel")
-
-    /// Selects what the provider does. Carried in `providerConfiguration`,
-    /// which holds **handles and switches, never secrets** (D191).
-    ///
-    /// **M1.3 SPIKE ONLY — removed in M1.4. Must not ship:** `socketProtect`
-    /// takes the default route with nothing behind it.
-    enum Experiment: String, CaseIterable {
-        /// Scoped route, no DNS. Safe to kill: it cannot take the machine's
-        /// networking with it.
-        case scoped
-        /// The `socket_protect` spike (C4 Q2): default route, two UDP probes
-        /// from inside the provider, then the provider ends the tunnel itself.
-        case socketProtect
-    }
 
     private(set) var status: NEVPNStatus = .invalid {
         didSet { if status != oldValue { onChange?(status) } }
@@ -69,14 +55,15 @@ final class TunnelController {
 
     /// Loads the existing configuration or creates one. Saving is what raises
     /// the "would like to add VPN configurations" prompt — C4 counts it.
-    func prepare(experiment: Experiment) async throws {
+    func prepare() async throws {
         let existing = try await NETunnelProviderManager.loadAllFromPreferences()
         let manager = existing.first ?? NETunnelProviderManager()
 
         let proto = NETunnelProviderProtocol()
         proto.providerBundleIdentifier = "com.bossagroove.VPNPlus.tunnel"
-        proto.serverAddress = "M0 scaffold"
-        proto.providerConfiguration = ["experiment": experiment.rawValue]
+        proto.serverAddress = "VPN Plus"
+        // Handles and switches only, never secrets (D191). Nothing yet.
+        proto.providerConfiguration = [:]
 
         manager.protocolConfiguration = proto
         manager.localizedDescription = "VPN Plus"

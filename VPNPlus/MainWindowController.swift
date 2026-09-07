@@ -29,7 +29,6 @@ final class MainWindowController: NSWindowController {
     private let statusLabel = NSTextField(labelWithString: "")
     private let detailLabel = NSTextField(wrappingLabelWithString: "")
     private let tunnelLabel = NSTextField(labelWithString: "Tunnel: not set up")
-    private let experimentPicker = NSPopUpButton()
     private let connectButton = NSButton(title: "Connect", target: nil, action: nil)
     private let disconnectButton = NSButton(title: "Disconnect", target: nil, action: nil)
 
@@ -62,13 +61,11 @@ final class MainWindowController: NSWindowController {
         detailLabel.preferredMaxLayoutWidth = 480
         tunnelLabel.textColor = .secondaryLabelColor
 
-        experimentPicker.addItems(withTitles: TunnelController.Experiment.allCases.map(\.rawValue))
         connectButton.target = self
         connectButton.action = #selector(connect)
         disconnectButton.target = self
         disconnectButton.action = #selector(disconnect)
 
-        let buttons = NSStackView(views: [experimentPicker, connectButton, disconnectButton])
         buttons.orientation = .horizontal
         buttons.spacing = 8
 
@@ -88,11 +85,9 @@ final class MainWindowController: NSWindowController {
     }
 
     @objc private func connect() {
-        let selected = experimentPicker.titleOfSelectedItem ?? ""
-        let experiment = TunnelController.Experiment(rawValue: selected) ?? .scoped
         Task {
             do {
-                try await tunnel.prepare(experiment: experiment)
+                try await tunnel.prepare()
                 try tunnel.connect()
             } catch {
                 tunnelLabel.stringValue = "Tunnel: \(error.localizedDescription)"
