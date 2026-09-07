@@ -328,7 +328,11 @@ final class MainWindowController: NSWindowController {
             profile: profile,
             settings: settings)
 
-        if case .missing = decision {
+        if case .missing(let forgetting) = decision {
+            // Withdrawing permission to keep a password has to take effect
+            // whether or not the user went on to connect: the choice
+            // describes the present state, not the last connection (D219).
+            if forgetting { Task { await forget(profile) } }
             // A prompt, not a failure (A10): nothing is wrong, the app simply
             // does not have what it needs yet.
             show(message: String(localized: "Type your password to connect to \(profile.title)."))
@@ -368,8 +372,10 @@ final class MainWindowController: NSWindowController {
         case sessionOnly(username: String, password: String)
         /// The profile signs in by itself.
         case notNeeded
-        /// Something is needed and nothing is available.
-        case missing
+        /// Something is needed and nothing is available. `forgetting` is true
+        /// when the user has just withdrawn permission to keep what is
+        /// stored — which must happen even though this connection cannot.
+        case missing(forgetting: Bool)
 
         var sessionUsername: String {
             switch self {
@@ -415,37 +421,49 @@ final class MainWindowController: NSWindowController {
                 : .sessionOnly(username: typedUsername, password: typedPassword)
         }
         if maySave, profile.credentialsSaved { return .useWhatIsStored }
-        return .missing
+        return .missing(forgetting: !maySave && profile.credentialsSaved)
     }
 
     /// Carries the decision out, and says so when it could not be.
     private func apply(_ decision: Credentials, to profile: Profile) async {
-        let client = PrivilegedClient()
-        do {
-            switch decision {
-            case .store(let username, let password):
-                try await client.setCredentials(username: username, password: password, for: profile.id)
+        switch decision {
+        case .store(let username, let password):
+            do {
+                try await PrivilegedClient().setCredentials(
+                    username: username, password: password, for: profile.id)
                 try? store.setCredentialsSaved(true, for: profile.id)
-            case .notNeeded where !profile.credentialsSaved:
-                // A profile that signs in by itself was never offered the
-                // choice, so there is nothing to forget and no reason to ask
-                // root to forget it on every connection.
-                break
-            case .sessionOnly, .notNeeded:
-                // Choosing not to save *removes* what was saved before, so the
-                // choice describes the present state rather than the last one
-                // (D219). The sign-in details only: taking the configuration
-                // with them would make the user find the original file again.
-                try await client.forgetCredentials(for: profile.id)
-                try? store.setCredentialsSaved(false, for: profile.id)
-            case .useWhatIsStored, .missing:
-                break
+            } catch {
+                Self.log.notice("could not save the sign-in details: \(error.localizedDescription, privacy: .public)")
+                // The promise M4.4 made: the user finds out that nothing was
+                // saved, instead of discovering it at the next connection.
+                show(message: String(localized: "VPN Plus couldn't save your password. This connection will still work; the next one will ask for it again."))
             }
+            renderProfiles()
+        case .sessionOnly:
+            // Unconditional, and not only when the flag says something is
+            // stored: a password saved before that flag existed must still go
+            // when the user says not to keep it.
+            await forget(profile)
+        case .notNeeded:
+            // A profile that signs in by itself was never offered the choice,
+            // so unless something really is stored there is nothing to forget
+            // and no reason to ask root on every connection.
+            if profile.credentialsSaved { await forget(profile) }
+        case .useWhatIsStored, .missing:
+            break
+        }
+    }
+
+    /// Makes the extension forget this profile's sign-in details — and only
+    /// those. Taking the configuration with them would make the user find the
+    /// original file again.
+    private func forget(_ profile: Profile) async {
+        do {
+            try await PrivilegedClient().forgetCredentials(for: profile.id)
+            try? store.setCredentialsSaved(false, for: profile.id)
         } catch {
-            Self.log.notice("could not update the saved sign-in details: \(error.localizedDescription, privacy: .public)")
-            // The promise M4.4 made: the user finds out that nothing was
-            // saved, instead of discovering it at the next connection.
-            show(message: String(localized: "VPN Plus couldn't save your password. This connection will still work; the next one will ask for it again."))
+            Self.log.notice("could not remove the saved sign-in details: \(error.localizedDescription, privacy: .public)")
+            show(message: String(localized: "VPN Plus couldn't forget your saved password. It may still be able to connect on its own."))
         }
         renderProfiles()
     }
