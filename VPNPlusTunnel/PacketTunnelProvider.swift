@@ -536,6 +536,16 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
                 // return of a path restarts fresh above.
                 log.notice("no network path; pausing the engine until one returns")
                 reasserting = true
+                // And say so. **Connected means carrying traffic** — not that
+                // a tunnel object exists (feature-spec 3.9) — so a tunnel with
+                // no network under it is recovering, not connected.
+                //
+                // Measured on 2026-09-07: without this the provider reported
+                // `connected` for the 17 s a Wi-Fi outage lasted, and only the
+                // app's own guard against a report it could not believe kept
+                // the user from being told a lie. A guard catching our
+                // dishonesty is not the same as not being dishonest.
+                apply(.dropped)
                 engine?.pause(reason: "network gone")
             }
         }
@@ -595,11 +605,18 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             if let info = engine?.connectionInfo {
                 log.notice("connected to \(info.serverHost, privacy: .public):\(info.serverPort, privacy: .public) via \(info.serverProto, privacy: .public), tunnel address \(info.vpnIPv4, privacy: .public) on \(info.tunName, privacy: .public)")
             }
-            apply(.established)
+            // `reasserting` first, and the report after it: the app checks a
+            // report against the session's status and rejects one the system
+            // contradicts, so announcing "connected" while NE still said
+            // "reasserting" got the announcement thrown away (measured,
+            // 23:30:25.171). The user still ended up Connected, by the slower
+            // route of the app observing the status change — which is the
+            // fallback doing someone else's job.
+            reasserting = false
             deadline?.cancel()
             phaseDeadline?.cancel()
             transportPoll?.cancel()
-            reasserting = false
+            apply(.established)
             rememberSessionToken()
             // A token that worked has earned the fallback back: the *next*
             // token to be refused is a new one, and stale for its own reasons.
