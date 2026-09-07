@@ -35,8 +35,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
 
     private var engine: Engine?
     private var runThread: Thread?
-    // NEProvider.defaultPath is not offered to macOS system extensions, so the
-    // Network framework's monitor watches the physical path instead.
+    // NEProvider.defaultPath is deprecated (macOS 15) in favour of the Network
+    // framework's path monitor, which watches the physical path here.
     private let pathMonitor = NWPathMonitor()
     private var lastPathDescription = ""
     private var connectedAt: Date?
