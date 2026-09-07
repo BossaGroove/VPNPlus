@@ -46,7 +46,6 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
 
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
         let ipv4 = NEIPv4Settings(addresses: ["10.99.99.2"], subnetMasks: ["255.255.255.0"])
-        settings.ipv4Settings = ipv4
         settings.mtu = 1400
 
         // M1.3 SPIKE ONLY — removed in M1.4. Must not ship.
@@ -66,15 +65,26 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 NEIPv4Route(destinationAddress: "10.99.99.0", subnetMask: "255.255.255.0")
             ]
         }
+        // Assigned LAST: the settings properties copy on assignment, so a route
+        // added to `ipv4` after this line never reaches the tunnel. Build 2 of
+        // the spike measured exactly that — a tunnel with no routes at all.
+        settings.ipv4Settings = ipv4
 
         setTunnelNetworkSettings(settings) { [self] error in
             if let error {
                 log.error("setTunnelNetworkSettings failed: \(error.localizedDescription, privacy: .public)")
             } else {
-                log.notice("settings applied")
+                log.notice("settings applied; included routes=\(settings.ipv4Settings?.includedRoutes?.count ?? -1, privacy: .public)")
             }
             completionHandler(error)
-            if error == nil, spike { runSocketProtectSpike(primary: primary) }
+            if error == nil, spike {
+                // Proof the default route took: the primary interface must now
+                // be the tunnel, not en0. Without this line a no-route tunnel
+                // would pass both probes and prove nothing.
+                let now = SocketProtectProbe.primaryInterface()
+                log.notice("spike: primary interface after settings = \(now?.name ?? "none", privacy: .public) index=\(now?.index ?? 0, privacy: .public)")
+                runSocketProtectSpike(primary: primary)
+            }
         }
     }
 
