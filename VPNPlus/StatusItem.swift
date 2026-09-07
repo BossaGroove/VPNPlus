@@ -185,16 +185,28 @@ final class StatusItemController: NSObject {
         /// which is near-white in dark mode: composite it onto a dark ground
         /// before looking at it, or it reads as an empty picture.
         private func dumpIcon() {
-            guard let button = item.button,
-                let rep = button.bitmapImageRepForCachingDisplay(in: button.bounds)
-            else { return }
+            let log = Logger(subsystem: "com.bossagroove.VPNPlus", category: "statusItem")
+            guard let button = item.button else {
+                log.error("no status button to draw")
+                return
+            }
+            guard let rep = button.bitmapImageRepForCachingDisplay(in: button.bounds) else {
+                log.error("the status button would not give a bitmap for \(NSStringFromRect(button.bounds), privacy: .public)")
+                return
+            }
             button.cacheDisplay(in: button.bounds, to: rep)
             let stamp = Int(Date().timeIntervalSince1970 * 1000) % 1_000_000
             let path = "/tmp/vpnplus-status-icon-\(stamp).png"
-            guard let png = rep.representation(using: .png, properties: [:]) else { return }
-            try? png.write(to: URL(fileURLWithPath: path))
-            Logger(subsystem: "com.bossagroove.VPNPlus", category: "statusItem")
-                .notice("drew the status icon to \(path, privacy: .public)")
+            guard let png = rep.representation(using: .png, properties: [:]) else {
+                log.error("the bitmap would not encode as PNG")
+                return
+            }
+            do {
+                try png.write(to: URL(fileURLWithPath: path))
+                log.notice("drew the status icon to \(path, privacy: .public)")
+            } catch {
+                log.error("could not write the icon: \(error.localizedDescription, privacy: .public)")
+            }
         }
     #endif
 
@@ -202,6 +214,14 @@ final class StatusItemController: NSObject {
         let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
         image?.isTemplate = true
         item.button?.image = image
+        #if DEBUG
+            // Which frame, and when. **Better evidence than a screenshot for
+            // an animation**: two stills prove two shapes exist, while a
+            // timestamped sequence proves the frames are turning over, at the
+            // cadence they were meant to, in the state that asked for them.
+            Logger(subsystem: "com.bossagroove.VPNPlus", category: "statusItem")
+                .notice("icon → \(name, privacy: .public)\(image == nil ? " (MISSING)" : "", privacy: .public)")
+        #endif
     }
 
     private func animate(_ names: [String], every interval: TimeInterval) {
