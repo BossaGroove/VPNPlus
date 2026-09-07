@@ -162,8 +162,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     /// measured that a resumed session never gets its config from the owner's
     /// server while a fresh one does (A2), so this is what sleep/wake uses.
     private func restartFresh(reason: String) {
+        let already = state.withLock { s -> Bool in
+            if s.restarting { return true }
+            s.restarting = true; s.connected = false
+            return false
+        }
+        if already { return }
         log.notice("starting a fresh session: \(reason, privacy: .public)")
-        state.withLock { $0.restarting = true; $0.connected = false }
         reasserting = true
         let old = engine
         old?.stop()
@@ -210,10 +215,15 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             log.notice("network path: \(now, privacy: .public) (was \(previous.isEmpty ? "unknown" : previous, privacy: .public)); connected=\(connected, privacy: .public) since=\(Int(settleSeconds), privacy: .public)s")
             guard connected, settleSeconds > 5, !previous.isEmpty else { return }
             if path.status == .satisfied {
-                log.notice("network changed while connected: reconnecting the transport")
-                engine?.reconnect(after: 0)
+                // C measured that the engine's own reconnect on this path is
+                // never answered by the server; a fresh engine is.
+                restartFresh(reason: "network changed")
             } else {
-                log.notice("no network path; the engine keeps trying and reconnects when one returns")
+                // Quiet the engine while there is nothing to send on; the
+                // return of a path restarts fresh above.
+                log.notice("no network path; pausing the engine until one returns")
+                reasserting = true
+                engine?.pause(reason: "network gone")
             }
         }
         pathMonitor.start(queue: DispatchQueue(label: "com.bossagroove.VPNPlus.path"))
@@ -265,11 +275,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             reasserting = false
             finishStart(with: nil)
         case "RECONNECTING":
-            // NE shows this as Reconnecting; the tunnel persists meanwhile, and
-            // the attempt gets the same deadline as a first connection.
-            state.withLock { $0.connected = false }
-            reasserting = true
-            armDeadline()
+            // The engine wants a second session in the same client. Against the
+            // owner's server that session is never answered (B, B2, B3', C),
+            // while a fresh client is — so every reconnect becomes a fresh
+            // engine, under the attempt deadline armed by startEngine().
+            if state.withLock({ $0.connected }) {
+                restartFresh(reason: "engine reconnecting")
+            }
         case "PAUSE":
             reasserting = true
         default:
