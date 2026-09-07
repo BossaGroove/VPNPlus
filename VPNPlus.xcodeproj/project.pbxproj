@@ -465,10 +465,6 @@
 					USE_TUN_BUILDER,
 					ENABLE_EXTERNAL_PKI,
 				);
-				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/ThirdParty/openvpn3",
-					"$(SRCROOT)/ThirdParty/out/include",
-				);
 				INFOPLIST_FILE = VPNPlusTunnel/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -488,6 +484,10 @@
 				PRODUCT_NAME = com.bossagroove.VPNPlus.tunnel;
 				SDKROOT = macosx;
 				SWIFT_OBJC_BRIDGING_HEADER = "VPNPlusTunnel/Engine/VPNPlusTunnel-Bridging-Header.h";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/ThirdParty/openvpn3",
+					"$(SRCROOT)/ThirdParty/out/include",
+				);
 			};
 			name = Release;
 		};
@@ -529,10 +529,6 @@
 					USE_TUN_BUILDER,
 					ENABLE_EXTERNAL_PKI,
 				);
-				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/ThirdParty/openvpn3",
-					"$(SRCROOT)/ThirdParty/out/include",
-				);
 				INFOPLIST_FILE = VPNPlusTunnel/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -552,6 +548,10 @@
 				PRODUCT_NAME = com.bossagroove.VPNPlus.tunnel;
 				SDKROOT = macosx;
 				SWIFT_OBJC_BRIDGING_HEADER = "VPNPlusTunnel/Engine/VPNPlusTunnel-Bridging-Header.h";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/ThirdParty/openvpn3",
+					"$(SRCROOT)/ThirdParty/out/include",
+				);
 			};
 			name = Debug;
 		};
