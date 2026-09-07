@@ -42,7 +42,13 @@ enum SecretKind: Int, CaseIterable {
     /// The merged profile text. A secret because it routinely contains a
     /// private key (D190).
     case configuration = 1
-    /// The user's password, or the session token that stands in for it.
+    /// The user's sign-in details: password, or the session token that stands
+    /// in for it, **and the username**.
+    ///
+    /// The username travels with the password rather than in
+    /// `providerConfiguration`, which any local administrator can read. It is
+    /// not a secret in the way a password is, but it is the user's, and there
+    /// is no reason to publish it to get it where it is needed.
     case password = 2
 
     /// The largest value this kind may carry. A cap is not paranoia: the
@@ -63,6 +69,25 @@ enum SecretKind: Int, CaseIterable {
         case .configuration: "\(profile.uuidString).profile"
         case .password: "\(profile.uuidString).password"
         }
+    }
+}
+
+/// The sign-in details for one profile, as they are stored and read back.
+/// Small, fixed shape, JSON: nothing here is a graph an attacker could walk.
+struct StoredCredentials: Codable, Equatable {
+    var username: String
+    var password: String
+
+    init(username: String, password: String) {
+        self.username = username
+        self.password = password
+    }
+
+    var encoded: Data? { try? JSONEncoder().encode(self) }
+
+    init?(_ data: Data) {
+        guard let decoded = try? JSONDecoder().decode(Self.self, from: data) else { return nil }
+        self = decoded
     }
 }
 

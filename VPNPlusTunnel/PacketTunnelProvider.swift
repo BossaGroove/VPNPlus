@@ -62,8 +62,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         var restarting = false
     }
 
-    // M2 ONLY — kept so a fresh session can be started after sleep. M4 moves
-    // this behind the XPC interface.
+    /// The configuration and sign-in details this session is using.
+    ///
+    /// Held for the life of the session because a transition starts a **fresh**
+    /// engine (D211) and it needs them again. When the user chose to save their
+    /// password these come from our own keychain; when they did not, this is
+    /// the only copy and it dies with the session, which is what "don't
+    /// remember it" has to mean.
     private var profile = ""
     private var username: String?
     private var password: String?
@@ -117,8 +122,26 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             return
         }
         self.profile = profile
-        self.username = options?["username"] as? String
-        self.password = options?["password"] as? String
+        // Sign-in details: our own, if the user chose to save them, else
+        // whatever the app supplied for this session only.
+        var username = options?["username"] as? String
+        var password = options?["password"] as? String
+        var saved: StoredCredentials?
+        if let identifier,
+           let data = ((try? secrets.secret(for: SecretKind.password.account(for: identifier))) ?? nil) {
+            saved = StoredCredentials(data)
+        }
+        if let identifier, let credentials = saved {
+            username = credentials.username
+            password = credentials.password
+            log.notice("using saved sign-in details for \(identifier.uuidString, privacy: .public)")
+        } else if password != nil {
+            log.notice("using sign-in details supplied for this session only")
+        } else {
+            log.notice("no sign-in details: neither saved nor supplied")
+        }
+        self.username = username
+        self.password = password
         self.serverOverride = Engine.ServerOverride(
             host: options?["serverHost"] as? String ?? "",
             port: options?["serverPort"] as? String ?? "",

@@ -121,6 +121,16 @@ struct PrivilegedClient {
         }
     }
 
+    /// Stores the sign-in details, so a later connection — including one
+    /// started from System Settings with the app not running — can authenticate
+    /// without asking anyone (D75).
+    func setCredentials(username: String, password: String, for profile: UUID) async throws {
+        guard let encoded = StoredCredentials(username: username, password: password).encoded else {
+            throw Failure.unavailable
+        }
+        try await setSecret(encoded, kind: .password, for: profile)
+    }
+
     func deleteSecrets(for profile: UUID) async throws {
         try await perform(pinning: PrivilegedChannel.extensionRequirement) { proxy, finish in
             proxy.deleteSecrets(profile: profile, reply: finish)

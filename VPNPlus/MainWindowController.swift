@@ -17,12 +17,15 @@
 import AppKit
 import NetworkExtension
 import VPNPlusCore
+import os
 
 /// M0's only screen. It says what the extension is doing and gives C4 a way to
 /// start and stop a tunnel. The real main window is designed in
 /// docs/ux/screen-main.md and built with the engine.
 @MainActor
 final class MainWindowController: NSWindowController {
+    private static let log = Logger(subsystem: "com.bossagroove.VPNPlus", category: "window")
+
     private let installer = ExtensionInstaller(identifier: "com.bossagroove.VPNPlus.tunnel")
     private let tunnel = TunnelController()
     private let store: any ProfileStore = StoredProfileStore.live
@@ -255,6 +258,16 @@ final class MainWindowController: NSWindowController {
             } catch {
                 tunnelLabel.stringValue = String(localized: "Couldn't delete that profile")
             }
+            // The extension holds this profile's configuration and password, so
+            // deleting here is only half of it. A dangling secret is a secret
+            // nobody is managing.
+            Task {
+                do {
+                    try await PrivilegedClient().deleteSecrets(for: profile.id)
+                } catch {
+                    Self.log.error("the extension may still hold secrets for a deleted profile: \(error.localizedDescription, privacy: .public)")
+                }
+            }
             renderProfiles()
         }
         if let window {
@@ -294,17 +307,53 @@ final class MainWindowController: NSWindowController {
         case .credentials(.fixed(let fixed), _, _): username = fixed
         default: username = usernameField.stringValue
         }
+        let password = passwordField.stringValue
         Task {
             do {
+                // Saved before connecting, not after: a connection that is
+                // interrupted must not cost the user their password, and the
+                // extension needs them on the very next attempt whatever
+                // happens to this one.
+                await save(username: username, password: password, for: profile, settings: settings)
                 try await tunnel.prepare(profile: profile.id)
                 try tunnel.connect(
                     profile: text,
                     username: username,
-                    password: passwordField.stringValue,
+                    password: password,
                     server: overrideServer(for: profile, settings: settings))
             } catch {
                 tunnelLabel.stringValue = "Tunnel: \(error.localizedDescription)"
             }
+        }
+    }
+
+    /// Gives the sign-in details to the extension, or makes sure it is holding
+    /// none — whichever the profile and the user's choice call for.
+    ///
+    /// A profile that forbids saving the password is honoured against our own
+    /// default, never the other way round (D129), and choosing not to save
+    /// **deletes** what was saved before rather than leaving it behind.
+    private func save(
+        username: String,
+        password: String,
+        for profile: Profile,
+        settings: ProfileSettings?
+    ) async {
+        var wanted = false
+        if case .credentials(_, .offered(let on), _) = settings?.signIn { wanted = on }
+
+        let client = PrivilegedClient()
+        do {
+            if wanted, !password.isEmpty {
+                try await client.setCredentials(username: username, password: password, for: profile.id)
+            } else {
+                try await client.deleteSecrets(for: profile.id)
+            }
+        } catch {
+            // Not worth stopping a connection over, and not worth a dialog:
+            // the connection still works with what is in the start options.
+            // M4.5 gives the user a way to see that nothing was saved.
+            Self.log.notice("could not update the saved sign-in details: \(error.localizedDescription, privacy: .public)")
         }
     }
 

@@ -80,10 +80,13 @@ final class TunnelController {
         refreshStatus()
     }
 
-    /// M2 ONLY — the profile text and credentials ride in the start options.
-    /// M3 stores profiles and M4 puts credentials behind the XPC interface;
-    /// until then nothing here persists, and a start from System Settings has
-    /// nothing to connect with (D75 is knowingly broken in M2).
+    /// Starts the tunnel for a profile the extension already knows about.
+    ///
+    /// What still crosses in the start options, and why: the configuration
+    /// **only** until the extension has been given it, and the sign-in details
+    /// **only** for a session the user asked not to save. Everything the
+    /// extension owns, it reads itself — which is what lets a connection start
+    /// from System Settings with no app running (D75).
     func connect(
         profile: String?,
         username: String,
