@@ -74,6 +74,20 @@ jobs:
             -configuration Debug -destination 'platform=macOS' \
             CODE_SIGNING_ALLOWED=NO test | grep -E "Test run|✔|✘|TEST" 
 
+      # A provider override that goes missing does not fail the build: NE calls
+      # what exists, and a Disconnect that never reaches the engine looks fine
+      # on screen. It happened once. The binary must expose all four.
+      - name: Check the provider's lifecycle overrides are present
+        run: |
+          set -o pipefail
+          APP=$(xcodebuild -project VPNPlus.xcodeproj -scheme VPNPlus -configuration Release \
+            -showBuildSettings 2>/dev/null | awk -F' = ' '/ BUILT_PRODUCTS_DIR/{print $2; exit}')/VPN\ Plus.app
+          BIN=$(ls "$APP"/Contents/Library/SystemExtensions/*.systemextension/Contents/MacOS/* | head -1)
+          for sel in "startTunnelWithOptions:completionHandler:" "stopTunnelWithReason:completionHandler:" "sleepWithCompletionHandler:" "wake"; do
+            strings "$BIN" | grep -qx "$sel" || { echo "::error::the tunnel provider does not implement $sel"; exit 1; }
+          done
+          echo "all four lifecycle overrides present"
+
       # sysextd matches an activation request against the bundle's DIRECTORY
       # NAME in Contents/Library/SystemExtensions and never opens the bundle.
       # A wrongly named extension fails with "extension not found" at runtime
