@@ -36,7 +36,8 @@ enum UTunDescriptor {
             // SYSPROTO_CONTROL = 2, UTUN_OPT_IFNAME = 2 (<net/if_utun.h>,
             // which the Swift overlay does not expose).
             if getsockopt(fd, 2, 2, &name, &length) == 0 {
-                return (fd, String(cString: name))
+                let bytes = name.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
+                return (fd, String(decoding: bytes, as: UTF8.self))
             }
         }
         return nil
