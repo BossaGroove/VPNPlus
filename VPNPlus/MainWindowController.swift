@@ -26,6 +26,9 @@ import os
 final class MainWindowController: NSWindowController {
     private static let log = Logger(subsystem: "com.bossagroove.VPNPlus", category: "window")
 
+    /// The window's own view controller, which is what presents every sheet.
+    private let content = NSViewController()
+
     private let installer = ExtensionInstaller(identifier: "com.bossagroove.VPNPlus.tunnel")
     private let tunnel = TunnelController()
     private let store: any ProfileStore = StoredProfileStore.live
@@ -57,11 +60,23 @@ final class MainWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
+        super.init(window: window)
+
+        // A real content view controller, and it is not decoration: a sheet is
+        // dismissed by whoever presented it, so presenting from a temporary
+        // one leaves a sheet nobody can close — which blocks the whole window
+        // and refuses even Quit. This one is owned by the window and outlives
+        // every sheet it presents.
+        //
+        // Assigned before the frame is settled, because it resizes the window.
+        content.view = NSView(frame: NSRect(x: 0, y: 0, width: 620, height: 440))
+        window.contentViewController = content
+
         window.title = "VPN Plus"
         window.center()
+        // After center(), so a remembered position wins over the default.
         window.setFrameAutosaveName("MainWindow")
         window.minSize = NSSize(width: 620, height: 440)
-        super.init(window: window)
 
         buildLayout()
         acceptDrops()
@@ -246,13 +261,7 @@ final class MainWindowController: NSWindowController {
             // The title in the list follows the user's name for it.
             renderProfiles()
         }
-        contentViewController?.presentAsSheet(sheet) ?? presentSheet(sheet)
-    }
-
-    private func presentSheet(_ controller: NSViewController) {
-        let holder = NSViewController()
-        holder.view = window?.contentView ?? NSView()
-        holder.presentAsSheet(controller)
+        content.presentAsSheet(sheet)
     }
 
     /// Deleting takes a private key with it, so it asks first.

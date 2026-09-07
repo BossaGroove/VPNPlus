@@ -173,8 +173,27 @@ final class ProfileConfigurationSheet: NSViewController {
         }
     }
 
+    /// True while the rows are being replaced.
+    private var rebuilding = false
+
+    /// Replaces every row from the composed settings.
+    ///
+    /// **It must not re-enter, and this is not a precaution.** Removing a text
+    /// field from the view hierarchy ends its editing session, which fires its
+    /// action — which is the very thing that asks for a rebuild. The second
+    /// pass then removes everything while the first is still walking a list of
+    /// views that no longer exist, and AppKit aborts with *"View … is not (and
+    /// has to be) in stack view"*. Measured on 2026-09-07: two rebuilds 5 ms
+    /// apart, the second reordering the list under the first.
+    ///
+    /// `removeFromSuperview()` rather than `removeView(_:)` for the same
+    /// reason: it is a no-op on a view that has already gone, where the other
+    /// is an assertion.
     private func rebuild() {
-        rows.views.forEach { rows.removeView($0) }
+        guard !rebuilding else { return }
+        rebuilding = true
+        defer { rebuilding = false }
+        for view in rows.views { view.removeFromSuperview() }
         build()
     }
 
@@ -241,6 +260,13 @@ final class ProfileConfigurationSheet: NSViewController {
     // MARK: - Editing
 
     @objc private func fieldChanged() {
+        readFields()
+        rebuild()
+    }
+
+    /// Reads what is typed into the overrides. No layout of any kind: a
+    /// caller that is closing the sheet has no business rebuilding it.
+    private func readFields() {
         overrides.title = value(titleField, default: descriptor.displayName)
         overrides.username = value(usernameField, default: "")
         let host = value(hostField, default: descriptor.server.host)
@@ -253,7 +279,6 @@ final class ProfileConfigurationSheet: NSViewController {
                 port: port ?? descriptor.server.port,
                 transport: overrides.server?.transport ?? descriptor.server.transport)
         }
-        rebuild()
     }
 
     /// nil when the field agrees with the profile, so agreeing is not an
@@ -300,8 +325,22 @@ final class ProfileConfigurationSheet: NSViewController {
 
     /// "Done", never "Save", and it never connects (D131).
     @objc private func done() {
-        fieldChanged()
+        readFields()
         onDone(overrides)
         dismiss(nil)
+        // And then check that it actually went.
+        //
+        // AppKit catches an exception thrown inside a control's action and
+        // carries on, so a failure part-way through this method leaves the
+        // sheet up with nothing to close it: the window is blocked, Quit is
+        // refused, and the user's only way out is Force Quit. That is exactly
+        // what happened on 2026-09-07 — an assertion in the rebuild, invisible
+        // as anything but "the app froze". The cause is fixed; this checks the
+        // postcondition anyway, because the cost of being wrong here is the
+        // whole app.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let sheet = self?.view.window, let parent = sheet.sheetParent else { return }
+            parent.endSheet(sheet)
+        }
     }
 }
