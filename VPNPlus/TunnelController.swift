@@ -28,16 +28,15 @@ final class TunnelController {
     /// Selects what the provider does. Carried in `providerConfiguration`,
     /// which holds **handles and switches, never secrets** (D191).
     ///
-    /// **M0 ONLY — the C4 hardware-validation harness. Removed with the engine
-    /// in M1. Must not ship:** `scopedWithDNS` points every DNS query at a
-    /// resolver that does not exist.
+    /// **M1.3 SPIKE ONLY — removed in M1.4. Must not ship:** `socketProtect`
+    /// takes the default route with nothing behind it.
     enum Experiment: String, CaseIterable {
         /// Scoped route, no DNS. Safe to kill: it cannot take the machine's
         /// networking with it.
         case scoped
-        /// Adds DNS with `matchDomains = [""]` to measure whether that still
-        /// captures every query on this macOS version (D197).
-        case scopedWithDNS
+        /// The `socket_protect` spike (C4 Q2): default route, two UDP probes
+        /// from inside the provider, then the provider ends the tunnel itself.
+        case socketProtect
     }
 
     private(set) var status: NEVPNStatus = .invalid {
