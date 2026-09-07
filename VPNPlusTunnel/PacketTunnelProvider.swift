@@ -170,6 +170,22 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         return "\(status) via \(interfaces.joined(separator: ","))\(path.isExpensive ? " expensive" : "")"
     }
 
+    override func stopTunnel(
+        with reason: NEProviderStopReason,
+        completionHandler: @escaping () -> Void
+    ) {
+        log.notice("provider stop reason=\(reason.rawValue, privacy: .public)")
+        state.withLock { $0.stopping = true }
+        pathMonitor.cancel()
+        guard let engine else { completionHandler(); return }
+        engine.stop()
+        // The connect thread returns once the engine has wound down; give it a
+        // bounded moment so a stuck engine cannot hold the stop forever.
+        _ = finished.wait(timeout: .now() + 5)
+        self.engine = nil
+        completionHandler()
+    }
+
     // MARK: - Engine callbacks (connect thread)
 
     private func handle(_ event: Engine.Event) {
