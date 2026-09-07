@@ -104,6 +104,8 @@ final class Engine: @unchecked Sendable {
     }
 
     deinit {
+        // Destroying the engine is what closes the descriptor it owns; a
+        // leaked Engine is a leaked utun. The provider logs this.
         if let handle { vpnplus_engine_destroy(handle) }
     }
 

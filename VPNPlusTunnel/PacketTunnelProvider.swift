@@ -276,15 +276,19 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             log.error("setTunnelNetworkSettings failed: \(failure.localizedDescription, privacy: .public)")
             return nil
         }
-        guard let utun = UTunDescriptor.find() else {
-            log.error("settings applied but no utun descriptor was found")
+        // The process outlives sessions, so more than one utun descriptor may
+        // be open; the tunnel is the one carrying the address just applied.
+        let candidates = UTunDescriptor.all()
+        log.notice("utun descriptors in this process: \(candidates.map(\.description).joined(separator: " "), privacy: .public)")
+        guard let address = v4.first?.address, let utun = UTunDescriptor.find(carrying: address) else {
+            log.error("settings applied but no utun descriptor carries \(v4.first?.address ?? "no address", privacy: .public)")
             return nil
         }
         // The engine owns what it is given and closes it on teardown. It gets
         // a duplicate, so NE's own descriptor — the tunnel — survives a
         // teardown and a re-establish (D209).
         let owned = dup(utun.fd)
-        log.notice("settings applied; tunnel descriptor \(utun.name, privacy: .public) fd=\(utun.fd, privacy: .public), engine gets fd=\(owned, privacy: .public)")
+        log.notice("settings applied; tunnel \(utun.name, privacy: .public) fd=\(utun.fd, privacy: .public), engine gets fd=\(owned, privacy: .public)")
         return owned < 0 ? nil : owned
     }
 
