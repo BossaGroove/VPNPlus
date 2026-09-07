@@ -151,6 +151,14 @@ final class Engine: @unchecked Sendable {
             gateway6: s(raw.gateway6), clientIP: s(raw.client_ip), tunName: s(raw.tun_name))
     }
 
+    /// Bytes and packets the transport has carried this session.
+    var transportCounters: (bytesIn: Int64, bytesOut: Int64) {
+        guard let handle else { return (0, 0) }
+        var stats = vpnplus_transport_stats()
+        vpnplus_engine_transport_stats(handle, &stats)
+        return (stats.bytes_in, stats.bytes_out)
+    }
+
     /// Milliseconds since the last packet arrived, or nil before the first.
     var millisecondsSinceLastPacket: Int? {
         guard let handle else { return nil }

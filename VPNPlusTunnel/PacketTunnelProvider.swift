@@ -66,6 +66,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     private var username: String?
     private var password: String?
     private var deadline: DispatchWorkItem?
+    private var transportPoll: DispatchWorkItem?
 
     override func startTunnel(
         options: [String: NSObject]?,
@@ -120,6 +121,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         }
 
         armDeadline()
+        pollTransport()
         let thread = Thread { [weak self] in
             let result = engine.run()
             self?.runEnded(result)
@@ -128,6 +130,22 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         thread.qualityOfService = .userInitiated
         runThread = thread
         thread.start()
+    }
+
+    /// Logs the engine's transport counters every three seconds until the
+    /// attempt succeeds or ends. Whether bytes keep arriving while the server
+    /// withholds its configuration is the difference between "the server is
+    /// silent" and "we are not hearing it", and A9 keeps the answer either way.
+    private func pollTransport() {
+        transportPoll?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            guard let self, let engine, !state.withLock({ $0.connected || $0.stopping }) else { return }
+            let stats = engine.transportCounters
+            log.notice("transport: in=\(stats.bytesIn, privacy: .public) out=\(stats.bytesOut, privacy: .public) lastPacket=\(engine.millisecondsSinceLastPacket.map(String.init) ?? "never", privacy: .public)ms")
+            pollTransport()
+        }
+        transportPoll = item
+        DispatchQueue.global().asyncAfter(deadline: .now() + 3, execute: item)
     }
 
     // MARK: - Deadlines (D177, A8)
@@ -250,6 +268,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         log.notice("provider stop reason=\(reason.rawValue, privacy: .public)")
         state.withLock { $0.stopping = true }
         deadline?.cancel()
+        transportPoll?.cancel()
         pathMonitor.cancel()
         guard let engine else { completionHandler(); return }
         engine.stop()
@@ -272,6 +291,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             state.withLock { $0.connected = true }
             connectedAt = Date()
             deadline?.cancel()
+            transportPoll?.cancel()
             reasserting = false
             finishStart(with: nil)
         case "RECONNECTING":
