@@ -23,8 +23,18 @@ version from the heading, so it must match the tag exactly.
   changing Wi-Fi network, and losing the network entirely. Reconnecting never
   takes your internet away while it works.
 
-**Not ready to use yet.** There is no way to save a profile or a password: a
-profile is chosen from disk each time and kept only while the app runs.
+- Profiles: import a `.ovpn` by dropping it on the window, from File > Import
+  Profile…, or by double-clicking it in the Finder. VPN Plus reads the files it
+  refers to, checks it there and then, and says what is wrong in plain words if
+  it cannot use it — including which file is missing, if one is.
+- Imported profiles are kept, so connecting no longer means finding a file. A
+  profile's certificate and key are stored in your Keychain.
+- Each profile has settings — its name, its server, your username, whether to
+  reconnect automatically — and every one of them says whether the value came
+  from the profile or from you.
+
+**Not ready to use yet.** Passwords are typed on every connection: they cannot
+be saved yet.
 
 Nothing released yet. The first version's entry goes here, and the release
 workflow refuses to build a tag that has no matching section.
