@@ -29,15 +29,32 @@ enum VPNPlusApp {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// One model, and **the app owns it** so that both surfaces read the same
+    /// one. The status item is a peer of the window (D33), not something
+    /// derived from it, and nothing derived from the other could be trusted to
+    /// agree with it (D93).
+    private let tunnel = TunnelController()
+    private let catalogue = ProfileCatalogue()
     private var windowController: MainWindowController?
+    private var statusItem: StatusItemController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
-        let controller = MainWindowController()
-        controller.showWindow(nil)
+        let controller = MainWindowController(tunnel: tunnel, catalogue: catalogue)
         windowController = controller
-        NSApp.activate(ignoringOtherApps: true)
 
+        statusItem = StatusItemController(
+            tunnel: tunnel,
+            catalogue: catalogue,
+            onOpenWindow: { [weak self] in
+                self?.windowController?.showWindow(nil)
+                NSApp.activate(ignoringOtherApps: true)
+            },
+            onImport: { [weak self] in self?.windowController?.importProfileFromPanel(nil) },
+            onConnect: { [weak self] in self?.windowController?.connectFromMenu($0) })
+
+        controller.showWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     /// Double-clicking a profile in the Finder, and dropping one on the app
@@ -50,25 +67,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// A minimal menu, for the one command import needs (2.1). The real menu
-    /// bar is A16's and arrives with M5.
+    /// The application menu. A16's *status* menu is `StatusItemController`'s;
+    /// this is the one in the menu bar's left half, which macOS expects and
+    /// which D12 needs for keyboard reachability. Settings (⌘,) arrives with
+    /// its window in M7.
     private func buildMenu() {
         let main = NSMenu()
 
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: String(localized: "About VPN Plus"),
-                        action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(
+            withTitle: String(localized: "About VPN Plus"),
+            action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: String(localized: "Quit VPN Plus"),
-                        action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(
+            withTitle: String(localized: "Quit VPN Plus"),
+            action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         main.addItem(appItem)
 
         let fileItem = NSMenuItem()
         let fileMenu = NSMenu(title: String(localized: "File"))
-        fileMenu.addItem(withTitle: String(localized: "Import Profile…"),
-                         action: #selector(MainWindowController.importProfileFromPanel(_:)), keyEquivalent: "o")
+        fileMenu.addItem(
+            withTitle: String(localized: "Import Profile…"),
+            action: #selector(MainWindowController.importProfileFromPanel(_:)), keyEquivalent: "o")
         fileItem.submenu = fileMenu
         main.addItem(fileItem)
 
@@ -88,7 +110,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = main
     }
 
+    /// **False, now that there is a status item.**
+    ///
+    /// Closing the window is not quitting: the icon is the app's persistent
+    /// presence and the answer to J1, and an app that vanished when its window
+    /// closed would take that answer with it. *Open VPN Plus* in the menu
+    /// brings the window back.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        true
+        false
     }
 }

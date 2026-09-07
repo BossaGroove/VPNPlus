@@ -40,6 +40,17 @@ enum FailureCopy {
         }
     }
 
+    /// The same title without the profile's name, for a surface that has
+    /// already said it on its own line — the menu (D149). Not built by
+    /// deleting words from the long one: a sentence with a hole in it is how
+    /// translations break.
+    static func shortTitle(_ record: FailureRecord) -> String {
+        switch record.reason {
+        case .authenticationFailed: String(localized: "Couldn't sign in")
+        default: String(localized: "Couldn't connect")
+        }
+    }
+
     static func body(_ record: FailureRecord, name: String) -> String {
         switch record.reason {
         case .authenticationFailed:

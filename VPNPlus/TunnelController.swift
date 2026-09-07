@@ -27,10 +27,25 @@ final class TunnelController {
     static let log = Logger(subsystem: "com.bossagroove.VPNPlus", category: "tunnel")
 
     private(set) var status: NEVPNStatus = .invalid {
-        didSet { if status != oldValue { onChange?(status) } }
+        didSet { if status != oldValue { announce() } }
     }
 
-    var onChange: ((NEVPNStatus) -> Void)?
+    /// Everything that renders this model.
+    ///
+    /// **A list, not a callback**, because there are two surfaces now and
+    /// commitment 6 says they cannot disagree. They cannot, because there is
+    /// one model and they are both told about it here — rather than one being
+    /// derived from the other, which is how they would drift (D93).
+    private var observers: [(Connection, NEVPNStatus) -> Void] = []
+
+    func observe(_ observer: @escaping (Connection, NEVPNStatus) -> Void) {
+        observers.append(observer)
+        observer(connection, status)
+    }
+
+    private func announce() {
+        for observer in observers { observer(connection, status) }
+    }
 
     private var manager: NETunnelProviderManager?
 
@@ -72,10 +87,13 @@ final class TunnelController {
                 return
             }
             self.manager = manager
-            Self.log.notice("loaded the existing configuration; status \(manager.connection.status.rawValue, privacy: .public)")
+            Self.log.notice(
+                "loaded the existing configuration; status \(manager.connection.status.rawValue, privacy: .public)"
+            )
             refreshStatus()
         } catch {
-            Self.log.error("could not load the configuration: \(error.localizedDescription, privacy: .public)")
+            Self.log.error(
+                "could not load the configuration: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -163,10 +181,11 @@ final class TunnelController {
                 }
                 // Read here rather than handed on: an Error is not Sendable,
                 // and nothing past this point needs the object itself.
-                continuation.resume(returning: Failure(
-                    kind: TunnelFailure(error),
-                    detail: error.localizedDescription,
-                    at: TunnelFailure.time(of: error)))
+                continuation.resume(
+                    returning: Failure(
+                        kind: TunnelFailure(error),
+                        detail: error.localizedDescription,
+                        at: TunnelFailure.time(of: error)))
             }
         }
     }
@@ -180,7 +199,7 @@ final class TunnelController {
     /// is exactly the attempt whose reason the user most needs.
     func recoverFailureIfNeeded() async {
         guard connection.state == .disconnected,
-              let failure = await lastFailure(), let kind = failure.kind
+            let failure = await lastFailure(), let kind = failure.kind
         else { return }
         // Only a recent one: a reason from last week is not what just
         // happened, and the model may not claim otherwise (D96).
@@ -188,7 +207,9 @@ final class TunnelController {
         let record = FailureRecord(
             profile: configuredProfile ?? UUID(), at: failure.at ?? Date(), reason: kind)
         connection = ConnectionMachine.next(connection, on: .recoveredFailure(record))
-        Self.log.notice("recovered a failure the provider did not live to report: \(kind.rawValue, privacy: .public)")
+        Self.log.notice(
+            "recovered a failure the provider did not live to report: \(kind.rawValue, privacy: .public)"
+        )
     }
 
     struct Failure: Sendable {
@@ -204,7 +225,7 @@ final class TunnelController {
     /// is all `providerConfiguration` ever holds (D191).
     var configuredProfile: UUID? {
         guard let proto = manager?.protocolConfiguration as? NETunnelProviderProtocol,
-              let identifier = proto.providerConfiguration?["profile"] as? String
+            let identifier = proto.providerConfiguration?["profile"] as? String
         else { return nil }
         return UUID(uuidString: identifier)
     }
@@ -232,10 +253,8 @@ final class TunnelController {
     /// is read instead (D75). Nothing here is derived from what the app just
     /// asked for.
     private(set) var connection = Connection.disconnected {
-        didSet { if connection != oldValue { onConnection?(connection) } }
+        didSet { if connection != oldValue { announce() } }
     }
-
-    var onConnection: ((Connection) -> Void)?
 
     private nonisolated(unsafe) var reportToken: Int32 = NOTIFY_TOKEN_INVALID
     private var poll: DispatchWorkItem?
@@ -275,7 +294,9 @@ final class TunnelController {
         do {
             try session.sendProviderMessage(Data()) { [weak self] reply in
                 guard let self else { return }
-                guard let reply, let report = try? JSONDecoder().decode(TunnelReport.self, from: reply) else {
+                guard let reply,
+                    let report = try? JSONDecoder().decode(TunnelReport.self, from: reply)
+                else {
                     Self.log.notice("the provider replied with nothing usable")
                     return
                 }
@@ -284,7 +305,8 @@ final class TunnelController {
         } catch {
             // Ordinary: before a tunnel starts, and after one ends, there is
             // no provider to ask. Logged while M5.2 is being measured.
-            Self.log.notice("cannot ask for a report: \(error.localizedDescription, privacy: .public)")
+            Self.log.notice(
+                "cannot ask for a report: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -303,10 +325,13 @@ final class TunnelController {
         let observed = (manager?.connection.status).flatMap(TunnelController.tunnelState(for:))
         // Failed is the exception: it *is* a disconnected tunnel, plus the
         // reason the system has no opinion about.
-        let agrees = observed == nil || observed == report.state
+        let agrees =
+            observed == nil || observed == report.state
             || (report.state == .failed && observed == .disconnected)
         guard agrees else {
-            Self.log.notice("the provider reports \(report.state.rawValue, privacy: .public) while the system says \(observed?.rawValue ?? "nothing", privacy: .public); trusting the system")
+            Self.log.notice(
+                "the provider reports \(report.state.rawValue, privacy: .public) while the system says \(observed?.rawValue ?? "nothing", privacy: .public); trusting the system"
+            )
             return
         }
         // A report that knows less than we do does not get to erase what we
@@ -320,20 +345,25 @@ final class TunnelController {
         // This is the same rule the machine applies to an observation: Failed
         // is a disconnected tunnel plus a reason, and only the user leaves it.
         if report.state == .disconnected, connection.state == .failed {
-            Self.log.notice("ignoring a disconnected report over a failure the user has not seen yet")
+            Self.log.notice(
+                "ignoring a disconnected report over a failure the user has not seen yet")
             return
         }
 
         let before = connection.state
         connection = report.connection
         if before != connection.state {
-            Self.log.notice("model \(before.rawValue, privacy: .public) → \(self.connection.state.rawValue, privacy: .public) (from the provider)")
+            Self.log.notice(
+                "model \(before.rawValue, privacy: .public) → \(self.connection.state.rawValue, privacy: .public) (from the provider)"
+            )
         }
         if let phase = report.phase {
             Self.log.notice("phase \(phase, privacy: .public)")
         }
         if let foreign = report.foreignTunnel {
-            Self.log.error("another tunnel (\(foreign, privacy: .public)) owned the default route when this attempt started")
+            Self.log.error(
+                "another tunnel (\(foreign, privacy: .public)) owned the default route when this attempt started"
+            )
         }
         schedulePoll()
     }

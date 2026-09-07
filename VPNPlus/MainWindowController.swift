@@ -53,8 +53,11 @@ final class MainWindowController: NSWindowController {
     private static let minimumSize = NSSize(width: 620, height: 440)
 
     private let installer = ExtensionInstaller(identifier: "com.bossagroove.VPNPlus.tunnel")
-    private let tunnel = TunnelController()
-    private let store: any ProfileStore = StoredProfileStore.live
+    /// **Injected, not owned.** The status item reads the same one, which is
+    /// what makes commitment 6 structural rather than a promise (D93).
+    private let tunnel: TunnelController
+    private let catalogue: ProfileCatalogue
+    private var store: any ProfileStore { catalogue.store }
     private lazy var importer = ProfileImporter(store: store)
 
     private let content = NSViewController()
@@ -79,7 +82,9 @@ final class MainWindowController: NSWindowController {
         return tunnel.connection.profile
     }
 
-    init() {
+    init(tunnel: TunnelController, catalogue: ProfileCatalogue) {
+        self.tunnel = tunnel
+        self.catalogue = catalogue
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: Self.defaultSize),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -113,8 +118,7 @@ final class MainWindowController: NSWindowController {
 
         importer.onChange = { [weak self] in self?.render() }
         installer.onChange = { [weak self] _ in self?.render() }
-        tunnel.onChange = { [weak self] _ in self?.render() }
-        tunnel.onConnection = { [weak self] _ in self?.render() }
+        tunnel.observe { [weak self] _, _ in self?.render() }
 
         promoted.onCancel = { [weak self] in self?.tunnel.disconnect() }
         promoted.onDisconnect = { [weak self] in self?.tunnel.disconnect() }
@@ -354,7 +358,7 @@ final class MainWindowController: NSWindowController {
     /// file's. Composed here because the rule belongs to the overrides record
     /// and not to a view (D230).
     private func title(of profile: Profile) -> String {
-        compose(profile)?.title.value ?? profile.title
+        catalogue.settings(of: profile)?.title.value ?? profile.title
     }
 
     /// File > Import Profile…, and the button (2.1).
@@ -367,32 +371,8 @@ final class MainWindowController: NSWindowController {
         importer.importProfile(at: url, over: window)
     }
 
-    /// The profile and the user's overrides, composed — the only way this
-    /// window learns what to show (D188).
-    private func compose(_ profile: Profile) -> ProfileSettings? {
-        guard let descriptor = descriptor(for: profile) else { return nil }
-        let overrides = (try? store.overrides(for: profile.id)) ?? Overrides()
-        return ProfileSettings.compose(
-            descriptor, with: overrides, filename: profile.origin.filename)
-    }
-
-    /// What the profile says about itself. Stored at import, because once the
-    /// extension owns the configuration the app cannot read it again — and
-    /// re-deriving it from a copy the app kept would be that second copy.
-    private func descriptor(for profile: Profile) -> ProfileDescriptor? {
-        if let stored = profile.descriptor { return stored }
-        // A profile imported before descriptors were stored: derive it once
-        // from the copy the app still holds, and keep it.
-        guard let configuration = try? store.configuration(for: profile.id),
-            let text = String(data: configuration, encoding: .utf8),
-            let derived = ProfileImport.describe(text, setAside: profile.waivedDirectives)
-        else { return nil }
-        try? store.setDescriptor(derived, for: profile.id)
-        return derived
-    }
-
     private func configure(_ profile: Profile) {
-        guard let descriptor = descriptor(for: profile) else { return }
+        guard let descriptor = catalogue.descriptor(of: profile) else { return }
         let overrides = (try? store.overrides(for: profile.id)) ?? Overrides()
         let sheet = ProfileConfigurationSheet(
             profile: profile, descriptor: descriptor, overrides: overrides
@@ -679,7 +659,7 @@ final class MainWindowController: NSWindowController {
             text = readable
         }
 
-        let settings = compose(profile)
+        let settings = catalogue.settings(of: profile)
         if let typed {
             // Their choice about saving is theirs to keep, so it goes in the
             // overrides record rather than living for one connection.
@@ -688,7 +668,8 @@ final class MainWindowController: NSWindowController {
                 overrides.savePassword = typed.remember
                 try? store.setOverrides(overrides, for: profile.id)
             }
-            rememberUsername(typed.username, for: profile, settings: compose(profile))
+            rememberUsername(
+                typed.username, for: profile, settings: catalogue.settings(of: profile))
         }
 
         let username: String
@@ -702,13 +683,13 @@ final class MainWindowController: NSWindowController {
             typedUsername: username,
             typedPassword: typed?.password ?? "",
             profile: profile,
-            settings: compose(profile))
+            settings: catalogue.settings(of: profile))
 
         if case .missing(let forgetting) = decision {
             if forgetting { Task { await forget(profile) } }
             // **A prompt, not a failure** (A10): nothing has gone wrong, the
             // app simply does not have what it needs yet.
-            askToSignIn(for: profile, settings: compose(profile))
+            askToSignIn(for: profile, settings: catalogue.settings(of: profile))
             return
         }
 
@@ -722,7 +703,7 @@ final class MainWindowController: NSWindowController {
                     profile: text,
                     username: decision.sessionUsername,
                     password: decision.sessionPassword,
-                    server: overrideServer(for: profile, settings: compose(profile)))
+                    server: overrideServer(for: profile, settings: catalogue.settings(of: profile)))
             } catch {
                 Self.log.error(
                     "could not start the tunnel: \(error.localizedDescription, privacy: .public)")
@@ -758,6 +739,16 @@ final class MainWindowController: NSWindowController {
         } else {
             alert.runModal()
         }
+    }
+
+    /// Connecting from the status item's profile list.
+    ///
+    /// The same path as a card's Connect — **one behaviour, reached two ways**
+    /// (D20). The menu is not allowed to be faster than the window, and the
+    /// window is not allowed to be faster than the menu; the way to keep that
+    /// true is for there to be one route through.
+    func connectFromMenu(_ profile: Profile) {
+        connect(to: profile)
     }
 
     /// Try Again, from the Failed region. The same click as Connect — a

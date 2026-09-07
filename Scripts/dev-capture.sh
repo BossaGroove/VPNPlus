@@ -37,8 +37,9 @@ if [ -z "$PID" ]; then
   exit 1
 fi
 
-# The window ids this process owns, on-screen, big enough to be a window
-# rather than a shadow or a tooltip layer.
+# The window ids this process owns, on-screen. The size floor is low on
+# purpose: the **status item** and an **open menu** are windows this process
+# owns too, and they are the only way to see S1 at all.
 IDS=$(/usr/bin/swift - "$PID" <<'SWIFT'
 import CoreGraphics
 import Foundation
@@ -52,7 +53,7 @@ for window in windows {
           let id = window[kCGWindowNumber as String] as? Int,
           let bounds = window[kCGWindowBounds as String] as? [String: Any],
           let width = bounds["Width"] as? Double, let height = bounds["Height"] as? Double,
-          width > 120, height > 120
+          width > 20, height > 20
     else { continue }
     print(id)
 }
