@@ -516,6 +516,9 @@ final class MainWindowController: NSWindowController {
             renderProfiles()
         case .connecting:
             clearMessage()
+        case .disconnected where tunnel.stoppedByUser:
+            // Asked for, so there is nothing to explain.
+            clearMessage()
         case .disconnected:
             Task { await showLastFailure() }
         default:

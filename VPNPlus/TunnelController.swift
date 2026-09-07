@@ -110,6 +110,7 @@ final class TunnelController {
         server: ServerEndpoint = ServerEndpoint()
     ) throws {
         guard let session = manager?.connection as? NETunnelProviderSession else { return }
+        stoppedByUser = false
         var options: [String: NSObject] = [:]
         // Sent only while a profile has not yet been handed over: the provider
         // stores what it receives, so the first connection completes the move
@@ -126,8 +127,16 @@ final class TunnelController {
     }
 
     func disconnect() {
+        stoppedByUser = true
         (manager?.connection as? NETunnelProviderSession)?.stopVPNTunnel()
     }
+
+    /// True when the last thing that happened was the user asking to stop.
+    ///
+    /// NetworkExtension keeps the last disconnect error until something
+    /// replaces it, so without this a reason from an earlier attempt would
+    /// reappear every time the user disconnected on purpose.
+    private(set) var stoppedByUser = false
 
     /// Why the last attempt ended, as the provider itself reported it.
     ///
