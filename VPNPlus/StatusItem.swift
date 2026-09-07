@@ -226,13 +226,22 @@ extension StatusItemController: NSMenuDelegate {
         let connection = tunnel.connection
         let involved = catalogue.profile(connection.profile)
 
-        // The identity and the state, as two disabled lines. This is the J1
-        // answer for anyone who opened the menu rather than glanced at it.
+        // **The menu opens with the answer to J1**, always — even when the
+        // answer is "nothing is running".
+        //
+        // Without this, Idle opened straight into the profile list, and the
+        // one profile at the top of the menu read like a heading rather than
+        // something to click (seen in the owner's screenshot). A16 makes the
+        // status menu a full control surface that is never worse than the
+        // window at anything; a control surface that does not say the state
+        // is worse at the only thing this surface is for.
         if let involved {
             add(menu, catalogue.title(of: involved), enabled: false)
             add(menu, connection.menuLine(), enabled: false)
-            menu.addItem(.separator())
+        } else {
+            add(menu, String(localized: "Not connected"), enabled: false)
         }
+        menu.addItem(.separator())
 
         switch connection.state {
         case .connected:
