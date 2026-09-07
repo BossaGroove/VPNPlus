@@ -26,11 +26,31 @@ public enum CredentialRequirement: Sendable, Equatable {
     case challenge(prompt: String, echo: Bool)
 }
 
+/// Where a configuration says to connect.
+public struct ServerEndpoint: Sendable, Equatable, Codable {
+    public let host: String
+    public let port: String
+    /// The transport as the configuration names it, lowercased. Deliberately a
+    /// string: the core does not enumerate one protocol's transports (D183).
+    public let transport: String
+
+    public init(host: String = "", port: String = "", transport: String = "") {
+        self.host = host
+        self.port = port
+        self.transport = transport
+    }
+
+    public var isEmpty: Bool { host.isEmpty && port.isEmpty && transport.isEmpty }
+}
+
 /// The result of inspecting a configuration, with no protocol detail in it.
 public struct ProfileDescriptor: Sendable, Equatable {
     public let displayName: String
-    public let endpoints: [String]
+    public let server: ServerEndpoint
     public let credentials: [CredentialRequirement]
+    /// False when the configuration forbids saving the password. Our own
+    /// default applies only where it is silent, never against it (D129).
+    public let allowsPasswordSave: Bool
     public let alternateServers: [ServerChoice]
     /// Directives the engine does not support, waived at import and disclosed
     /// as a count with the list behind it (D187).
@@ -38,20 +58,37 @@ public struct ProfileDescriptor: Sendable, Equatable {
 
     public init(
         displayName: String,
-        endpoints: [String] = [],
+        server: ServerEndpoint = ServerEndpoint(),
         credentials: [CredentialRequirement] = [],
+        allowsPasswordSave: Bool = true,
         alternateServers: [ServerChoice] = [],
         waivedDirectives: [String] = []
     ) {
         self.displayName = displayName
-        self.endpoints = endpoints
+        self.server = server
         self.credentials = credentials
+        self.allowsPasswordSave = allowsPasswordSave
         self.alternateServers = alternateServers
         self.waivedDirectives = waivedDirectives
     }
+
+    /// True when nothing need be asked of the user before connecting.
+    public var needsNothingFromTheUser: Bool {
+        credentials.isEmpty || credentials == [.none]
+    }
+
+    /// The username the configuration fixes, if it fixes one.
+    public var fixedUsername: String? {
+        for requirement in credentials {
+            if case .usernamePassword(let locked) = requirement, let locked, !locked.isEmpty {
+                return locked
+            }
+        }
+        return nil
+    }
 }
 
-public struct ServerChoice: Sendable, Equatable {
+public struct ServerChoice: Sendable, Equatable, Codable {
     public let host: String
     /// The issuer's label where they supplied one, else the host itself
     /// — openvpn3 only carries a real label via `setenv SERVER host/Label`.
