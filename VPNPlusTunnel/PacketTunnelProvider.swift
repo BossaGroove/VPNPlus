@@ -49,13 +49,17 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         // D207 — assigned last: the settings properties copy on assignment.
         settings.ipv4Settings = ipv4
 
+        // The superclass declares the handler without @Sendable, and the
+        // settings callback is @Sendable; the handler is called exactly once,
+        // from that callback, so the unchecked capture is sound.
+        nonisolated(unsafe) let finish = completionHandler
         setTunnelNetworkSettings(settings) { [log] error in
             if let error {
                 log.error("setTunnelNetworkSettings failed: \(error.localizedDescription, privacy: .public)")
             } else {
                 log.notice("settings applied")
             }
-            completionHandler(error)
+            finish(error)
         }
     }
 
