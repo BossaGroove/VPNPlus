@@ -129,7 +129,10 @@ struct ConnectionTests {
         guard case .failed(let record) = state else { return #expect(Bool(false), "\(state)") }
         #expect(attempts == Recovery.maxAttempts, "five attempts, then it stops asking")
         #expect(record.recoveryAttempts == Recovery.maxAttempts)
-        #expect(record.reason == .timedOut)
+        // A10 M14: running out is its own reason; what the last attempt died
+        // of rides along for the details (M6.1).
+        #expect(record.reason == .recoveryGaveUp)
+        #expect(record.underlying == .timedOut)
     }
 
     /// A failure the user is waiting to read is not retried behind their back.

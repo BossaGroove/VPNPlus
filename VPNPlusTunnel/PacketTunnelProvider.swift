@@ -85,6 +85,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         /// 2026-09-09: attempt 1 of 5 never ended while five servers refused
         /// it in turn).
         var phasesEntered: Set<OpenVPNPhase> = []
+        /// `PUSH_REQUEST`s sent in this attempt — the engine's 3 s cadence made
+        /// countable, so a config stall can say how many times it asked
+        /// (feature-spec 4.10).
+        var pushRequests = 0
+        /// The Keychain refused to hand over the configuration, which is a
+        /// different failure from there being none (A10 M15).
+        var keychainRefused = false
 
         var isConnected: Bool { connection.state == .connected }
     }
@@ -229,15 +236,21 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
                 log.error(
                     "could not read the configuration: \(error.localizedDescription, privacy: .public)"
                 )
+                state.withLock { $0.keychainRefused = true }
             }
         }
 
         guard let profile, !profile.isEmpty else {
             log.error("no configuration for this profile, in the options or our own store")
+            let refused = state.withLock { $0.keychainRefused }
             failAttempt(
-                TunnelFailure.configurationMissing.error(
-                    "The extension holds no configuration for this profile and none was handed to it."
-                ))
+                refused
+                    ? FailureDetail(.keychainDenied, detail: "The Keychain refused the configuration.")
+                    : FailureDetail(
+                        .configurationMissing,
+                        detail:
+                            "The extension holds no configuration for this profile and none was handed to it."
+                    ))
             return
         }
         self.profile = profile
@@ -252,8 +265,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         if current.isEmpty, Engine.needsSignIn(profile: profile) {
             log.error("this profile needs sign-in details and there are none to offer")
             failAttempt(
-                TunnelFailure.credentialsUnavailable.error(
-                    "This profile needs a password and the extension has none saved for it."))
+                FailureDetail(
+                    .credentialsUnavailable,
+                    detail: "This profile needs a password and the extension has none saved for it."))
             return
         }
 
@@ -356,11 +370,16 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
         let engine = Engine(clientVersion: "VPNPlus/\(version)")
         self.engine = engine
-        state.withLock { $0.attemptEnded = false; $0.phasesEntered = [] }
+        state.withLock { $0.attemptEnded = false; $0.phasesEntered = []; $0.pushRequests = 0 }
         pausedForNetwork = false
 
-        engine.onLog = { [engineLog] text in
+        engine.onLog = { [weak self, engineLog] text in
             engineLog.notice("\(text, privacy: .public)")
+            // The one log line that is a count (D177's "free counter"): the
+            // engine re-sends its request every 3 s while the server is silent.
+            if text.contains("Sending PUSH_REQUEST") {
+                self?.state.withLock { $0.pushRequests += 1 }
+            }
         }
         engine.onEvent = { [weak self] event in self?.handle(event) }
         engine.onEstablish = { [weak self] settings in self?.establish(settings) }
@@ -383,7 +402,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
                 identity: identity)
         } catch {
             log.error("prepare failed: \(error.localizedDescription, privacy: .public)")
-            failAttempt(Failure("\(error)"))
+            // The engine refused the profile before trying: A10 M19's shape.
+            failAttempt(FailureDetail(.unsupportedRequirement, detail: "prepare: \(error)"))
             return
         }
 
@@ -504,9 +524,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             log.error(
                 "phase \(phase.rawValue, privacy: .public) exceeded \(seconds, privacy: .public) s; ending the attempt"
             )
+            // A stall is a mode with an identity (D100): the phase names the
+            // message, and the config stall carries how many times it asked.
+            let requests = state.withLock { $0.pushRequests }
             failAttempt(
-                TunnelFailure.timedOut.error(
-                    "The step \(phase.rawValue) did not finish within \(seconds) seconds."))
+                FailureDetail.forStall(
+                    in: phase, waited: seconds,
+                    requests: phase == .waitingForSettings ? requests : nil))
         }
         phaseDeadline = item
         DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(seconds), execute: item)
@@ -521,8 +545,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             // A reason the app can turn into words, now that there is a code
             // for it. M5.2 makes this five phase deadlines instead of one.
             failAttempt(
-                TunnelFailure.timedOut.error(
-                    "The connection did not complete within \(seconds) seconds."))
+                FailureDetail(
+                    .timedOut, waited: .seconds(seconds),
+                    detail: "The connection did not complete within \(seconds) seconds."))
         }
         deadline = item
         DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(seconds), execute: item)
@@ -530,13 +555,26 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
 
     /// Ends the current attempt honestly: fails the start if one is pending,
     /// otherwise cancels the tunnel so every surface shows Disconnected.
-    private func failAttempt(_ failure: any Error) {
+    private func failAttempt(_ detail: FailureDetail) {
+        var detail = detail
+        // Two facts about this Mac that the engine cannot know and that
+        // explain a server it could not reach better than the engine can
+        // (A9 source 3): no network at all, and another tunnel holding the
+        // default route when the attempt began (D204).
+        if detail.reason.isAboutReachingTheServer {
+            if lastPathDescription.hasPrefix("unsatisfied") {
+                detail.reason = .noNetwork
+            } else if let foreignTunnel {
+                detail.reason = .anotherTunnelActive
+                detail.foreignTunnel = foreignTunnel
+            }
+        }
         // The model learns the reason before any surface does, because the
         // model is what the surfaces read — and **it also decides what
         // happens next**: from a recovery attempt with tries left it returns
         // to Reconnecting rather than Failed (D86).
         state.withLock { $0.attemptEnded = true }
-        let after = apply(.failed(TunnelFailure(failure) ?? .unknown))
+        let after = apply(.ended(detail))
 
         if case .reconnecting(let attempt) = after {
             // Still recovering. Ending the tunnel here would contradict the
@@ -546,6 +584,17 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             return
         }
 
+        // **The whole record leaves with the tunnel.** `fetchLastDisconnectError`
+        // is the only channel that outlives this provider, and until M6.1 it
+        // carried the code alone — so a timeout the provider knew was
+        // "contacting the server" reached the window as "didn't finish in
+        // time" (the M5.6 ladder test).
+        let failure: NSError
+        if case .failed(let record) = after {
+            failure = record.asError()
+        } else {
+            failure = detail.reason.error(detail.detail ?? "")
+        }
         let pending = state.withLock { $0.startCompletion != nil }
         if pending {
             finishStart(with: failure)
@@ -822,7 +871,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             // The engine has nothing to sign in with. Not a rejection: sending
             // the user to check a password that was never offered would be
             // the wrong remedy.
-            failAttempt(TunnelFailure.credentialsUnavailable.error("\(event.name): \(event.info)"))
+            failAttempt(
+                FailureDetail(.credentialsUnavailable, detail: "\(event.name): \(event.info)"))
         case "AUTH_FAILED", "SESSION_EXPIRED":
             // The server refused what we offered. If that was a token, it is
             // stale rather than wrong, and there may be a password behind it.
@@ -832,7 +882,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             // token with nothing behind it means nobody here can sign in.
             let failure: TunnelFailure =
                 current.isToken ? .credentialsUnavailable : .authenticationFailed
-            failAttempt(failure.error("\(event.name): \(event.info)"))
+            failAttempt(FailureDetail(failure, detail: "\(event.name): \(event.info)"))
         default:
             // Through the model, whatever state it is in. Failing only the
             // pending start covered an attempt, and left a fatal error *after*
@@ -842,7 +892,10 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             // events their names; until then the model says exactly what it
             // knows, which is that it ended.
             if event.isFatal {
-                failAttempt(Failure("\(event.name): \(event.info)"))
+                // A9's event, A10's code: the one table where they meet
+                // (OpenVPNFailures.swift). Server text travels only for the
+                // events whose words are the server's (D104).
+                failAttempt(FailureDetail.forEvent(event.name, info: event.info))
             }
         }
     }
@@ -929,7 +982,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             // The engine's own message is not a code. M6 maps them; until
             // then the honest answer is that we do not know which of A9's
             // modes this was, and the model says exactly that.
-            if !stopping, !ended { apply(.failed(.unknown)) }
+            if !stopping, !ended { apply(.ended(FailureDetail(.unknown, detail: failure.message))) }
             finishStart(with: Failure(failure.message))
         }
         if wasConnected, !stopping {

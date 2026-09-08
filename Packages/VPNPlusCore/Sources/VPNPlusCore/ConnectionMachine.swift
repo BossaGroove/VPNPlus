@@ -41,6 +41,9 @@ public enum TunnelEvent: Sendable, Equatable {
     case tornDown
     /// It ended badly, with a reason.
     case failed(TunnelFailure)
+    /// The same, with everything the provider knew (M6.1). `failed(_:)` is
+    /// the short form and is normalised to this one before the table is read.
+    case ended(FailureDetail)
     /// An attempt was abandoned before it finished. Bound by D77: an aborted
     /// attempt restores as completely as a clean disconnect.
     case cancelled
@@ -169,16 +172,26 @@ public enum ConnectionMachine {
         // An attempt ending badly. Recovery is bounded, and the bound is the
         // only thing standing between this and OpenVPN Connect's
         // "Continuously Retry" (A1).
-        case (.connecting(let attempt), .failed(let reason)),
-            (.reconnecting(let attempt), .failed(let reason)):
-            return endOrRetry(attempt, reason: reason, at: now)
+        case (_, .failed(let reason)):
+            // The short form, normalised: one table, not two.
+            return next(from, on: .ended(FailureDetail(reason)), at: now)
+
+        case (.connecting(let attempt), .ended(let detail)),
+            (.reconnecting(let attempt), .ended(let detail)):
+            return endOrRetry(attempt, detail: detail, at: now)
 
         case (.connecting(let attempt), .timedOut),
             (.reconnecting(let attempt), .timedOut):
-            return endOrRetry(attempt, reason: .timedOut, at: now)
+            return endOrRetry(attempt, detail: FailureDetail(.timedOut), at: now)
 
-        case (.connected(let session), .failed(let reason)):
-            return .failed(FailureRecord(profile: session.profile, at: now, reason: reason))
+        case (.connected(let session), .ended(let detail)):
+            return .failed(
+                FailureRecord(
+                    profile: session.profile, at: now, reason: detail.reason,
+                    elapsed: .seconds(now.timeIntervalSince(session.since)),
+                    waited: detail.waited, attempts: detail.attempts,
+                    serverText: detail.serverText, detail: detail.detail,
+                    foreignTunnel: detail.foreignTunnel))
 
         // A tunnel that was up, and whose engine ended on its own with no
         // reason given. It is not what the user asked for — that path goes
@@ -205,22 +218,33 @@ public enum ConnectionMachine {
     /// What to do when an attempt ends: another go, or Failed.
     private static func endOrRetry(
         _ attempt: Attempt,
-        reason: TunnelFailure,
+        detail: FailureDetail,
         at now: Date
     ) -> Connection {
-        let record = FailureRecord(
-            profile: attempt.profile,
-            at: now,
-            reason: reason,
-            phase: attempt.phase?.id,
-            elapsed: attempt.elapsed(at: now),
-            recoveryAttempts: attempt.recovery)
-
         // Only a tunnel that had come up earns automatic recovery. An attempt
         // the user just started and that failed at once is theirs to retry —
         // silently trying it five more times would hide the reason they asked
         // for and are waiting to read.
-        guard attempt.recovery > 0, Recovery.mayRetry(after: attempt.recovery) else {
+        let retrying = attempt.recovery > 0 && Recovery.mayRetry(after: attempt.recovery)
+        // Recovery that ran out is its own failure (A10 M14): what the user
+        // needs to hear is that the connection was lost and could not be
+        // restored, with the count. What the last attempt actually died of
+        // rides along, for the details.
+        let gaveUp = attempt.recovery > 0 && !retrying
+        let record = FailureRecord(
+            profile: attempt.profile,
+            at: now,
+            reason: gaveUp ? .recoveryGaveUp : detail.reason,
+            phase: attempt.phase?.id,
+            elapsed: attempt.elapsed(at: now),
+            recoveryAttempts: attempt.recovery,
+            waited: detail.waited,
+            attempts: detail.attempts,
+            serverText: detail.serverText,
+            detail: detail.detail,
+            underlying: gaveUp ? detail.reason : nil,
+            foreignTunnel: detail.foreignTunnel)
+        guard retrying else {
             return .failed(record)
         }
         return .reconnecting(

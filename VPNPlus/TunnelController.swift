@@ -255,7 +255,8 @@ final class TunnelController {
                     returning: Failure(
                         kind: TunnelFailure(error),
                         detail: error.localizedDescription,
-                        at: TunnelFailure.time(of: error)))
+                        at: TunnelFailure.time(of: error),
+                        record: FailureRecord(error: error)))
             }
         }
     }
@@ -274,8 +275,25 @@ final class TunnelController {
         // Only a recent one: a reason from last week is not what just
         // happened, and the model may not claim otherwise (D96).
         if let at = failure.at, Date().timeIntervalSince(at) > 15 * 60 { return }
-        let record = FailureRecord(
-            profile: configuredProfile ?? UUID(), at: failure.at ?? Date(), reason: kind)
+        // The whole record when the provider sent one (M6.1); the code and
+        // the time alone from an older extension. The provider names the
+        // profile only when the start told it which, so the configuration's
+        // answer fills in for a nameless one.
+        let record: FailureRecord
+        if let whole = failure.record {
+            record =
+                whole.profile == Self.unidentified
+                ? FailureRecord(
+                    profile: configuredProfile ?? whole.profile, at: whole.at, reason: whole.reason,
+                    phase: whole.phase, elapsed: whole.elapsed,
+                    recoveryAttempts: whole.recoveryAttempts, waited: whole.waited,
+                    attempts: whole.attempts, serverText: whole.serverText, detail: whole.detail,
+                    underlying: whole.underlying, foreignTunnel: whole.foreignTunnel)
+                : whole
+        } else {
+            record = FailureRecord(
+                profile: configuredProfile ?? UUID(), at: failure.at ?? Date(), reason: kind)
+        }
         connection = ConnectionMachine.next(connection, on: .recoveredFailure(record))
         Self.log.notice(
             "recovered a failure the provider did not live to report: \(kind.rawValue, privacy: .public)"
@@ -289,7 +307,13 @@ final class TunnelController {
         let detail: String
         /// When it happened, when it says. Nil is "unknown", never "old".
         let at: Date?
+        /// Everything the provider knew, when it sent it (M6.1).
+        let record: FailureRecord?
     }
+
+    /// The id a provider reports under when its start named no profile —
+    /// the same all-zero id the extension uses.
+    private static let unidentified = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
 
     /// Which profile the system configuration is pointing at — a handle, which
     /// is all `providerConfiguration` ever holds (D191).
@@ -421,6 +445,15 @@ final class TunnelController {
             return
         }
 
+        // Two channels can each deliver the same failure — this report, and
+        // the error the system keeps after the provider is gone. The one that
+        // knows more wins, whichever landed first (M6.1).
+        if case .failed(let mine) = connection, case .failed(let theirs) = report.connection,
+            mine.isFuller(than: theirs)
+        {
+            Self.log.notice("keeping the fuller failure record over the provider's report")
+            return
+        }
         let before = connection.state
         connection = decorate(report.connection)
         if before != connection.state {
