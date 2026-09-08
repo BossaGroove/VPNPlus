@@ -38,7 +38,17 @@ final class ProfileCardView: NSView {
     /// the column count is derived from. Not a column count — that is derived
     /// from *this*, so a name fits or does not by arithmetic rather than by
     /// accident.
-    static let minimumWidth: CGFloat = 260
+    /// A card's fixed height, from the artboard. Every card in the grid is
+    /// the same object seen several times, so they are the same size.
+    static let height: CGFloat = 128
+
+    /// **220, not D167's 260.** The artboards fit three columns at 760 —
+    /// `repeat(3, minmax(0,1fr))` over 720 pt of content with two 16 pt gaps
+    /// is 229 pt a card — and they show a long profile name truncated at that
+    /// width rather than dropping to two columns. So the design has already
+    /// chosen: three columns, and the name truncates. 260 was what made this
+    /// grid two columns wide.
+    static let minimumWidth: CGFloat = 220
 
     let profile: Profile
     /// What to call it — the user's name for it if they gave one, else the
@@ -89,7 +99,9 @@ final class ProfileCardView: NSView {
 
     private func build() {
         wantsLayer = true
-        layer?.cornerRadius = 10
+        // 8, from the artboard — the promoted region's 10 is the larger
+        // surface and the difference is deliberate.
+        layer?.cornerRadius = 8
         layer?.borderWidth = 1
         // **One selection indicator, not two.** The accent border below *is*
         // the focus indicator (D57), and the system ring drew a second one
@@ -114,38 +126,47 @@ final class ProfileCardView: NSView {
         connectButton.setAccessibilityLabel(String(localized: "Connect to \(title)"))
 
         moreButton.title = "···"
+        // Bare, as the artboard draws it: a bezel gave the menu the same
+        // weight as Connect, when Connect is the card's whole purpose.
+        moreButton.isBordered = false
         moreButton.bezelStyle = .accessoryBarAction
+        moreButton.contentTintColor = Palette.textTertiary
         moreButton.font = Type.control
         moreButton.target = self
         moreButton.action = #selector(showMenu)
         moreButton.translatesAutoresizingMaskIntoConstraints = false
         moreButton.setAccessibilityLabel(String(localized: "More options for \(title)"))
 
-        let text = NSStackView(views: [nameField, hostField, lastField])
+        // The artboard puts the `⋯` in the card's **top-right corner**, level
+        // with the name, and gives **Connect the full width** at the bottom.
+        // Side by side at the bottom made the two look like peers, when one
+        // is the card's whole purpose and the other is a menu.
+        let heading = NSStackView(views: [nameField, moreButton])
+        heading.orientation = .horizontal
+        heading.alignment = .top
+        heading.spacing = Space.s
+        nameField.setContentHuggingPriority(.init(1), for: .horizontal)
+
+        let text = NSStackView(views: [heading, hostField, lastField])
         text.orientation = .vertical
         text.alignment = .leading
         text.spacing = Space.xs
         text.translatesAutoresizingMaskIntoConstraints = false
 
-        let controls = NSStackView(views: [connectButton, moreButton])
-        controls.orientation = .horizontal
-        controls.spacing = Space.s
-        controls.translatesAutoresizingMaskIntoConstraints = false
-
         addSubview(text)
-        addSubview(controls)
+        addSubview(connectButton)
         NSLayoutConstraint.activate([
             text.topAnchor.constraint(equalTo: topAnchor, constant: Space.l),
             text.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Space.l),
             text.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Space.l),
+            heading.widthAnchor.constraint(equalTo: text.widthAnchor),
 
-            controls.topAnchor.constraint(
+            connectButton.topAnchor.constraint(
                 greaterThanOrEqualTo: text.bottomAnchor, constant: Space.m),
-            controls.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Space.l),
-            controls.trailingAnchor.constraint(
-                lessThanOrEqualTo: trailingAnchor, constant: -Space.l),
-            controls.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Space.l),
-            controls.heightAnchor.constraint(greaterThanOrEqualToConstant: Space.hitTarget),
+            connectButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Space.l),
+            connectButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Space.l),
+            connectButton.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Space.l),
+            connectButton.heightAnchor.constraint(equalToConstant: Space.hitTarget),
             // No width constraint of its own: the grid guarantees the minimum,
             // because the minimum is what the column count is derived *from*
             // (D167), and a second opinion here could only conflict with it.
@@ -160,11 +181,14 @@ final class ProfileCardView: NSView {
     /// "2 hours ago", or "Never". Relative, because the number of hours is not
     /// the point — whether it worked recently is (D46's input).
     static func lastConnected(_ date: Date?) -> String {
-        guard let date else { return String(localized: "Never connected") }
+        guard let date else { return String(localized: "Never") }
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
+        // "Connected yesterday", not "Last connected yesterday": the artboard
+        // spends the width on the date rather than on the word "last", and a
+        // card is 229 pt wide.
         return String(
-            localized: "Last connected \(formatter.localizedString(for: date, relativeTo: Date()))")
+            localized: "Connected \(formatter.localizedString(for: date, relativeTo: Date()))")
     }
 
     // MARK: - Drawing

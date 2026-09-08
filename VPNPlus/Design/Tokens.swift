@@ -26,7 +26,21 @@ import AppKit
 /// not to build that is to have no numbers here to get wrong.
 enum Type {
     /// The connection state in the promoted region — the J1 answer.
-    static var stateTitle: NSFont { .preferredFont(forTextStyle: .title1) }
+    ///
+    /// **Semibold**, from the artboard: at regular weight 22 pt reads as a
+    /// heading rather than as the answer to a question.
+    static var stateTitle: NSFont { semibold(.title1) }
+    /// The title of a promoted region that carries prose — Failed, Blocked,
+    /// Setup. Smaller than `stateTitle` on purpose: those states have a body
+    /// paragraph under them, and a 22 pt line above a paragraph is a banner.
+    static var promotedProse: NSFont { semibold(.title3) }
+    /// A label over a block inside prose — "Common causes".
+    static var proseLabel: NSFont { semibold(.subheadline) }
+
+    private static func semibold(_ style: NSFont.TextStyle) -> NSFont {
+        let base = NSFont.preferredFont(forTextStyle: style)
+        return NSFontManager.shared.convert(base, toHaveTrait: .boldFontMask)
+    }
     /// Failure message titles.
     static var sectionTitle: NSFont { .preferredFont(forTextStyle: .title3) }
     /// Message bodies, descriptions.
@@ -80,6 +94,11 @@ enum Space {
 
     /// Comfortable, not compact: nothing you can hit is shorter than this.
     static let hitTarget: CGFloat = 28
+    /// The window's own margin, and the gap between its two zones. 20 rather
+    /// than `xl` or `xxl` because that is what every artboard uses — 24 left
+    /// the grid narrower than three columns need, and 32 above it put the
+    /// promoted region adrift.
+    static let gutter: CGFloat = 20
 }
 
 /// A11's semantic colours.

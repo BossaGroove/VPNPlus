@@ -25,162 +25,377 @@ import VPNPlusCore
 /// never needs a status dot, and has exactly one design. And it states C6
 /// structurally — one tunnel at a time, so one profile above the line and the
 /// rest below it.
+/// **Built from the artboards, not from the prose about them** (D250). The
+/// mockup gives this region a *container* — and that is the whole difference
+/// between what M5.4 shipped and what was designed: without one, an idle card
+/// in the grid below looks more substantial than the live connection above it,
+/// which is the least important thing on screen outweighing the most.
 ///
-/// **Never navigate to connect** (D54): everything here happens in place.
+/// Two shapes, and the artboards are explicit about which state gets which:
+///
+/// | | Gutter | Title | Third line | Buttons |
+/// |---|---|---|---|---|
+/// | Connected | 12 pt dot | 22 pt | duration | right, centred |
+/// | Connecting / Switching | spinner | 22 pt | elapsed, or what is coming down | right |
+/// | Failed / Blocked / Setup | triangle or spinner | **15 pt** | prose | **below**, left |
+///
+/// **The accent lives in the gutter, never in the word** (D-6). A green
+/// "Connected" spends the accent on the one word that already says it and
+/// leaves nothing for a reader who cannot see the colour; a green dot beside a
+/// neutral word says it twice, in two channels.
 @MainActor
 final class PromotedRegionView: NSView {
-    private let nameLabel = NSTextField.label(
-        font: Type.cardTitle, colour: Palette.textSecondary, truncation: .byTruncatingMiddle)
-    private let stateLabel = NSTextField.label(font: Type.stateTitle, colour: Palette.textPrimary)
-    private let clockLabel = NSTextField.label(
-        font: Type.ticking(Type.stateTitle), colour: Palette.textSecondary)
-    private let detailLabel = NSTextField.label(
-        font: Type.body, colour: Palette.textSecondary, truncation: .byWordWrapping)
-    private let primary = NSButton()
-    private let guidance = GuidanceView()
-    private let connectionStack: NSStackView
+    /// The artboard's measurements. Named rather than inlined because three of
+    /// them are load-bearing: the gutter is what gives every state one
+    /// indicator in one place, and the container's padding and radius are what
+    /// make this a surface rather than text on a window.
+    private enum Metric {
+        static let padding: CGFloat = 18
+        static let radius: CGFloat = 10
+        static let gutter: CGFloat = 22
+        static let gutterGap: CGFloat = 14
+        static let dot: CGFloat = 12
+        static let icon: CGFloat = 20
+        static let buttonHeight: CGFloat = 28
+        static let disconnectWidth: CGFloat = 116
+        static let cancelWidth: CGFloat = 100
+    }
 
-    /// The one state-labelled control (D56): Cancel · Disconnect · Try again.
+    // The gutter: one indicator per state, and only one ever visible.
+    private let dot = NSView()
+    private let spinner = NSProgressIndicator()
+    private let icon = NSImageView()
+
+    private let nameLabel = NSTextField.label(
+        font: Type.body, colour: Palette.textSecondary, truncation: .byTruncatingMiddle)
+    private let stateLabel = NSTextField.label(font: Type.stateTitle, colour: Palette.textPrimary)
+    /// The line under the state: a duration, an elapsed time, or — during a
+    /// switch — what is being disconnected first. One slot, because the
+    /// artboards put all three in the same place.
+    private let clockLabel = NSTextField.label(
+        font: Type.ticking(Type.caption), colour: Palette.textTertiary)
+
+    private let proseTitle = NSTextField.label(
+        font: Type.promotedProse, colour: Palette.textPrimary, truncation: .byWordWrapping)
+    private let proseBody = NSTextField.label(
+        font: Type.body, colour: Palette.textSecondary, truncation: .byWordWrapping)
+
+    private let primary = NSButton()
+    private let proseButton = NSButton()
+
+    private let shortForm: NSStackView
+    private let proseForm: NSStackView
+    private let content: NSStackView
+    private let gutterBox = NSView()
+    private var padding: [NSLayoutConstraint] = []
+
     private var primaryAction: (() -> Void)?
+    private var proseAction: (() -> Void)?
 
     var onCancel: (() -> Void)?
     var onDisconnect: (() -> Void)?
     var onRetry: (() -> Void)?
 
+    /// True while nothing is promoted, so the window can close the gap above
+    /// the grid instead of leaving the height of a card that is not there.
+    private(set) var isEmpty = true
+
     init() {
-        primary.bezelStyle = .rounded
-        primary.font = Type.control
-        primary.controlSize = .large
-        primary.translatesAutoresizingMaskIntoConstraints = false
+        dot.wantsLayer = true
+        dot.layer?.cornerRadius = Metric.dot / 2
+        dot.translatesAutoresizingMaskIntoConstraints = false
 
-        let headline = NSStackView(views: [stateLabel, clockLabel])
-        headline.orientation = .horizontal
-        headline.spacing = Space.m
-        headline.alignment = .firstBaseline
+        spinner.style = .spinning
+        spinner.controlSize = .small
+        spinner.isDisplayedWhenStopped = false
+        spinner.translatesAutoresizingMaskIntoConstraints = false
 
-        connectionStack = NSStackView(views: [nameLabel, headline, detailLabel, primary])
-        connectionStack.orientation = .vertical
-        connectionStack.alignment = .leading
-        connectionStack.spacing = Space.s
-        connectionStack.setCustomSpacing(Space.l, after: detailLabel)
-        connectionStack.translatesAutoresizingMaskIntoConstraints = false
+        icon.imageScaling = .scaleProportionallyUpOrDown
+        icon.translatesAutoresizingMaskIntoConstraints = false
+
+        for control in [primary, proseButton] {
+            control.bezelStyle = .rounded
+            control.font = Type.control
+            control.translatesAutoresizingMaskIntoConstraints = false
+            control.heightAnchor.constraint(equalToConstant: Metric.buttonHeight).isActive = true
+        }
+
+        // Short states: the button sits at the trailing edge, vertically
+        // centred against the three lines — not underneath them.
+        let lines = NSStackView(views: [nameLabel, stateLabel, clockLabel])
+        lines.orientation = .vertical
+        lines.alignment = .leading
+        lines.spacing = Space.xs
+        lines.setCustomSpacing(Space.s, after: stateLabel)
+        shortForm = NSStackView(views: [lines, primary])
+        shortForm.orientation = .horizontal
+        shortForm.alignment = .centerY
+        shortForm.spacing = Space.l
+        shortForm.distribution = .fill
+        // The text takes the slack so the button lands on the trailing edge.
+        // Without this the stack sizes to its content and the button sits
+        // against the headline, which reads as part of it.
+        lines.setContentHuggingPriority(.init(1), for: .horizontal)
+        primary.setContentHuggingPriority(.required, for: .horizontal)
+
+        // Prose states: a title, a paragraph, and the actions below it.
+        proseForm = NSStackView(views: [proseTitle, proseBody, proseButton])
+        proseForm.orientation = .vertical
+        proseForm.alignment = .leading
+        proseForm.spacing = Space.s
+        proseForm.setCustomSpacing(Space.xl, after: proseBody)
+
+        content = NSStackView(views: [shortForm, proseForm])
+        content.orientation = .vertical
+        content.alignment = .leading
+        content.spacing = 0
+        content.translatesAutoresizingMaskIntoConstraints = false
+        // …and the content takes the slack from the gutter, so "trailing
+        // edge" means the card's edge rather than the text's.
+        content.setContentHuggingPriority(.init(1), for: .horizontal)
 
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
+        wantsLayer = true
+        layer?.cornerRadius = Metric.radius
         primary.target = self
         primary.action = #selector(act)
+        proseButton.target = self
+        proseButton.action = #selector(actProse)
 
-        // **An NSStackView, and that is load-bearing.** A stack view detaches
-        // a hidden view from its layout; a plain view keeps its space. With
-        // these two as plain subviews pinned only `lessThanOrEqualTo` the
-        // bottom, nothing pulled this region's height down — Auto Layout gave
-        // it 584 of the window's 672 points and left the grid's scroll view
-        // zero, which is the empty window M5.4 first shipped (measured).
-        //
-        // Pinned to **all four** edges, so the region is exactly as tall as
-        // whichever of the two is showing — and nothing at all when neither
-        // is, which is Idle.
-        let outer = NSStackView(views: [connectionStack, guidance])
-        outer.orientation = .vertical
-        outer.alignment = .leading
-        outer.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(outer)
-        NSLayoutConstraint.activate([
-            outer.topAnchor.constraint(equalTo: topAnchor),
-            outer.leadingAnchor.constraint(equalTo: leadingAnchor),
-            outer.trailingAnchor.constraint(equalTo: trailingAnchor),
-            outer.bottomAnchor.constraint(equalTo: bottomAnchor),
-            primary.heightAnchor.constraint(greaterThanOrEqualToConstant: Space.hitTarget),
-        ])
+        gutterBox.translatesAutoresizingMaskIntoConstraints = false
+        for indicator in [dot, spinner, icon] { gutterBox.addSubview(indicator) }
+
+        // **Plain constraints, not a stack.** In a horizontal stack the
+        // content sized to its own text and no hugging priority would make it
+        // fill, so "Disconnect on the trailing edge" came out as "Disconnect
+        // beside the headline" — which reads as part of it. Pinning the
+        // content's trailing edge to the card's says it once and cannot be
+        // argued with.
+        addSubview(gutterBox)
+        addSubview(content)
+
+        // Held, because Idle sets every one of them to zero: a container with
+        // its padding still in place is a 36 pt empty card.
+        padding = [
+            gutterBox.topAnchor.constraint(equalTo: topAnchor, constant: Metric.padding),
+            gutterBox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Metric.padding),
+            content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metric.padding),
+            content.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Metric.padding),
+        ]
+        NSLayoutConstraint.activate(
+            padding + [
+                content.topAnchor.constraint(equalTo: gutterBox.topAnchor),
+                content.leadingAnchor.constraint(
+                    equalTo: gutterBox.trailingAnchor, constant: Metric.gutterGap),
+                gutterBox.widthAnchor.constraint(equalToConstant: Metric.gutter),
+                dot.widthAnchor.constraint(equalToConstant: Metric.dot),
+                dot.heightAnchor.constraint(equalToConstant: Metric.dot),
+                // Optically centred against a cap-height line rather than
+                // hung from the top of it, which the artboard does with a
+                // 4 pt nudge inside a 2 pt inset.
+                dot.topAnchor.constraint(equalTo: gutterBox.topAnchor, constant: 6),
+                dot.centerXAnchor.constraint(equalTo: gutterBox.centerXAnchor),
+                spinner.topAnchor.constraint(equalTo: gutterBox.topAnchor, constant: 2),
+                spinner.centerXAnchor.constraint(equalTo: gutterBox.centerXAnchor),
+                icon.widthAnchor.constraint(equalToConstant: Metric.icon),
+                icon.heightAnchor.constraint(equalToConstant: Metric.icon),
+                icon.topAnchor.constraint(equalTo: gutterBox.topAnchor, constant: 2),
+                icon.centerXAnchor.constraint(equalTo: gutterBox.centerXAnchor),
+                gutterBox.heightAnchor.constraint(greaterThanOrEqualToConstant: Metric.icon + 2),
+                primary.widthAnchor.constraint(
+                    greaterThanOrEqualToConstant: Metric.cancelWidth),
+                shortForm.widthAnchor.constraint(equalTo: content.widthAnchor),
+                proseForm.widthAnchor.constraint(equalTo: content.widthAnchor),
+            ])
+        showNothing()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("not supported") }
 
+    override func updateLayer() {
+        // Drawn here rather than set once, so it follows a theme change.
+        layer?.backgroundColor = isEmpty ? nil : Palette.surfaceCard.cgColor
+        layer?.borderColor = Palette.border.cgColor
+        layer?.borderWidth = isEmpty ? 0 : 1
+        dot.layer?.backgroundColor = Palette.stateConnected.cgColor
+    }
+
+    // MARK: - The gutter
+
+    private enum Indicator {
+        case none
+        case connected
+        case busy
+        case warning(NSColor)
+    }
+
+    private func gutter(_ indicator: Indicator) {
+        dot.isHidden = true
+        icon.isHidden = true
+        if case .busy = indicator {} else { spinner.stopAnimation(nil) }
+
+        switch indicator {
+        case .none:
+            break
+        case .connected:
+            dot.isHidden = false
+        case .busy:
+            // **Untinted, and that is a departure.** The Setup artboard draws
+            // its spinner in the accent colour; `NSProgressIndicator` has no
+            // tint, and the alternatives are a layer filter or a hand-drawn
+            // spinner — both worse than the system's own, which animates
+            // correctly, respects Reduce Motion and matches every other
+            // spinner on the Mac. Setup still carries the accent, on its
+            // default button.
+            spinner.startAnimation(nil)
+        case .warning(let colour):
+            icon.image = NSImage(
+                systemSymbolName: "exclamationmark.triangle", accessibilityDescription: nil)
+            icon.contentTintColor = colour
+            icon.isHidden = false
+        }
+    }
+
     // MARK: - The connection states
 
-    /// `name` is what the user calls the profile, composed by the window.
-    func show(_ connection: Connection, name: String, at now: Date = Date()) {
-        guidance.isHidden = true
-        connectionStack.isHidden = false
-        nameLabel.stringValue = name
+    /// `name` is what to call the profile this region is about — for a switch,
+    /// the one being connected *to*. `switchingFrom` names the one coming
+    /// down, which the artboard puts on the third line.
+    func show(
+        _ connection: Connection, name: String, switchingFrom: String? = nil,
+        at now: Date = Date()
+    ) {
+        isEmpty = false
+        needsDisplay = true
+        for constraint in padding { constraint.constant = 0 }
+        padding[0].constant = Metric.padding
+        padding[1].constant = Metric.padding
+        padding[2].constant = -Metric.padding
+        padding[3].constant = -Metric.padding
+
+        shortForm.isHidden = false
+        proseForm.isHidden = true
         nameLabel.isHidden = false
-        detailLabel.isHidden = true
-        detailLabel.preferredMaxLayoutWidth = 520
+        nameLabel.stringValue = name
+        clockLabel.isHidden = false
+        primary.isHidden = false
+        proseBody.preferredMaxLayoutWidth = 560
 
         switch connection {
         case .connecting(let attempt), .reconnecting(let attempt):
+            gutter(.busy)
             stateLabel.stringValue = connection.stateLine(at: now)
-            stateLabel.textColor = Palette.textPrimary
-            // Attempt-elapsed, and never in a session duration's place (D73).
-            clockLabel.stringValue = "\(Int(attempt.elapsed(at: now).components.seconds))s"
-            clockLabel.isHidden = false
+            // "elapsed", from the artboard: a bare number beside a state
+            // reads as part of the state.
+            let seconds = Int(attempt.elapsed(at: now).components.seconds)
+            clockLabel.stringValue = String(
+                localized: "\(seconds / 60):\(String(format: "%02d", seconds % 60)) elapsed")
             // **Cancel, not Disconnect.** Nothing is up to disconnect, and an
             // aborted attempt restores as completely as a clean one (D77).
+            width(primary, Metric.cancelWidth)
             label(primary, String(localized: "Cancel"), keyEquivalent: "\u{1b}") { [weak self] in
                 self?.onCancel?()
             }
 
-        case .connected(let session):
+        case .connected:
+            gutter(.connected)
             stateLabel.stringValue = String(localized: "Connected")
-            stateLabel.textColor = Palette.stateConnected
             clockLabel.stringValue = connection.clock(at: now)
-            clockLabel.isHidden = false
             // No confirmation, and no setting for one (D74): reversible,
             // one click, unmistakable.
+            width(primary, Metric.disconnectWidth)
             label(primary, String(localized: "Disconnect"), keyEquivalent: "") { [weak self] in
                 self?.onDisconnect?()
             }
-            _ = session
+
+        case .disconnecting(let teardown):
+            gutter(.busy)
+            stateLabel.stringValue = connection.stateLine(at: now)
+            clockLabel.stringValue =
+                switchingFrom.map { String(localized: "Disconnecting from \($0) first") } ?? ""
+            clockLabel.isHidden = clockLabel.stringValue.isEmpty
+            if teardown.isSwitch {
+                width(primary, Metric.cancelWidth)
+                label(primary, String(localized: "Cancel"), keyEquivalent: "\u{1b}") {
+                    [weak self] in self?.onCancel?()
+                }
+            } else {
+                primary.isHidden = true
+            }
 
         case .failed(let record):
             // The name is already in the title — "Couldn't connect to X" —
-            // and A10's copy rule puts it there on purpose (rule 2). Saying it
-            // twice reads like a stutter.
-            nameLabel.isHidden = true
-            stateLabel.stringValue = FailureCopy.title(record, name: name)
-            stateLabel.textColor = Palette.stateFailed
-            clockLabel.isHidden = true
-            detailLabel.stringValue = FailureCopy.body(record, name: name)
-            detailLabel.isHidden = false
-            label(primary, String(localized: "Try Again"), keyEquivalent: "\r") { [weak self] in
+            // and A10's copy rule puts it there on purpose (rule 2).
+            gutter(.warning(Palette.stateFailed))
+            shortForm.isHidden = true
+            proseForm.isHidden = false
+            proseTitle.stringValue = FailureCopy.title(record, name: name)
+            proseBody.stringValue = FailureCopy.body(record, name: name)
+            proseBody.isHidden = false
+            // Try again is the default button, so it is the blue one the
+            // artboard draws. **Show details is deliberately absent until
+            // M6**: the diagnostics window it opens does not exist, and an
+            // enabled control with nothing behind it is A13a's own named
+            // anti-pattern.
+            label(proseButton, String(localized: "Try Again"), keyEquivalent: "\r") { [weak self] in
                 self?.onRetry?()
             }
-
-        case .disconnecting(let teardown):
-            stateLabel.stringValue =
-                teardown.isSwitch
-                ? String(localized: "Switching")
-                : String(localized: "Disconnecting")
-            stateLabel.textColor = Palette.textPrimary
-            clockLabel.isHidden = true
-            primary.isHidden = true
+            proseAction = primaryAction
 
         case .disconnected:
-            // Nothing is promoted when nothing is happening; the grid is the
-            // content (A12's Idle).
-            connectionStack.isHidden = true
+            showNothing()
         }
     }
 
-    /// Idle: there is nothing promoted, because nothing is happening — and
-    /// **the region takes no space at all**, rather than keeping the height of
-    /// whatever it showed last. A hidden view keeps its layout space; a view
-    /// with nothing in it does not.
+    /// Idle: nothing is promoted because nothing is happening, and **the
+    /// region takes no space at all** — no card, no border, no padding. The
+    /// grid is the content (A12's Idle, and the Main artboard has no container
+    /// in it).
     func showNothing() {
-        connectionStack.isHidden = true
-        guidance.isHidden = true
+        isEmpty = true
+        needsDisplay = true
+        shortForm.isHidden = true
+        proseForm.isHidden = true
+        gutter(.none)
+        for constraint in padding { constraint.constant = 0 }
     }
 
     /// Setup and Blocked: the region carries the guidance, and **the reason is
-    /// stated once here rather than repeated on every card** (D116). D67 asks
-    /// for a visible reason, not fifteen copies of one.
+    /// stated once here rather than repeated on every card** (D116).
     func show(
-        guidance content: (title: String, body: String, action: (title: String, run: () -> Void)?)
+        guidance content: (title: String, body: String, action: (title: String, run: () -> Void)?),
+        blocked: Bool
     ) {
-        connectionStack.isHidden = true
-        guidance.isHidden = false
-        guidance.show(title: content.title, body: content.body, action: content.action)
+        isEmpty = false
+        needsDisplay = true
+        padding[0].constant = Metric.padding
+        padding[1].constant = Metric.padding
+        padding[2].constant = -Metric.padding
+        padding[3].constant = -Metric.padding
+        shortForm.isHidden = true
+        proseForm.isHidden = false
+        // Blocked is a warning — something is wrong and connecting will not
+        // work. Setup is in progress, and the artboard spins for it.
+        gutter(blocked ? .warning(Palette.stateWarning) : .busy)
+        proseTitle.stringValue = content.title
+        proseBody.stringValue = content.body
+        proseBody.isHidden = false
+        proseBody.preferredMaxLayoutWidth = 560
+        if let action = content.action {
+            label(proseButton, action.title, keyEquivalent: "\r", run: action.run)
+            proseAction = primaryAction
+        } else {
+            proseButton.isHidden = true
+        }
+    }
+
+    private func width(_ button: NSButton, _ value: CGFloat) {
+        button.setContentHuggingPriority(.required, for: .horizontal)
+        for constraint in button.constraints where constraint.firstAttribute == .width {
+            constraint.constant = value
+        }
     }
 
     private func label(
@@ -197,4 +412,5 @@ final class PromotedRegionView: NSView {
     }
 
     @objc private func act() { primaryAction?() }
+    @objc private func actProse() { proseAction?() }
 }

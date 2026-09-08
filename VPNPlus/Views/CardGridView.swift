@@ -57,7 +57,7 @@ final class TopAlignedClipView: NSClipView {
 
 @MainActor
 final class CardGridView: NSView {
-    private static let gap = Space.l
+    private static let gap = Space.l  // 16, the artboard's grid gap
 
     var onSelect: ((Profile) -> Void)?
     var onRename: ((Profile, String) -> Void)?
@@ -166,7 +166,12 @@ final class CardGridView: NSView {
             // A card has a minimum *and* a preferred height and never a fixed
             // one (D158, D166): a long name in German is taller than a short
             // one in English, and the layout follows the content.
-            let height = card.fittingSize.height
+            // **A fixed 128 pt**, from the artboard, rather than each card's
+            // own fitting height. Cards in a row are the same object seen
+            // several times; letting one grow because its host string wrapped
+            // makes the row look broken, and A2's finding about Tunnelblick
+            // was space allocated by accident.
+            let height = ProfileCardView.height
             rowHeight = max(rowHeight, height)
             card.frame = NSRect(
                 x: CGFloat(column) * (width + Self.gap), y: y, width: width, height: height)

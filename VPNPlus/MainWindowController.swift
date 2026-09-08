@@ -49,7 +49,10 @@ final class MainWindowController: NSWindowController {
     /// language — fits without scrolling (D115). The minimum is the smallest
     /// *usable* size rather than the smallest that fits the worst state
     /// (D165), and the grid scrolls to make up the difference.
-    private static let defaultSize = NSSize(width: 760, height: 640)
+    /// 760 × 560, from the artboards. Every one of the 21 is drawn at this
+    /// size, and the 640 this used to be was a guess at the Failed message's
+    /// height rather than a measurement of it.
+    private static let defaultSize = NSSize(width: 760, height: 560)
     private static let minimumSize = NSSize(width: 620, height: 440)
 
     private let installer = ExtensionInstaller(identifier: "com.bossagroove.VPNPlus.tunnel")
@@ -68,7 +71,7 @@ final class MainWindowController: NSWindowController {
     /// Held, because the gap above the grid belongs to the promoted region
     /// and there is no region to leave a gap under in Idle.
     private lazy var gridTop = gridScroll.topAnchor.constraint(
-        equalTo: promoted.bottomAnchor, constant: Space.xxl)
+        equalTo: promoted.bottomAnchor, constant: Space.gutter)
     private var tick: Timer?
 
     /// The profile the promoted region is about. **What the user asked for,
@@ -100,9 +103,11 @@ final class MainWindowController: NSWindowController {
 
         window.title = "VPN Plus"
         window.center()
-        // Bumped when the designed size changed at M5.4: a frame saved from a
-        // provisional window is not a size the user chose.
-        window.setFrameAutosaveName("MainWindow.M5")
+        // Bumped whenever the designed size changes, because a frame saved
+        // from the previous one is not a size the user chose. M5.8 is the
+        // second bump: 760 × 560 comes from the artboards, and a restored
+        // 716 pt window was quietly costing the grid its third column.
+        window.setFrameAutosaveName("MainWindow.M5.8")
         window.minSize = Self.minimumSize
         // Resizable *and* zoomable, against A1's finding that OpenVPN Connect
         // disables zoom and fixes itself at about 400 × 685.
@@ -158,6 +163,24 @@ final class MainWindowController: NSWindowController {
         /// they come back and dismiss it themselves.
         private func installDebugTriggers() {
             var token: Int32 = NOTIFY_TOKEN_INVALID
+            // **Development only: step the promoted region through every
+            // state**, without a server and without touching the tunnel.
+            //
+            //   notifyutil -p com.bossagroove.VPNPlus.debug.cyclePromoted
+            //
+            // M5.8's acceptance test is every state put beside its artboard,
+            // and four of the six cannot be reached on demand: Failed needs a
+            // server to refuse us, Blocked and Setup need the permission
+            // revoked, Switching needs two connectable profiles. Reading the
+            // code instead of looking is what let M5 ship as a paraphrase of
+            // the design (D250).
+            var cycleToken: Int32 = NOTIFY_TOKEN_INVALID
+            notify_register_dispatch(
+                "com.bossagroove.VPNPlus.debug.cyclePromoted", &cycleToken, DispatchQueue.main
+            ) { _ in
+                MainActor.assumeIsolated { [weak self] in self?.cyclePromoted() }
+            }
+
             notify_register_dispatch(
                 "com.bossagroove.VPNPlus.debug.openSettingsSheet", &token, DispatchQueue.main
             ) { _ in
@@ -175,6 +198,68 @@ final class MainWindowController: NSWindowController {
                     configure(profile)
                 }
             }
+        }
+
+        private var debugStep = 0
+
+        private func cyclePromoted() {
+            let profiles = catalogue.profiles
+            let id = profiles.first?.id ?? UUID()
+            let other = profiles.dropFirst().first?.id ?? UUID()
+            let name = profiles.first.map { title(of: $0) } ?? "Configure SG"
+            let otherName = profiles.dropFirst().first.map { title(of: $0) } ?? "Configure NA"
+            let now = Date()
+            let states: [(String, () -> Void)] = [
+                ("idle", { self.render() }),
+                (
+                    "connecting",
+                    {
+                        self.promoted.show(
+                            .connecting(
+                                Attempt(
+                                    profile: id, startedAt: now.addingTimeInterval(-12),
+                                    phase: OpenVPNPhase.waitingForSettings.asPhase,
+                                    phaseEnteredAt: now.addingTimeInterval(-4))),
+                            name: name)
+                    }
+                ),
+                (
+                    "connected",
+                    {
+                        self.promoted.show(
+                            .connected(
+                                Session(profile: id, since: now.addingTimeInterval(-5_025))),
+                            name: name)
+                    }
+                ),
+                (
+                    "switching",
+                    {
+                        self.promoted.show(
+                            .disconnecting(
+                                Teardown(profile: id, startedAt: now, switchingTo: other)),
+                            name: otherName, switchingFrom: name)
+                    }
+                ),
+                (
+                    "failed",
+                    {
+                        self.promoted.show(
+                            .failed(
+                                FailureRecord(
+                                    profile: id, at: now, reason: .timedOut,
+                                    phase: OpenVPNPhase.waitingForSettings.rawValue,
+                                    elapsed: .seconds(20))),
+                            name: name)
+                    }
+                ),
+                ("blocked", { self.render(forcing: .blocked) }),
+                ("setup", { self.render(forcing: .setup) }),
+            ]
+            let (label, apply) = states[debugStep % states.count]
+            debugStep += 1
+            Self.log.notice("debug: promoted region → \(label, privacy: .public)")
+            apply()
         }
     #endif
 
@@ -243,14 +328,14 @@ final class MainWindowController: NSWindowController {
         root.addSubview(empty)
 
         NSLayoutConstraint.activate([
-            promoted.topAnchor.constraint(equalTo: root.topAnchor, constant: Space.xxl),
-            promoted.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: Space.xl),
-            promoted.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -Space.xl),
+            promoted.topAnchor.constraint(equalTo: root.topAnchor, constant: Space.gutter),
+            promoted.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: Space.gutter),
+            promoted.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -Space.gutter),
 
             gridTop,
-            gridScroll.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: Space.xl),
-            gridScroll.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -Space.xl),
-            gridScroll.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -Space.xl),
+            gridScroll.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: Space.gutter),
+            gridScroll.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -Space.gutter),
+            gridScroll.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -Space.gutter),
 
             // The empty screen is the content, centred, with no grid and no
             // region behind it.
@@ -284,18 +369,23 @@ final class MainWindowController: NSWindowController {
         }
     }
 
-    private func render() {
+    /// `forcing` is **DEBUG-only in practice** and exists for one reason: the
+    /// Setup and Blocked states cannot be reached on demand — they need the
+    /// permission revoked — and their copy lives here, so a debug path that
+    /// duplicated it would be describing a different screen (D250).
+    private func render(forcing forced: WindowState? = nil) {
         let stored = (try? store.profiles()) ?? []
         var titles: [Profile.ID: String] = [:]
         for profile in stored { titles[profile.id] = title(of: profile) }
 
-        let state = WindowState.derive(
-            connection: tunnel.connection, hasProfiles: !stored.isEmpty, setup: setup)
+        let state =
+            forced
+            ?? WindowState.derive(
+                connection: tunnel.connection, hasProfiles: !stored.isEmpty, setup: setup)
 
         empty.isHidden = state != .empty
         gridScroll.isHidden = state == .empty
         promoted.isHidden = false
-        defer { gridTop.constant = promoted.isHidden ? 0 : Space.xxl }
 
         switch state {
         case .empty:
@@ -340,7 +430,8 @@ final class MainWindowController: NSWindowController {
                             }
                         }
                     )
-                ))
+                ),
+                blocked: false)
 
         case .blocked:
             promoted.show(
@@ -356,20 +447,37 @@ final class MainWindowController: NSWindowController {
                         String(localized: "Continue setup"),
                         { [weak self] in self?.installer.activate() }
                     )
-                ))
+                ),
+                blocked: true)
 
         case .idle:
-            promoted.isHidden = true
             promoted.showNothing()
 
         case .active, .failed:
-            let name = involved.flatMap { titles[$0] } ?? String(localized: "this VPN")
-            promoted.show(tunnel.connection, name: name)
+            // For a switch the region is about the profile being connected
+            // *to*, and the third line names the one coming down — which is
+            // how the Switching artboard narrates one operation rather than a
+            // disconnect that happens to be followed by a connect (D70).
+            var subject = involved
+            var leaving: String?
+            if case .disconnecting(let teardown) = tunnel.connection,
+                let destination = teardown.switchingTo
+            {
+                subject = destination
+                leaving = teardown.profile.flatMap { titles[$0] }
+            }
+            let name = subject.flatMap { titles[$0] } ?? String(localized: "this VPN")
+            promoted.show(tunnel.connection, name: name, switchingFrom: leaving)
         }
+
+        // Idle has no container above the grid, so it must have no gap
+        // either: the grid's own top inset is the whole of the space, exactly
+        // as the Main artboard draws it.
+        gridTop.constant = promoted.isEmpty ? 0 : Space.gutter
 
         // **Lift-out** (D114): the grid shows the others, never a second copy
         // of what is promoted.
-        let others = promoted.isHidden ? stored : stored.filter { $0.id != involved }
+        let others = promoted.isEmpty ? stored : stored.filter { $0.id != involved }
         grid.show(others, titles: titles)
 
         keepTheClocksHonest()
