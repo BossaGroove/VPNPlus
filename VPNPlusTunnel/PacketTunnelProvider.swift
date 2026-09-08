@@ -77,6 +77,14 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         /// from the event and once from `runEnded`, which on the recovery
         /// ladder counted one failure as two attempts.
         var attemptEnded = false
+        /// The phases this attempt has entered so far. A phase's clock is
+        /// armed the **first** time it is entered: the engine gives up on one
+        /// server and moves to the next every two seconds, announcing RESOLVE
+        /// and WAIT again each time, and re-arming on every announcement kept
+        /// "contacting the server" alive for ever (the M5.6 ladder test,
+        /// 2026-09-09: attempt 1 of 5 never ended while five servers refused
+        /// it in turn).
+        var phasesEntered: Set<OpenVPNPhase> = []
 
         var isConnected: Bool { connection.state == .connected }
     }
@@ -348,7 +356,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
         let engine = Engine(clientVersion: "VPNPlus/\(version)")
         self.engine = engine
-        state.withLock { $0.attemptEnded = false }
+        state.withLock { $0.attemptEnded = false; $0.phasesEntered = [] }
         pausedForNetwork = false
 
         engine.onLog = { [engineLog] text in
@@ -484,10 +492,15 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         let item = DispatchWorkItem { [weak self] in
             guard let self, !state.withLock({ $0.isConnected || $0.stopping || $0.restarting })
             else { return }
-            // Still in the phase we armed for? A later phase has its own.
-            guard state.withLock({ $0.connection.attempt?.phase?.id }) == phase.rawValue else {
-                return
+            // Has the attempt moved *past* this phase? Then a later phase has
+            // its own clock. "Is it still in this phase" was the wrong
+            // question: an engine cycling through refused servers alternates
+            // resolve and contact every two seconds, so the contact clock
+            // fired while the phase read "resolve" and did nothing.
+            let passed = state.withLock { s in
+                s.phasesEntered.contains { $0.order > phase.order }
             }
+            guard !passed else { return }
             log.error(
                 "phase \(phase.rawValue, privacy: .public) exceeded \(seconds, privacy: .public) s; ending the attempt"
             )
@@ -766,7 +779,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         // worse than the one we already have.
         if let phase = OpenVPNPhase.beginning(with: event.name) {
             apply(.entered(phase.asPhase))
-            armPhaseDeadline(phase)
+            // Once per phase per attempt — see `phasesEntered`.
+            let first = state.withLock { $0.phasesEntered.insert(phase).inserted }
+            if first { armPhaseDeadline(phase) }
         }
 
         switch event.name {

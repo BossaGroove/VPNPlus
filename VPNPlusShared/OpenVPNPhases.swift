@@ -73,6 +73,10 @@ enum OpenVPNPhase: String, CaseIterable, Sendable {
     /// As the core sees it: an id and a deadline, and no protocol (D183/D184).
     var asPhase: TunnelPhase { TunnelPhase(id: rawValue, deadline: deadline) }
 
+    /// Where this phase comes in the sequence, so a deadline can ask whether
+    /// the attempt has moved past it.
+    var order: Int { Self.allCases.firstIndex(of: self) ?? 0 }
+
     /// The phase an engine event begins, or nil for an event that is not a
     /// phase boundary. Events we do not map are still logged; **an unmapped
     /// event never changes the phase**, because a phase we cannot place is
