@@ -160,12 +160,14 @@ final class ProfileConfigurationSheet: NSViewController {
         scroll.hasVerticalScroller = true
         scroll.drawsBackground = false
         scroll.borderType = .noBorder
-        // **Always visible, and reserving its own width.** An overlay scroller
-        // appears when you scroll, which is no use to somebody who cannot see
-        // that there is anything to scroll to: the first build cut the sheet
-        // off mid-section with no indication that three more sections existed.
+        // Legacy rather than overlay, because an overlay scroller appears
+        // when you scroll and is no use to somebody who cannot see that there
+        // is anything to scroll to. **Auto-hiding**, though: with the cap
+        // taken from the screen the sheet usually does not scroll at all, and
+        // a scroller standing there with nothing to scroll is its own small
+        // lie.
         scroll.scrollerStyle = .legacy
-        scroll.autohidesScrollers = false
+        scroll.autohidesScrollers = true
         scroll.translatesAutoresizingMaskIntoConstraints = false
 
         let stack = NSStackView(views: [scroll, footer()])
@@ -208,9 +210,15 @@ final class ProfileConfigurationSheet: NSViewController {
         // The sheet may be nearly as tall as the window it is attached to.
         // What is subtracted is this view's own chrome: the insets above and
         // below, the gap to the footer, and the footer itself.
+        // **From the screen, not the parent window.** Measured 2026-09-08: a
+        // sheet taller than the window it is attached to hangs past the
+        // window's bottom edge and is **not clipped** — every row renders. So
+        // the window's height was never the real limit, and using it made a
+        // 570 pt surface scroll inside a 467 pt cap for no reason. The screen
+        // is the limit that exists.
         let available =
-            view.window?.sheetParent?.contentLayoutRect.height
-            ?? view.window?.screen?.visibleFrame.height
+            view.window?.screen?.visibleFrame.height
+            ?? view.window?.sheetParent?.contentLayoutRect.height
             ?? 640
         heightCap.constant = max(240, available - (2 * Space.xl + Space.l + 40))
 
@@ -220,6 +228,11 @@ final class ProfileConfigurationSheet: NSViewController {
         // sheet while the last row is clipped behind it.
         view.layoutSubtreeIfNeeded()
         preferredContentSize = view.fittingSize
+        // A sheet whose rows do not all fit opens **at the top**. Re-laying it
+        // out during presentation left the clip view part-way down, so the
+        // sheet opened with its first section already scrolled away.
+        scroll.contentView.scroll(to: .zero)
+        scroll.reflectScrolledClipView(scroll.contentView)
 
         #if DEBUG
             dumpRows()
@@ -456,7 +469,37 @@ final class ProfileConfigurationSheet: NSViewController {
     /// unconditionally — reporting the compatibility of a feature we never use
     /// would be noise dressed as transparency.
     private func buildContents() {
-        section(String(localized: "What this profile contains"))
+        // The heading is the control: a disclosure triangle beside it, and the
+        // section folded away by default. It is read once — what the profile
+        // contains does not change while you are looking at it — and this
+        // surface was reported as too packed.
+        // **`.disclosure` draws the triangle and throws the title away**, so
+        // the heading is its own label beside it — and clickable, because a
+        // heading that looks like the control has to behave like it.
+        let triangle = NSButton(title: "", target: self, action: #selector(toggleContents))
+        triangle.bezelStyle = .disclosure
+        triangle.setButtonType(.onOff)
+        triangle.state = Self.contentsExpanded ? .on : .off
+        triangle.setAccessibilityLabel(String(localized: "What this profile contains"))
+        disclosure = triangle
+
+        let heading = NSTextField(labelWithString: String(localized: "What this profile contains"))
+        heading.font = Type.cardTitle
+        heading.textColor = Palette.textPrimary
+        heading.addGestureRecognizer(
+            NSClickGestureRecognizer(target: self, action: #selector(headingClicked)))
+
+        let spacer = NSView()
+        spacer.translatesAutoresizingMaskIntoConstraints = false
+        spacer.heightAnchor.constraint(equalToConstant: Space.m).isActive = true
+        rows.addView(spacer, in: .top)
+
+        let headingRow = NSStackView(views: [triangle, heading])
+        headingRow.orientation = .horizontal
+        headingRow.spacing = Space.xs
+        headingRow.alignment = .centerY
+        rows.addView(headingRow, in: .top)
+
         let servers = max(descriptor.alternateServers.count, 1)
         var lines = [String(localized: "Servers offered: \(servers)")]
 
@@ -489,7 +532,42 @@ final class ProfileConfigurationSheet: NSViewController {
                         \(descriptor.waivedDirectives.joined(separator: ", "))
                         """))
         }
-        rows.addView(caption(lines.joined(separator: "\n")), in: .top)
+        let note = caption(lines.joined(separator: "\n"))
+        note.isHidden = !Self.contentsExpanded
+        contents = note
+        rows.addView(note, in: .top)
+    }
+
+    /// The transparency section's body, hidden until asked for. `NSStackView`
+    /// detaches a hidden view, so the sheet closes up around it rather than
+    /// leaving a gap.
+    private var contents: NSView?
+    private var disclosure: NSButton?
+
+    @objc private func headingClicked() {
+        guard let disclosure else { return }
+        disclosure.state = disclosure.state == .on ? .off : .on
+        toggleContents(disclosure)
+    }
+
+    @objc private func toggleContents(_ sender: NSButton) {
+        Self.contentsExpanded = sender.state == .on
+        contents?.isHidden = sender.state == .off
+        // The sheet is as tall as its rows until they reach the cap, so
+        // folding the section away has to be followed by saying so.
+        view.layoutSubtreeIfNeeded()
+        preferredContentSize = view.fittingSize
+    }
+
+    /// Whether the transparency section is open, remembered.
+    ///
+    /// **Not a setting** — it never appears in Settings and D25 is not in
+    /// play. It is where a disclosure triangle was left, which every Mac app
+    /// remembers, and remembering it is the difference between a section you
+    /// folded away and one you have to fold away again every time.
+    private static var contentsExpanded: Bool {
+        get { UserDefaults.standard.bool(forKey: "sheet.contents.expanded") }
+        set { UserDefaults.standard.set(newValue, forKey: "sheet.contents.expanded") }
     }
 
     // MARK: - Rows
