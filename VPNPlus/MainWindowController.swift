@@ -460,11 +460,39 @@ final class MainWindowController: NSWindowController {
     /// Setup and Blocked states cannot be reached on demand — they need the
     /// permission revoked — and their copy lives here, so a debug path that
     /// duplicated it would be describing a different screen (D250).
+    /// The card's "Connected 2 hours ago" and D96's failure record, written
+    /// once per session and once per failure — the store rejects nothing, so
+    /// the guard against rewriting on every report is here.
+    ///
+    /// M5.3 wrote these from the old `renderConnection`; M5.4's rewrite of the
+    /// window replaced that method and dropped both calls, and every profile
+    /// connected since read "Never" (owner, 2026-09-09). Returns whether the
+    /// store changed, so the caller re-reads it before building the cards.
+    private func remember(_ connection: Connection, in stored: [Profile]) -> Bool {
+        switch connection {
+        case .connected(let session):
+            guard let profile = stored.first(where: { $0.id == session.profile }),
+                profile.lastConnected != session.since
+            else { return false }
+            try? store.setLastConnected(session.since, for: session.profile)
+            return true
+        case .failed(let record):
+            guard let profile = stored.first(where: { $0.id == record.profile }),
+                profile.lastFailure != record
+            else { return false }
+            try? store.setLastFailure(record, for: record.profile)
+            return true
+        default:
+            return false
+        }
+    }
+
     private func render(forcing forced: WindowState? = nil) {
         #if DEBUG
             rendersDuringSlide += 1
         #endif
-        let stored = (try? store.profiles()) ?? []
+        var stored = (try? store.profiles()) ?? []
+        if remember(tunnel.connection, in: stored) { stored = (try? store.profiles()) ?? stored }
         var titles: [Profile.ID: String] = [:]
         for profile in stored { titles[profile.id] = title(of: profile) }
 
