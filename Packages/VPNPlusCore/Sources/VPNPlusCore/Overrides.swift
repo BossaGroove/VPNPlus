@@ -134,6 +134,10 @@ public struct OverrideConflict: Sendable, Equatable {
         case usernameNowFixed(userValue: String, fixedValue: String)
         /// The user asked to save the password, and the new configuration forbids it.
         case passwordSavingNowForbidden
+        /// The user overrode a row, and the new file changed that row's own
+        /// value — so "keep mine" and "take the file's" are both reasonable,
+        /// and the user chooses (ReplaceFile artboard, D132).
+        case changedUnderneath(Overrides.Setting, fileWas: String, fileNow: String, mine: String)
     }
 
     public let kind: Kind

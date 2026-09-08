@@ -131,8 +131,13 @@ public struct StoredProfileStore: ProfileStore {
         }
         try secrets.setSecret(configuration, for: Self.account(for: id))
 
-        // The overrides record is deliberately untouched (D132, 2.6): what the
-        // new text contradicts is reported, not resolved on the user's behalf.
+        // What the user chose is untouched (D132, 2.6): what the new text
+        // contradicts is reported, not resolved on the user's behalf. The one
+        // thing that does move is the part of a server override that was only
+        // ever a snapshot of the old file (`following`). Reported against the
+        // descriptor being replaced, which is still the stored one here —
+        // `setDescriptor` comes after.
+        let previous = index[position].descriptor
         var profile = index[position]
         profile.origin.replacedAt = Date()
         profile.waivedDirectives = descriptor.waivedDirectives
@@ -142,7 +147,15 @@ public struct StoredProfileStore: ProfileStore {
         index[position] = profile
         try write(index)
 
-        return try overrides(for: id).conflicts(with: descriptor)
+        var record = try overrides(for: id)
+        if let previous {
+            let followed = record.following(descriptor, from: previous)
+            if followed != record {
+                record = followed
+                try setOverrides(record, for: id)
+            }
+        }
+        return record.conflicts(with: descriptor, replacing: previous)
     }
 
     public func setDescriptor(_ descriptor: ProfileDescriptor, for id: Profile.ID) throws {
