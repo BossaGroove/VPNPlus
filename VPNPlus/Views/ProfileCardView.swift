@@ -16,6 +16,7 @@
 
 import AppKit
 import VPNPlusCore
+import os
 
 /// One profile, as a card. **There is exactly one design of this**, and that
 /// is a consequence rather than a simplification: the lift-out rule (D114)
@@ -114,6 +115,7 @@ final class ProfileCardView: NSView {
     private let warning = NSImageView()
 
     var onSelect: ((Profile) -> Void)?
+    var onFocus: ((Profile) -> Void)?
     /// The new name, once the user has committed it.
     var onRename: ((Profile, String) -> Void)?
     var onConnect: ((Profile) -> Void)?
@@ -358,6 +360,10 @@ final class ProfileCardView: NSView {
     /// here, and the button being disabled covers only the button.
     @objc private func connect() {
         guard presence == .idle else { return }
+        #if DEBUG
+            Logger(subsystem: "com.bossagroove.VPNPlus", category: "window")
+                .notice("Connect pressed on \(self.profile.id.uuidString, privacy: .public)")
+        #endif
         onConnect?(profile)
     }
 
@@ -439,8 +445,11 @@ final class ProfileCardView: NSView {
     override var acceptsFirstResponder: Bool { true }
     override var canBecomeKeyView: Bool { true }
 
+    /// Focus arrived — by Tab, by AppKit choosing a new first responder, or
+    /// by the card's own click. Reported apart from a click so the grid can
+    /// tell the two apart.
     override func becomeFirstResponder() -> Bool {
-        onSelect?(profile)
+        onFocus?(profile)
         return true
     }
 

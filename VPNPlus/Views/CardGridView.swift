@@ -16,6 +16,7 @@
 
 import AppKit
 import VPNPlusCore
+import os
 
 /// The grid of cards.
 ///
@@ -58,6 +59,7 @@ final class TopAlignedClipView: NSClipView {
 @MainActor
 final class CardGridView: NSView {
     private static let gap = Space.l  // 16, the artboard's grid gap
+    private static let log = Logger(subsystem: "com.bossagroove.VPNPlus", category: "window")
 
     var onSelect: ((Profile) -> Void)?
     var onRename: ((Profile, String) -> Void)?
@@ -120,10 +122,16 @@ final class CardGridView: NSView {
         self.signature = signature
         self.profiles = profiles
         self.titles = titles
+        #if DEBUG
+            Self.log.notice(
+                "grid rebuilt; selection was \(self.selected.map { titles[$0.id] ?? $0.title } ?? "none", privacy: .public)"
+            )
+        #endif
         cards.forEach { $0.removeFromSuperview() }
         cards = profiles.map { profile in
             let card = ProfileCardView(profile: profile, title: titles[profile.id] ?? profile.title)
-            card.onSelect = { [weak self] in self?.select($0) }
+            card.onSelect = { [weak self] in self?.select($0, because: "click") }
+            card.onFocus = { [weak self] in self?.select($0, because: "focus") }
             card.onRename = { [weak self] in self?.onRename?($0, $1) }
             // **Connect selects the card it is on.** The button takes the click,
             // so the card's own mouseDown never sees it — and after a switch
@@ -132,7 +140,7 @@ final class CardGridView: NSView {
             // the in-use card keeps its slot *and selection*; a connect from
             // any other card must therefore move the selection first.
             card.onConnect = { [weak self] in
-                self?.select($0)
+                self?.select($0, because: "connect")
                 self?.onConnect?($0)
             }
             card.onConfigure = { [weak self] in self?.onConfigure?($0) }
@@ -166,7 +174,12 @@ final class CardGridView: NSView {
         for card in cards { card.presence = presence[card.profile.id] ?? .idle }
     }
 
-    private func select(_ profile: Profile) {
+    private func select(_ profile: Profile, because reason: String) {
+        #if DEBUG
+            Self.log.notice(
+                "selection → \(self.titles[profile.id] ?? profile.title, privacy: .public) because \(reason, privacy: .public)"
+            )
+        #endif
         selected = profile
         renderSelection()
         onSelect?(profile)
@@ -257,7 +270,7 @@ final class CardGridView: NSView {
 
     private func move(to index: Int) {
         guard profiles.indices.contains(index) else { return }
-        select(profiles[index])
+        select(profiles[index], because: "keyboard")
         window?.makeFirstResponder(cards[index])
     }
 
