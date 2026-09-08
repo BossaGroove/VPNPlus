@@ -32,15 +32,20 @@ bIVRcNiCqljdADj/zczMXV3EtxvnjxtlHNh8h9c50A==
 -----END CERTIFICATE-----
 """
 
-    /// "setenv CLIENT_CERT 0" is how openvpn3 is told that a profile carries no
-    /// client certificate on purpose; without it, building the client options
-    /// throws "option 'cert' not found".
+    /// A profile that authenticates with a username and password alone, which
+    /// is the ordinary shape and carries no client certificate.
+    ///
+    /// It deliberately does **not** carry the `CLIENT_CERT` marker. This
+    /// fixture used to, because without it openvpn3 throws
+    /// "option 'cert' not found" — and that marker, added here to make the
+    /// tests pass, is why the app refused every real password-only profile
+    /// until M5.6. Real profiles do not carry it, so neither does this one,
+    /// and the whole suite exercises the boundary that decides it instead.
     static let minimalProfile = """
 client
 dev tun
 proto udp
 remote vpn.example.invalid 1194
-setenv CLIENT_CERT 0
 <ca>
 \(certificate)
 </ca>

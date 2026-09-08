@@ -33,8 +33,10 @@ struct ImportMessage {
         case chooseFile(named: String)
         /// Import it with the listed directives set aside (D155, D187).
         case importAnyway(setting: [String])
-        /// Show what was set aside or refused, one click behind the count (D187).
-        case showDetails
+        /// Show what was set aside or refused, one click behind the count
+        /// (D187). It carries its own lines, so no caller has to work out
+        /// separately what the details of a message it was handed are.
+        case showDetails(titled: String, lines: [String])
     }
 
     static func forOutcome(_ outcome: ProfileImport.Outcome, filename: String) -> ImportMessage? {
@@ -49,7 +51,9 @@ struct ImportMessage {
                     VPN Plus doesn't use \(setAside.directives.count) of the settings in this profile. \
                     It will still connect the way the profile describes.
                     """),
-                action: .showDetails)
+                action: .showDetails(
+                    titled: String(localized: "Settings VPN Plus doesn't use"),
+                    lines: setAside.directives))
 
         case .missingFile(let named):
             return ImportMessage(
@@ -93,14 +97,19 @@ struct ImportMessage {
                     """),
                 action: nil)
 
-        case .refused(.unsupportedRequirement):
+        case .refused(.unsupportedRequirement(let detail)):
             return ImportMessage(
                 title: String(localized: "This profile needs something VPN Plus doesn't support"),
                 body: String(localized: """
                     \(filename) asks for a feature that isn't available. It's worth \
                     reporting — we'd like to know which profiles need it.
                     """),
-                action: .showDetails)
+                // The engine's own words, behind the button, for the report
+                // the sentence above asks for. Nothing else knows them.
+                action: detail.isEmpty
+                    ? nil
+                    : .showDetails(
+                        titled: String(localized: "What VPN Plus couldn't do"), lines: [detail]))
 
         case .refused(.unreadable):
             return ImportMessage(

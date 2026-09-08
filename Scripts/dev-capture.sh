@@ -17,7 +17,7 @@
 #
 # Captures VPN Plus's own windows, and nothing else on the screen.
 #
-#   Scripts/dev-capture.sh [output-directory]
+#   Scripts/dev-capture.sh [output-directory]      # default: $TMPDIR
 #
 # A development tool: it exists so a change to a window can be *seen* rather
 # than reasoned about, which is how M5.4 shipped an empty window. It captures
@@ -28,7 +28,9 @@
 # expected; nothing here works around it.
 set -euo pipefail
 
-OUT="${1:-.}"
+# Not the working directory by default: these are pictures of somebody's own
+# screen, and the working directory is a repository that goes public.
+OUT="${1:-${TMPDIR:-/tmp}}"
 APP="VPN Plus"
 
 PID=$(pgrep -x "$APP" | head -1 || true)

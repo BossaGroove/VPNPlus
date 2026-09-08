@@ -16,3 +16,7 @@ release-notes.md
 ThirdParty/src/
 ThirdParty/build/
 ThirdParty/out/
+
+# Screenshots from Scripts/dev-capture.sh. They are pictures of somebody's own
+# screen, and this repository goes public.
+vpnplus-window-*.png

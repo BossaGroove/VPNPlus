@@ -49,7 +49,11 @@ struct ProfileImport {
         enum Refusal: Equatable {
             case certificateInSeparateFile
             case serverSuppliesTheSettings
-            case unsupportedRequirement
+            /// Carries what the engine said. The user is asked to report this
+            /// one, and a report worth having names the feature — so the
+            /// engine's own words are kept, and shown one click behind the
+            /// plain-language sentence the way a set-aside list is (D187).
+            case unsupportedRequirement(detail: String)
             case unreadable
         }
     }
@@ -79,7 +83,11 @@ struct ProfileImport {
         let verdict = Self.validate(text, waiving: waiving)
         switch verdict.verdict {
         case VPNPLUS_VERDICT_REFUSED:
-            log.notice("refused: \(verdict.refusalName, privacy: .public)")
+            // The message is public: it names directives and their values,
+            // never key material, and it is shown to the user in the same
+            // breath — a refusal nobody can read is why this took a day.
+            log.notice(
+                "refused: \(verdict.refusalName, privacy: .public) — \(verdict.message, privacy: .public)")
             switch verdict.refusal {
             case VPNPLUS_REFUSAL_EXTERNAL_KEY_STORE:
                 return .refused(.certificateInSeparateFile)
@@ -90,7 +98,7 @@ struct ProfileImport {
             case VPNPLUS_REFUSAL_MALFORMED:
                 return .refused(.unreadable)
             default:
-                return .refused(.unsupportedRequirement)
+                return .refused(.unsupportedRequirement(detail: verdict.message))
             }
         default:
             guard let descriptor = Self.describe(text, setAside: verdict.ignored) else {

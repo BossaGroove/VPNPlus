@@ -176,7 +176,7 @@ final class ProfileImporter {
             _ = setting
         case .showDetails:
             alert.addButton(withTitle: String(localized: "OK"))
-            alert.addButton(withTitle: String(localized: "Show Which"))
+            alert.addButton(withTitle: String(localized: "Show Details"))
         case nil:
             alert.addButton(withTitle: String(localized: "OK"))
         }
@@ -188,8 +188,11 @@ final class ProfileImporter {
                 locate(named, for: url, over: window)
             case (.importAnyway(let setting), .alertFirstButtonReturn):
                 importProfile(at: url, over: window, waiving: setting)
-            case (.importAnyway, .alertThirdButtonReturn), (.showDetails, .alertSecondButtonReturn):
-                showDetails(details, over: window)
+            case (.importAnyway, .alertThirdButtonReturn):
+                showDetails(
+                    titled: String(localized: "Settings VPN Plus doesn't use"), details, over: window)
+            case (.showDetails(let titled, let lines), .alertSecondButtonReturn):
+                showDetails(titled: titled, lines, over: window)
             default:
                 break
             }
@@ -214,12 +217,12 @@ final class ProfileImporter {
     }
 
     /// The list, one click behind the count (D187).
-    private func showDetails(_ directives: [String], over window: NSWindow?) {
+    private func showDetails(titled: String, _ lines: [String], over window: NSWindow?) {
         let alert = NSAlert()
-        alert.messageText = String(localized: "Settings VPN Plus doesn't use")
-        alert.informativeText = directives.isEmpty
+        alert.messageText = titled
+        alert.informativeText = lines.isEmpty
             ? String(localized: "None.")
-            : directives.joined(separator: "\n")
+            : lines.joined(separator: "\n")
         alert.addButton(withTitle: String(localized: "OK"))
         if let window {
             alert.beginSheetModal(for: window, completionHandler: { _ in })

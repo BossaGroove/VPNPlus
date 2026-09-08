@@ -65,6 +65,84 @@ void copy_field(char *out, size_t size, const std::string &text)
     copy_message(out, size, text);
 }
 
+/// Whether the profile has — or will be given — a client certificate.
+///
+/// openvpn3 requires one unless the profile says outright that it has none,
+/// with `setenv CLIENT_CERT 0` or `client-cert-not-required`; a profile that
+/// authenticates with a username and password alone routinely says neither,
+/// and construction then throws `option 'cert' not found`. The engine's own
+/// answer to that is `disableClientCert`, which is what the two callers below
+/// set from this — so the decision is made here once, at the boundary, and
+/// the user's profile text is never rewritten to carry it (D188).
+///
+/// A profile whose certificate comes from outside the file counts as having
+/// one: it is refused for that reason and by that name, and must not be
+/// quietly connected without a certificate instead. Telling the two apart is
+/// the whole difficulty, because **openvpn3 cannot**: its own helper reports
+/// external PKI for any profile missing a cert *or* a key
+/// (cliopthelper.hpp: `is_external_pki` returns `!cert || !key`), which is
+/// true of a password-only profile and of a keystore profile alike. What
+/// separates them is the profile saying so outright, so that is what is read
+/// here — and a profile with a cert but no key is left alone, which keeps it
+/// refused by name as the keystore case it is.
+bool has_client_certificate(const OptionList &options)
+{
+    if (const Option *declared = options.get_ptr("EXTERNAL_PKI"))
+        return string::is_true(declared->get_optional(1, 16));
+    return options.exists("cert") || options.exists("pkcs12");
+}
+
+/// Whether the profile expects its client identity to come from outside the
+/// file. Read from the options rather than from the engine's log, because
+/// which of two errors the engine reaches first decides what it logs — and
+/// that is not a good basis for deciding what to tell the user.
+///
+/// `pkcs12` belongs here: openvpn3 built against OpenSSL cannot read one at
+/// all, so a profile carrying one keeps its identity somewhere we cannot
+/// reach, which is exactly what the refusal says.
+/// Names the directive responsible, or an empty string. The name matters as
+/// much as the verdict: whatever refuses a profile has to be able to say which
+/// setting did it (2.9, 2.10).
+std::string keeps_identity_outside_the_profile(const std::string &content)
+{
+    try
+    {
+        OptionList options;
+        const ParseClientConfig parsed = ParseClientConfig::parse(content, nullptr, options);
+        if (parsed.error())
+            return "";
+        if (options.exists("pkcs12"))
+            return "pkcs12";
+        if (options.exists("cert") && !options.exists("key"))
+            return "key";
+        if (const Option *declared = options.get_ptr("EXTERNAL_PKI"))
+            return string::is_true(declared->get_optional(1, 16)) ? "EXTERNAL_PKI" : "";
+        return "";
+    }
+    catch (const std::exception &)
+    {
+        return "";
+    }
+}
+
+bool has_client_certificate(const std::string &content)
+{
+    try
+    {
+        OptionList options;
+        const ParseClientConfig parsed = ParseClientConfig::parse(content, nullptr, options);
+        // A profile that will not parse has a real problem, reported by
+        // whoever parses it next. Nothing to decide here.
+        if (parsed.error())
+            return true;
+        return has_client_certificate(options);
+    }
+    catch (const std::exception &)
+    {
+        return true;
+    }
+}
+
 /// The engine, behind the boundary. Every openvpn3 callback lands here and
 /// leaves as plain C.
 class Client final : public ClientAPI::OpenVPNClient
@@ -112,6 +190,9 @@ class Client final : public ClientAPI::OpenVPNClient
         // which is why the token path exists for the profiles that need it
         // most.
         config.autologinSessions = true;
+        // Before eval_config, which is when the engine takes its copy of these
+        // settings (ovpncli.cpp: import_client_settings).
+        config.disableClientCert = !has_client_certificate(config.content);
 
         const ClientAPI::EvalConfig eval = eval_config(config);
         if (eval.error)
@@ -119,7 +200,11 @@ class Client final : public ClientAPI::OpenVPNClient
             message = eval.message;
             return false;
         }
-        if (eval.externalPki)
+        // Exactly the engine's own test at connect time (ovpncli.cpp: the
+        // external-PKI request is skipped when the client cert is disabled),
+        // because `eval.externalPki` alone is also true of a profile that
+        // simply has no certificate to keep anywhere.
+        if (eval.externalPki && !config.disableClientCert)
         {
             message = "This profile keeps its client certificate outside the file, which is not supported yet.";
             return false;
@@ -607,7 +692,10 @@ extern "C" bool vpnplus_engine_describe(const char *profile, vpnplus_profile_inf
         copy_field(out->friendly_name, sizeof out->friendly_name, eval.friendlyName);
         copy_field(out->fixed_username, sizeof out->fixed_username, eval.userlockedUsername);
         out->autologin = eval.autologin;
-        out->external_pki = eval.externalPki;
+        // The engine reports external PKI for any profile missing a cert or a
+        // key, so on its own the flag is also true of a profile that has no
+        // client identity anywhere. Report what the field's name claims.
+        out->external_pki = eval.externalPki && has_client_certificate(config.content);
         out->allow_password_save = eval.allowPasswordSave;
         out->private_key_password_required = eval.privateKeyPasswordRequired;
         copy_field(out->static_challenge, sizeof out->static_challenge, eval.staticChallenge);
@@ -686,6 +774,7 @@ extern "C" void vpnplus_engine_validate(const char *profile,
 
         openvpn::ClientOptions::Config config;
         config.clientconf.dco = false;
+        config.clientconf.disableClientCert = !has_client_certificate(options);
         config.proto_context_options.reset(new openvpn::ProtoContextCompressionOptions());
         openvpn::ClientOptions client_options(options, config);
 
@@ -702,10 +791,24 @@ extern "C" void vpnplus_engine_validate(const char *profile,
 
         const std::string text = e.what();
         const bool unknown = text.find("UNKNOWN/UNSUPPORTED OPTIONS") != std::string::npos;
-        bool key_store = false;
+        const std::string identity = keeps_identity_outside_the_profile(content);
+        bool key_store = !identity.empty();
         for (const auto &d : reported)
             if (never_waivable(d.name) && category_is_fatal(d.category))
                 key_store = true;
+
+        // The engine never got as far as logging this one — it threw on the
+        // certificate it could not find first — so it is reported from here,
+        // and only if the engine did not already name it.
+        if (key_store && !identity.empty() && directives != nullptr)
+        {
+            const bool already = std::any_of(
+                reported.begin(), reported.end(),
+                [&identity](const ReportedDirective &d) { return d.name == identity; });
+            if (!already)
+                directives(context, identity.c_str(), "client identity kept outside the profile",
+                           VPNPLUS_DIRECTIVE_BLOCKING);
+        }
 
         out->refusal = key_store ? VPNPLUS_REFUSAL_EXTERNAL_KEY_STORE
                        : unknown ? VPNPLUS_REFUSAL_UNKNOWN_DIRECTIVES

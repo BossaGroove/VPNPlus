@@ -80,6 +80,44 @@ struct ValidateTests {
         #expect(outcome.refusal == VPNPLUS_REFUSAL_NONE)
     }
 
+    /// The regression M5.6 was built on: a profile that authenticates with a
+    /// username and password and carries no client certificate is the ordinary
+    /// shape, and the app refused every one of them.
+    ///
+    /// openvpn3 requires a `cert` unless told otherwise, and its own way of
+    /// being told — `setenv CLIENT_CERT 0` — is a marker real profiles do not
+    /// carry. `Self.minimalProfile` no longer carries it either, so this
+    /// asserts by name what the rest of the suite now silently depends on.
+    @Test func aProfileWithNoClientCertificateIsAccepted() {
+        #expect(!Self.minimalProfile.contains("CLIENT_CERT"), "the fixture must not carry the marker")
+        let outcome = Self.validate(Self.minimalProfile)
+        #expect(outcome.verdict == VPNPLUS_VERDICT_ACCEPTED, "\(outcome.message)")
+        #expect(outcome.refusal == VPNPLUS_REFUSAL_NONE)
+    }
+
+    /// The other half, and the reason the decision is not simply "no cert, no
+    /// certificate needed": openvpn3 reports external PKI for a profile
+    /// missing *either* a cert or a key, so a certificate whose key lives in a
+    /// keystore looks identical to a password-only profile from that flag
+    /// alone. It has to stay refused, and by the right name.
+    @Test func aCertificateWithoutItsKeyIsStillRefused() {
+        let outcome = Self.validate(
+            Self.minimalProfile + "<cert>\n\(TestFixtures.certificate)\n</cert>\n")
+        #expect(outcome.verdict == VPNPLUS_VERDICT_REFUSED, "a key kept elsewhere must not connect anyway")
+        #expect(outcome.refusal == VPNPLUS_REFUSAL_EXTERNAL_KEY_STORE, "\(outcome.message)")
+        #expect(outcome.blocking.contains("key"), "\(outcome.blocking)")
+    }
+
+    /// A profile that declares external PKI is refused for that reason, and is
+    /// never mistaken for one that simply has nothing to send. The declaration
+    /// is an Access Server meta line, the only form openvpn3 reads it in —
+    /// `setenv EXTERNAL_PKI 1` is not it.
+    @Test func aProfileThatDeclaresExternalPKIIsRefused() {
+        let outcome = Self.validate(Self.minimalProfile + "# OVPN_ACCESS_SERVER_EXTERNAL_PKI=1\n")
+        #expect(outcome.verdict == VPNPLUS_VERDICT_REFUSED, "\(outcome.message)")
+        #expect(outcome.refusal == VPNPLUS_REFUSAL_EXTERNAL_KEY_STORE, "\(outcome.message)")
+    }
+
     /// The three directives the owner's real company profile carries. They are
     /// harmless, and D187 says they are disclosed rather than buried.
     @Test func directivesTheEngineIgnoresAreDisclosedButDoNotRefuse() {
