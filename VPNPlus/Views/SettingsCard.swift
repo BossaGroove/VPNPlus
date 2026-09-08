@@ -71,6 +71,15 @@ final class SettingsCard: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("not supported") }
 
+    #if DEBUG
+        /// Each row's height, for the dump. A card that grows does so because
+        /// one row grew, and this says which.
+        var rowHeights: String {
+            stack.views.map { $0.isHidden ? "·" : "\(Int($0.fittingSize.height))" }
+                .joined(separator: " ")
+        }
+    #endif
+
     override func updateLayer() {
         layer?.backgroundColor = Palette.surfaceGrouped.cgColor
     }

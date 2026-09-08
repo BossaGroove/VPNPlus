@@ -270,6 +270,11 @@ final class ProfileConfigurationSheet: NSViewController {
             log.notice(
                 "sheet \(self.preferredContentSize.width, privacy: .public)×\(self.preferredContentSize.height, privacy: .public), \(self.rows.views.count, privacy: .public) rows, content \(self.rows.fittingSize.height, privacy: .public) pt"
             )
+            for card in rows.views.compactMap({ $0 as? SettingsCard }) {
+                log.notice(
+                    "  card \(Int(card.fittingSize.height), privacy: .public) pt: \(card.rowHeights, privacy: .public)"
+                )
+            }
             for row in rows.views {
                 let text =
                     (row as? NSTextField)?.stringValue
@@ -770,6 +775,16 @@ final class ProfileConfigurationSheet: NSViewController {
     private func add(_ name: String, _ control: NSView, field: Field?) {
         if let editable = control as? NSTextField {
             editable.font = Type.control
+            // **One line, and pinned to it.** A programmatic `NSTextField`
+            // wraps by default, and a wrapping field with no
+            // `preferredMaxLayoutWidth` can report a height of many lines
+            // once a field editor is installed in it — which is a card row
+            // growing to hundreds of points the moment you click into it.
+            // Every value here is a single line by nature.
+            editable.usesSingleLineMode = true
+            editable.cell?.wraps = false
+            editable.cell?.isScrollable = true
+            editable.lineBreakMode = .byTruncatingTail
             // **No bezel: a box inside a card row is a box inside a box.**
             // I argued the other way — that a borderless field reads as
             // read-only — and the owner looked at both and chose this: in a
