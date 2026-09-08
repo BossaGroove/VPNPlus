@@ -28,6 +28,7 @@
 		670486E9B6F1F1B1AABD1056 /* OpenVPNPhases.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C272E4AD0B0F8E346C08845 /* OpenVPNPhases.swift */; };
 		6C51C48E20E2916D8F16FDC1 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E855E821FD66EF1537305B0 /* SystemConfiguration.framework */; };
 		7676B0812A5C4D64B97AC9DA /* MainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CD75F5958AB78A8340EB4A4 /* MainWindowController.swift */; };
+		784F3BD0C9BA6C24ED194D95 /* SettingsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53DBF7460C16F2830ACA47DA /* SettingsCard.swift */; };
 		78A892EEA3E7C7ABFACD60E5 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA1E04DC0D4A5A19A907C8A0 /* NetworkExtension.framework */; };
 		7B961AB53C94B83E4F8A6803 /* SignInSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE52193C4C71A050E1060DC7 /* SignInSheet.swift */; };
 		7BC3710E15711D0F3934D85F /* DefaultRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7844AE8ED2B87BCA3B61940C /* DefaultRoute.swift */; };
@@ -58,6 +59,7 @@
 		CCD8A54D48B861FE5AB01B30 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 13133B04CBB3D94810E7E1E6 /* CoreFoundation.framework */; };
 		CCF814AD83E789107066C510 /* ProfileStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B4A4F17AAADBDA419BA9006 /* ProfileStorage.swift */; };
 		D547BAF5DF36F7768CC0271E /* VPNPlusCore in Frameworks */ = {isa = PBXBuildFile; productRef = E5AD49E779DF062A87D93C4D /* VPNPlusCore */; };
+		D6233C9C2F5338664608BA4C /* AutoLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B8DADE87564AFDA3C8B3CC /* AutoLayout.swift */; };
 		DD1118C0F8E834F09160946A /* InstallLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 014171C7BC3E81B7ACFD6DA1 /* InstallLocation.swift */; };
 		E07A107241DDC403F27A17FB /* EngineShim.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05D57C00265B12AEF250D992 /* EngineShim.cpp */; };
 		E3179DBF82C76B21330BF126 /* PhaseLabels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 503BCF89133D410A0AC2507C /* PhaseLabels.swift */; };
@@ -146,6 +148,8 @@
 		43BD04530C7322F12A73C014 /* Engine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine.swift; sourceTree = "<group>"; };
 		4B4A4F17AAADBDA419BA9006 /* ProfileStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileStorage.swift; sourceTree = "<group>"; };
 		503BCF89133D410A0AC2507C /* PhaseLabels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhaseLabels.swift; sourceTree = "<group>"; };
+		53B8DADE87564AFDA3C8B3CC /* AutoLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoLayout.swift; sourceTree = "<group>"; };
+		53DBF7460C16F2830ACA47DA /* SettingsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsCard.swift; sourceTree = "<group>"; };
 		58B8862F0FA21CF7DC071671 /* DropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropView.swift; sourceTree = "<group>"; };
 		5C891AFB48AF4ED86888CD08 /* VPNPlusTunnel.systemextension */ = {isa = PBXFileReference; explicitFileType = "wrapper.system-extension"; includeInIndex = 0; path = VPNPlusTunnel.systemextension; sourceTree = BUILT_PRODUCTS_DIR; };
 		5E855E821FD66EF1537305B0 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
@@ -233,6 +237,7 @@
 		166066C7CF6FC8C625A6D271 /* Design */ = {
 			isa = PBXGroup;
 			children = (
+				53B8DADE87564AFDA3C8B3CC /* AutoLayout.swift */,
 				AFF5ECC43D8D8506CFE89AE3 /* Tokens.swift */,
 			);
 			path = Design;
@@ -257,6 +262,7 @@
 				7D909B6E7CA25FA69DB86615 /* GuidanceView.swift */,
 				70E018DD83B0C52B110C2B16 /* ProfileCardView.swift */,
 				DB24DE94E2E4956D50D38ACE /* PromotedRegionView.swift */,
+				53DBF7460C16F2830ACA47DA /* SettingsCard.swift */,
 				FE52193C4C71A050E1060DC7 /* SignInSheet.swift */,
 			);
 			path = Views;
@@ -554,6 +560,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				017407B0623EE77D6A116F9F /* App.swift in Sources */,
+				D6233C9C2F5338664608BA4C /* AutoLayout.swift in Sources */,
 				FE3381B49CD9666D98F63824 /* CardGridView.swift in Sources */,
 				39FCA6D97086FE9B0A2BB252 /* DropView.swift in Sources */,
 				FB556FCAF7D5B786F0EE4F22 /* ExtensionInstaller.swift in Sources */,
@@ -573,6 +580,7 @@
 				C401EF4DB9265005338A59C5 /* ProfileImporter.swift in Sources */,
 				CCF814AD83E789107066C510 /* ProfileStorage.swift in Sources */,
 				613CF72E53C9596BA08A027D /* PromotedRegionView.swift in Sources */,
+				784F3BD0C9BA6C24ED194D95 /* SettingsCard.swift in Sources */,
 				7B961AB53C94B83E4F8A6803 /* SignInSheet.swift in Sources */,
 				2903FFE66AF2035C206A32EE /* StatusItem.swift in Sources */,
 				EA742C4B3EFF74AA5E55DBF5 /* Tokens.swift in Sources */,

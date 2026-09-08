@@ -106,12 +106,20 @@ final class ProfileConfigurationSheet: NSViewController {
     /// One content width for the whole sheet: label column, control column, and
     /// room for a Revert. Without it a wrapping caption asks for its full
     /// single-line width and the sheet grows to suit (D243).
-    /// 520 wide with 22 pt margins, from the artboard — and the width is what
-    /// settles the layout: at 476 pt of content there is no room for a label
-    /// column *and* a field, so the labels go **above** their fields, which is
-    /// what the artboard draws.
-    private static let sheetWidth: CGFloat = 520
+    /// **The sibling app's form**, at the owner's direction: labels
+    /// right-aligned in a fixed column with a colon, fields filling the rest,
+    /// laid out by `NSGridView`. A horizontal row is one line where a stacked
+    /// one is two, which is what makes this sheet shorter — and the two apps
+    /// are meant to work the same way.
+    ///
+    /// 560 rather than the artboard's 520 because the layout needs it: a
+    /// label column plus a field does not fit in 476 pt of content, which is
+    /// exactly why the artboard stacked them.
+    private static let sheetWidth: CGFloat = 560
     private static let margin: CGFloat = 22
+    /// Wider than the sibling's 80: our longest label is "Certificate:", and
+    /// German is longer still (A18).
+    private static let labelColumn: CGFloat = 96
     private static let contentWidth: CGFloat = sheetWidth - 2 * margin
     private static let revertWidth: CGFloat = 72
     private static let scrollerGutter: CGFloat = 16
@@ -419,6 +427,7 @@ final class ProfileConfigurationSheet: NSViewController {
             action: #selector(reconnectChanged))
 
         buildContents()
+        closeCard()
     }
 
     /// A13a §3: the section's shape comes from the profile, not from a fixed
@@ -523,11 +532,10 @@ final class ProfileConfigurationSheet: NSViewController {
         noteRow.translatesAutoresizingMaskIntoConstraints = false
         noteRow.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
 
-        let group = NSStackView(views: [name, certificateRow, noteRow])
-        group.orientation = .vertical
-        group.alignment = .leading
-        group.spacing = Space.xs
-        rows.addView(group, in: .top)
+        let group = openCard()
+        group.addRow(String(localized: "Certificate"), certificateButton)
+        captionRows[.certificate] = group.addFullWidthRow(noteRow)
+        _ = (name, certificateRow)
     }
 
     /// A13a §6: what this profile contains, read-only. The transparency
@@ -538,6 +546,11 @@ final class ProfileConfigurationSheet: NSViewController {
     /// unconditionally — reporting the compatibility of a feature we never use
     /// would be noise dressed as transparency.
     private func buildContents() {
+        // **Before the heading**, not after: the pending rows are still
+        // waiting to become a grid, and a heading added first appears above
+        // them — which put the disclosure between "When connecting" and its
+        // own two switches.
+        closeCard()
         // The heading is the control: a disclosure triangle beside it, and the
         // section folded away by default. It is read once — what the profile
         // contains does not change while you are looking at it — and this
@@ -569,13 +582,12 @@ final class ProfileConfigurationSheet: NSViewController {
         headingRow.alignment = .centerY
         rows.addView(headingRow, in: .top)
 
-        factRows.orientation = .vertical
-        factRows.alignment = .leading
-        factRows.spacing = Space.xs
-        factRows.translatesAutoresizingMaskIntoConstraints = false
-        factRows.isHidden = !Self.contentsExpanded
-        rows.addView(factRows, in: .top)
-        contents = factRows
+        let group = SettingsCard(width: Self.contentWidth)
+        group.isHidden = !Self.contentsExpanded
+        rows.addView(group, in: .top)
+        rows.setCustomSpacing(Space.l, after: group)
+        factCard = group
+        contents = group
 
         let servers = max(descriptor.alternateServers.count, 1)
         fact(String(localized: "Servers"), "\(servers)")
@@ -624,24 +636,12 @@ final class ProfileConfigurationSheet: NSViewController {
     /// A **table**, not a paragraph — four sentences run together were the
     /// densest thing on the sheet and the least readable.
     private func fact(_ name: String, _ value: String) {
-        let label = NSTextField(labelWithString: name)
-        label.font = Type.hint
-        label.textColor = Palette.textTertiary
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.widthAnchor.constraint(equalToConstant: 170).isActive = true
-
         let detail = NSTextField(wrappingLabelWithString: value)
-        detail.font = Type.hint
+        detail.font = Type.control
         detail.textColor = Palette.textSecondary
-        detail.preferredMaxLayoutWidth = Self.contentWidth - 170 - Space.m
-
-        let row = NSStackView(views: [label, detail])
-        row.orientation = .horizontal
-        row.alignment = .firstBaseline
-        row.spacing = Space.m
-        row.translatesAutoresizingMaskIntoConstraints = false
-        factRows.addView(row, in: .top)
-        row.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
+        detail.alignment = .right
+        detail.preferredMaxLayoutWidth = Self.contentWidth * 0.5
+        factCard?.addRow(name, detail)
     }
 
     /// The transparency section's body, hidden until asked for. `NSStackView`
@@ -651,7 +651,7 @@ final class ProfileConfigurationSheet: NSViewController {
     private var disclosure: NSButton?
     /// The facts, in their own stack, so the disclosure folds the group
     /// rather than a single paragraph — §6 is five rows now, not one.
-    private let factRows = NSStackView()
+    private var factCard: SettingsCard?
     private var sheetTitle: NSTextField?
 
     @objc private func headingClicked() {
@@ -686,7 +686,24 @@ final class ProfileConfigurationSheet: NSViewController {
         ("udp", "UDP"), ("tcp", "TCP"), ("adaptive", String(localized: "Adaptive")),
     ]
 
+    /// The card rows are being added to. One card per category, which is what
+    /// separates the groups — a flat form put every category in one list and
+    /// the switches read as starting halfway across it.
+    private var card: SettingsCard?
+
+    private func openCard() -> SettingsCard {
+        if let card { return card }
+        let fresh = SettingsCard(width: Self.contentWidth)
+        rows.addView(fresh, in: .top)
+        rows.setCustomSpacing(Space.l, after: fresh)
+        card = fresh
+        return fresh
+    }
+
+    private func closeCard() { card = nil }
+
     private func section(_ name: String) {
+        closeCard()
         let heading = NSTextField(labelWithString: name)
         heading.font = Type.sectionLabel
         heading.textColor = Palette.textPrimary
@@ -751,12 +768,16 @@ final class ProfileConfigurationSheet: NSViewController {
     /// regular, caption a size down — which is the artboard's answer to the
     /// complaint that a label and a hint were indistinguishable (D248).
     private func add(_ name: String, _ control: NSView, field: Field?) {
-        let title = NSTextField(labelWithString: name)
-        title.textColor = Palette.textSecondary
-        title.font = Type.fieldLabel
-
         if let editable = control as? NSTextField {
             editable.font = Type.control
+            // **Bordered and left-aligned**, which is how System Settings
+            // draws a field you can type in — borderless and right-aligned is
+            // its idiom for a *value*, and using it here made every editable
+            // field look read-only.
+            editable.isBordered = true
+            editable.drawsBackground = true
+            editable.alignment = .natural
+            editable.textColor = Palette.textPrimary
             if editable.isEditable {
                 editable.target = self
                 editable.action = #selector(fieldChanged)
@@ -766,23 +787,13 @@ final class ProfileConfigurationSheet: NSViewController {
                 placeholders[field] = editable.placeholderString ?? ""
             }
         }
-        // Full width, as the artboard has them: a field narrower than its
-        // sheet invents a second column that nothing else lines up with.
-        control.translatesAutoresizingMaskIntoConstraints = false
-        control.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
+        let group = openCard()
+        group.addRow(name, control, fillsWidth: control is NSTextField)
+        guard let field else { return }
 
-        guard let field else {
-            let group = NSStackView(views: [title, control])
-            group.orientation = .vertical
-            group.alignment = .leading
-            group.spacing = Space.xs
-            rows.addView(group, in: .top)
-            return
-        }
-
-        // The caption and its Revert share one line, so the action sits with
-        // the sentence that explains why it is there.
-        let note = caption("", width: Self.contentWidth - Self.revertWidth - Space.s)
+        // The caption sits in its own row inside the same card, beneath the
+        // value it describes, with Revert at the trailing edge.
+        let note = caption("", width: Self.contentWidth - 2 * SettingsCard.Metric.inset - Self.revertWidth - Space.s)
         captions[field] = note
         let spacer = NSView()
         spacer.translatesAutoresizingMaskIntoConstraints = false
@@ -791,16 +802,7 @@ final class ProfileConfigurationSheet: NSViewController {
         noteRow.orientation = .horizontal
         noteRow.alignment = .centerY
         noteRow.spacing = Space.s
-        noteRow.translatesAutoresizingMaskIntoConstraints = false
-        noteRow.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
-        captionRows[field] = noteRow
-
-        let group = NSStackView(views: [title, control, noteRow])
-        group.orientation = .vertical
-        group.alignment = .leading
-        group.spacing = Space.xs
-        group.translatesAutoresizingMaskIntoConstraints = false
-        rows.addView(group, in: .top)
+        captionRows[field] = group.addFullWidthRow(noteRow)
     }
 
     /// A per-profile boolean, as the artboard draws it: the label and its
@@ -814,52 +816,12 @@ final class ProfileConfigurationSheet: NSViewController {
     ) {
         control.target = self
         control.action = action
-        control.translatesAutoresizingMaskIntoConstraints = false
-
-        let label = NSTextField(labelWithString: title)
-        label.font = Type.control
-        label.textColor = Palette.textPrimary
-        label.lineBreakMode = .byWordWrapping
-        label.maximumNumberOfLines = 0
-        var text: [NSView] = [label]
-        if let note { text.append(caption(note, width: Self.contentWidth - 60)) }
-        let stack = NSStackView(views: text)
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = Space.xs
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        label.preferredMaxLayoutWidth = Self.contentWidth - Self.switchColumn
-
-        // **The switch is pinned to the trailing edge, not left to a stack.**
-        // In a horizontal stack the slack goes to whichever view hugs least,
-        // and that decided differently for a short label than for a long one:
-        // "Connect when VPN Plus opens" put its switch at the edge and
-        // "Reconnect automatically if the connection drops" put its switch
-        // right after the text. Two controls doing one job, in two places.
-        // Explicit constraints cannot disagree with themselves.
-        let row = NSView()
-        row.translatesAutoresizingMaskIntoConstraints = false
-        row.addSubview(stack)
-        row.addSubview(control)
-        rows.addView(row, in: .top)
-        NSLayoutConstraint.activate([
-            row.widthAnchor.constraint(equalToConstant: Self.contentWidth),
-            stack.leadingAnchor.constraint(equalTo: row.leadingAnchor),
-            stack.topAnchor.constraint(equalTo: row.topAnchor),
-            stack.bottomAnchor.constraint(equalTo: row.bottomAnchor),
-            stack.trailingAnchor.constraint(
-                lessThanOrEqualTo: control.leadingAnchor, constant: -Space.m),
-            control.trailingAnchor.constraint(equalTo: row.trailingAnchor),
-            control.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            // The row has to be at least as tall as the switch. Sized to the
-            // label alone, a 22 pt switch overflowed an 18 pt row by 2 pt at
-            // each end and the two rows all but touched.
-            control.topAnchor.constraint(greaterThanOrEqualTo: row.topAnchor),
-            control.bottomAnchor.constraint(lessThanOrEqualTo: row.bottomAnchor),
-        ])
-        // The artboard's 14 pt between toggle rows, rather than the 8 that
-        // separates a label from its own field.
-        rows.setCustomSpacing(Space.m, after: row)
+        let group = openCard()
+        group.addRow(title, control)
+        if let note {
+            group.addFullWidthRow(
+                caption(note, width: Self.contentWidth - 2 * SettingsCard.Metric.inset))
+        }
     }
 
     /// Room reserved for the switch and its gap, so a label wraps before it
