@@ -827,17 +827,44 @@ final class ProfileConfigurationSheet: NSViewController {
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = Space.xs
-        stack.setContentHuggingPriority(.init(1), for: .horizontal)
-        label.preferredMaxLayoutWidth = Self.contentWidth - 60
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        label.preferredMaxLayoutWidth = Self.contentWidth - Self.switchColumn
 
-        let row = NSStackView(views: [stack, control])
-        row.orientation = .horizontal
-        row.alignment = .centerY
-        row.spacing = Space.m
+        // **The switch is pinned to the trailing edge, not left to a stack.**
+        // In a horizontal stack the slack goes to whichever view hugs least,
+        // and that decided differently for a short label than for a long one:
+        // "Connect when VPN Plus opens" put its switch at the edge and
+        // "Reconnect automatically if the connection drops" put its switch
+        // right after the text. Two controls doing one job, in two places.
+        // Explicit constraints cannot disagree with themselves.
+        let row = NSView()
         row.translatesAutoresizingMaskIntoConstraints = false
+        row.addSubview(stack)
+        row.addSubview(control)
         rows.addView(row, in: .top)
-        row.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
+        NSLayoutConstraint.activate([
+            row.widthAnchor.constraint(equalToConstant: Self.contentWidth),
+            stack.leadingAnchor.constraint(equalTo: row.leadingAnchor),
+            stack.topAnchor.constraint(equalTo: row.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: row.bottomAnchor),
+            stack.trailingAnchor.constraint(
+                lessThanOrEqualTo: control.leadingAnchor, constant: -Space.m),
+            control.trailingAnchor.constraint(equalTo: row.trailingAnchor),
+            control.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            // The row has to be at least as tall as the switch. Sized to the
+            // label alone, a 22 pt switch overflowed an 18 pt row by 2 pt at
+            // each end and the two rows all but touched.
+            control.topAnchor.constraint(greaterThanOrEqualTo: row.topAnchor),
+            control.bottomAnchor.constraint(lessThanOrEqualTo: row.bottomAnchor),
+        ])
+        // The artboard's 14 pt between toggle rows, rather than the 8 that
+        // separates a label from its own field.
+        rows.setCustomSpacing(Space.m, after: row)
     }
+
+    /// Room reserved for the switch and its gap, so a label wraps before it
+    /// reaches one rather than after.
+    private static let switchColumn: CGFloat = 60
 
     // MARK: - Refreshing, without rebuilding
 
