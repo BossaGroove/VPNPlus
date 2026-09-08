@@ -125,7 +125,16 @@ final class CardGridView: NSView {
             let card = ProfileCardView(profile: profile, title: titles[profile.id] ?? profile.title)
             card.onSelect = { [weak self] in self?.select($0) }
             card.onRename = { [weak self] in self?.onRename?($0, $1) }
-            card.onConnect = { [weak self] in self?.onConnect?($0) }
+            // **Connect selects the card it is on.** The button takes the click,
+            // so the card's own mouseDown never sees it — and after a switch
+            // the selection border stayed on the *previous* card while the
+            // new one connected (owner's screenshots, 2026-09-08). M5.11 says
+            // the in-use card keeps its slot *and selection*; a connect from
+            // any other card must therefore move the selection first.
+            card.onConnect = { [weak self] in
+                self?.select($0)
+                self?.onConnect?($0)
+            }
             card.onConfigure = { [weak self] in self?.onConfigure?($0) }
             card.onDelete = { [weak self] in self?.onDelete?($0) }
             card.onReveal = { [weak self] in self?.onReveal?($0) }
