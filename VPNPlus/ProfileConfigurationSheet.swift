@@ -770,14 +770,18 @@ final class ProfileConfigurationSheet: NSViewController {
     private func add(_ name: String, _ control: NSView, field: Field?) {
         if let editable = control as? NSTextField {
             editable.font = Type.control
-            // **Bordered and left-aligned**, which is how System Settings
-            // draws a field you can type in — borderless and right-aligned is
-            // its idiom for a *value*, and using it here made every editable
-            // field look read-only.
-            editable.isBordered = true
-            editable.drawsBackground = true
-            editable.alignment = .natural
+            // **No bezel: a box inside a card row is a box inside a box.**
+            // I argued the other way — that a borderless field reads as
+            // read-only — and the owner looked at both and chose this: in a
+            // grouped card the value is plain text at the trailing edge, and
+            // only a control that *does* something (a popup, a button) carries
+            // a bezel. Editing is still discoverable: clicking gives an
+            // insertion point and a focus ring.
+            editable.isBordered = false
+            editable.drawsBackground = false
+            editable.alignment = .right
             editable.textColor = Palette.textPrimary
+            editable.focusRingType = .default
             if editable.isEditable {
                 editable.target = self
                 editable.action = #selector(fieldChanged)
