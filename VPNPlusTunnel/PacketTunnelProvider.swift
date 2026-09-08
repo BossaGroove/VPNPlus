@@ -44,6 +44,10 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     // framework's path monitor, which watches the physical path here.
     private let pathMonitor = NWPathMonitor()
     private var lastPathDescription = ""
+    /// The engine is paused because the network went away (below). The
+    /// path's return must restart it, and by then the model is Reconnecting
+    /// rather than Connected — so "connected" alone cannot be the test.
+    private nonisolated(unsafe) var pausedForNetwork = false
     /// Signalled when the current engine's run() returns. One per session:
     /// a shared semaphore accumulates a count and stops being a barrier.
     private var runFinished: DispatchSemaphore?
@@ -345,6 +349,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         let engine = Engine(clientVersion: "VPNPlus/\(version)")
         self.engine = engine
         state.withLock { $0.attemptEnded = false }
+        pausedForNetwork = false
 
         engine.onLog = { [engineLog] text in
             engineLog.notice("\(text, privacy: .public)")
@@ -677,12 +682,20 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             log.notice(
                 "network path: \(now, privacy: .public) (was \(previous.isEmpty ? "unknown" : previous, privacy: .public)); connected=\(connected, privacy: .public) since=\(Int(settleSeconds), privacy: .public)s"
             )
-            guard connected, settleSeconds > 5, !previous.isEmpty else { return }
+            // A tunnel that is up, once it has settled — **or one we paused
+            // because the network went away.** The first version tested only
+            // `connected`, and after a Wi-Fi loss the model is Reconnecting,
+            // so the path's return restarted nothing: the engine stayed
+            // paused and the window said "attempt 1 of 5" for ever. Found by
+            // reading the code before the M5.6 ladder test, 2026-09-09.
+            let paused = pausedForNetwork
+            guard (connected && settleSeconds > 5) || paused, !previous.isEmpty else { return }
             if path.status == .satisfied {
                 // C measured that the engine's own reconnect on this path is
                 // never answered by the server; a fresh engine is.
-                restartFresh(reason: "network changed")
-            } else {
+                pausedForNetwork = false
+                restartFresh(reason: paused ? "network returned" : "network changed")
+            } else if !paused {
                 // Quiet the engine while there is nothing to send on; the
                 // return of a path restarts fresh above.
                 log.notice("no network path; pausing the engine until one returns")
@@ -698,6 +711,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
                 // dishonesty is not the same as not being dishonest.
                 apply(.dropped)
                 engine?.pause(reason: "network gone")
+                pausedForNetwork = true
             }
         }
         pathMonitor.start(queue: DispatchQueue(label: "com.bossagroove.VPNPlus.path"))
