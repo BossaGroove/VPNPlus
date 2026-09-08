@@ -56,8 +56,8 @@ struct ProfileSettingsTests {
         // What the engine actually reports for a profile with no name: the
         // server's own address, as the name.
         let byAddress = descriptor(
-            name: "203.0.113.18",
-            server: ServerEndpoint(host: "203.0.113.18", port: "443", transport: "udp"))
+            name: "192.0.2.10",
+            server: ServerEndpoint(host: "192.0.2.10", port: "443", transport: "udp"))
         let settings = ProfileSettings.compose(
             byAddress, with: Overrides(), filename: "Configure SG.ovpn")
         #expect(settings.title.value == "Configure SG")
@@ -235,8 +235,8 @@ struct ProfileSettingsTests {
     /// titled by IP address is what this project is against. Found on the
     /// owner's own profile at M3.6.
     @Test func aProfileNamedAfterItsServerIsCalledAfterItsFile() {
-        let unnamed = descriptor(name: "203.0.113.18",
-                                 server: ServerEndpoint(host: "203.0.113.18", port: "443", transport: "udp"))
+        let unnamed = descriptor(name: "192.0.2.10",
+                                 server: ServerEndpoint(host: "192.0.2.10", port: "443", transport: "udp"))
         #expect(unnamed.preferredTitle(filename: "Configure SG.ovpn") == "Configure SG")
     }
 
@@ -255,8 +255,8 @@ struct ProfileSettingsTests {
     }
 
     @Test func withoutAFilenameTheProfilesOwnNameIsAllThereIs() {
-        #expect(descriptor(name: "203.0.113.18",
-                           server: ServerEndpoint(host: "203.0.113.18")).preferredTitle(filename: "") == "203.0.113.18")
+        #expect(descriptor(name: "192.0.2.10",
+                           server: ServerEndpoint(host: "192.0.2.10")).preferredTitle(filename: "") == "192.0.2.10")
     }
 
     // MARK: - Overrides survive a reissued profile (2.6, D132)
