@@ -295,6 +295,18 @@ struct ConnectionTests {
         #expect(state == .failed(record), "the reason outlives the tunnel that failed to come up")
     }
 
+    /// The engine ending on its own while the tunnel is up is a failure, not
+    /// the user disconnecting — that goes through `.disconnect`. Commitment 3:
+    /// a tunnel that vanishes says so, even when it cannot say why.
+    @Test func aSessionWhoseEngineEndsOnItsOwnHasFailed() {
+        let state = ConnectionMachine.next(
+            .connected(Session(profile: singapore, since: start)), on: .tornDown, at: start + 40)
+        guard case .failed(let record) = state else { return #expect(Bool(false), "\(state)") }
+        #expect(record.profile == singapore)
+        #expect(record.reason == .unknown, "no cause was given, and none is invented")
+        #expect(record.at == start + 40)
+    }
+
     @Test func anImpossibleEventChangesNothing() {
         // The model never invents a transition; the caller that saw the
         // impossible event has the context to log it.

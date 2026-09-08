@@ -180,6 +180,15 @@ public enum ConnectionMachine {
         case (.connected(let session), .failed(let reason)):
             return .failed(FailureRecord(profile: session.profile, at: now, reason: reason))
 
+        // A tunnel that was up, and whose engine ended on its own with no
+        // reason given. It is not what the user asked for — that path goes
+        // through `.disconnect` — so it is a failure, and one without a known
+        // cause. Before this row the event had no transition, the model stayed
+        // Connected until the system said otherwise, and the user's US tunnel
+        // simply vanished (2026-09-08).
+        case (.connected(let session), .tornDown):
+            return .failed(FailureRecord(profile: session.profile, at: now, reason: .unknown))
+
         case (.disconnecting(let teardown), .timedOut):
             // D39: force it and restore anyway. A switch still goes on to its
             // second half — the user asked for a profile, not for a teardown.

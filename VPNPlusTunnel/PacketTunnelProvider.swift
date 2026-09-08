@@ -67,6 +67,12 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         /// The engine is being replaced by a fresh one; its ending must not
         /// end the tunnel.
         var restarting = false
+        /// The attempt's end is already in the model — `failAttempt` put it
+        /// there — so the engine exit that follows is mechanics, not a second
+        /// failure. Without this the same failure was applied twice: once
+        /// from the event and once from `runEnded`, which on the recovery
+        /// ladder counted one failure as two attempts.
+        var attemptEnded = false
 
         var isConnected: Bool { connection.state == .connected }
     }
@@ -324,6 +330,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
         let engine = Engine(clientVersion: "VPNPlus/\(version)")
         self.engine = engine
+        state.withLock { $0.attemptEnded = false }
 
         engine.onLog = { [engineLog] text in
             engineLog.notice("\(text, privacy: .public)")
@@ -496,6 +503,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         // model is what the surfaces read — and **it also decides what
         // happens next**: from a recovery attempt with tries left it returns
         // to Reconnecting rather than Failed (D86).
+        state.withLock { $0.attemptEnded = true }
         let after = apply(.failed(TunnelFailure(failure) ?? .unknown))
 
         if case .reconnecting(let attempt) = after {
@@ -783,8 +791,15 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
                 current.isToken ? .credentialsUnavailable : .authenticationFailed
             failAttempt(failure.error("\(event.name): \(event.info)"))
         default:
+            // Through the model, whatever state it is in. Failing only the
+            // pending start covered an attempt, and left a fatal error *after*
+            // CONNECTED with nowhere to go: the engine's `COMPRESS_ERROR`
+            // arrived, the start had long since completed, and the tunnel
+            // vanished without a word (measured 2026-09-08). M6 gives these
+            // events their names; until then the model says exactly what it
+            // knows, which is that it ended.
             if event.isFatal {
-                finishStart(with: Failure("\(event.name): \(event.info)"))
+                failAttempt(Failure("\(event.name): \(event.info)"))
             }
         }
     }
@@ -847,8 +862,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     }
 
     private func runEnded(_ result: Result<Void, Engine.Failure>) {
-        let (wasConnected, stopping, restarting) = state.withLock {
-            ($0.isConnected, $0.stopping, $0.restarting)
+        let (wasConnected, stopping, restarting, ended) = state.withLock {
+            ($0.isConnected, $0.stopping, $0.restarting, $0.attemptEnded)
         }
         switch result {
         case .success:
@@ -861,15 +876,17 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         // is still running — which is what the token fallback does before the
         // tunnel has ever come up.
         if restarting { return }
+        // An end the model already knows about — a fatal event went through
+        // `failAttempt` first — is not applied again (`attemptEnded`).
         switch result {
         case .success:
-            if !stopping { apply(.tornDown) }
+            if !stopping, !ended { apply(.tornDown) }
             finishStart(with: Failure("The connection ended before it was established."))
         case .failure(let failure):
             // The engine's own message is not a code. M6 maps them; until
             // then the honest answer is that we do not know which of A9's
             // modes this was, and the model says exactly that.
-            if !stopping { apply(.failed(.unknown)) }
+            if !stopping, !ended { apply(.failed(.unknown)) }
             finishStart(with: Failure(failure.message))
         }
         if wasConnected, !stopping {
