@@ -815,21 +815,46 @@ final class ProfileConfigurationSheet: NSViewController {
             }
         }
         let group = openCard()
-        group.addRow(name, control, fillsWidth: control is NSTextField)
-        guard let field else { return }
+        guard let field else {
+            group.addRow(name, control, fillsWidth: control is NSTextField)
+            return
+        }
 
-        // The caption sits in its own row inside the same card, beneath the
-        // value it describes, with Revert at the trailing edge.
-        let note = caption("", width: Self.contentWidth - 2 * SettingsCard.Metric.inset - Self.revertWidth - Space.s)
-        captions[field] = note
-        let spacer = NSView()
-        spacer.translatesAutoresizingMaskIntoConstraints = false
-        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        let noteRow = NSStackView(views: [note, spacer, revertButton(for: field)])
-        noteRow.orientation = .horizontal
-        noteRow.alignment = .centerY
-        noteRow.spacing = Space.s
-        captionRows[field] = group.addFullWidthRow(noteRow)
+        // **Revert sits in the row, beside the value** — and to the *left* of
+        // it, so the value's trailing edge still lines up with every other
+        // row's. It had a row of its own with an "Original value: …" caption,
+        // which cost a whole row per override and read as a half-height
+        // oddity between two proper rows.
+        //
+        // The original value is not lost: it is the Revert button's tooltip
+        // and its accessibility label, which is where it belongs — it exists
+        // to make *that button* decidable, and nothing else needed it.
+        let revert = revertButton(for: field)
+        let holder = NSView()
+        holder.translatesAutoresizingMaskIntoConstraints = false
+        // **The inner control needs this too.** `addRow` clears it on whatever
+        // it is handed — the holder — and nothing cleared it on the field
+        // inside, so every constraint below was ignored and the field kept its
+        // autoresized frame: 12 pt wide at the holder's origin, underneath the
+        // button. Measured, not guessed: `value {{0, 0}, {12, 24}}`.
+        control.translatesAutoresizingMaskIntoConstraints = false
+        holder.addSubview(revert)
+        holder.addSubview(control)
+        NSLayoutConstraint.activate([
+            revert.leadingAnchor.constraint(equalTo: holder.leadingAnchor),
+            // **The button defines the row's height, not the field.** Pinning
+            // the field's top *and* bottom made the holder as short as the
+            // field, the 28 pt button then could not fit, and Auto Layout
+            // resolved it by breaking the constraint that kept the two apart
+            // — so Revert rendered on top of the value.
+            revert.topAnchor.constraint(equalTo: holder.topAnchor),
+            revert.bottomAnchor.constraint(equalTo: holder.bottomAnchor),
+            control.leadingAnchor.constraint(
+                equalTo: revert.trailingAnchor, constant: Space.s),
+            control.trailingAnchor.constraint(equalTo: holder.trailingAnchor),
+            control.centerYAnchor.constraint(equalTo: holder.centerYAnchor),
+        ])
+        group.addRow(name, holder, fillsWidth: true)
     }
 
     /// A per-profile boolean, as the artboard draws it: the label and its
@@ -941,17 +966,12 @@ final class ProfileConfigurationSheet: NSViewController {
             // translator handed `%@` cannot know whether it will be a number
             // or a phrase, and German and Japanese need different grammar
             // around each (A18).
-            captions[field]?.stringValue =
+            let restores =
                 original.isEmpty
-                ? String(localized: "Original value: Not provided")
-                : String(localized: "Original value: \(original)")
-            // The value is what makes the action decidable, so a VoiceOver
-            // user gets it from the button rather than having to go and find
-            // the line under the field.
-            reverts[field]?.setAccessibilityLabel(
-                original.isEmpty
-                    ? String(localized: "Revert this setting to not provided")
-                    : String(localized: "Revert this setting to \(original)"))
+                ? String(localized: "Revert to no value")
+                : String(localized: "Revert to \(original)")
+            reverts[field]?.toolTip = restores
+            reverts[field]?.setAccessibilityLabel(restores)
         }
 
         captionRows[field]?.isHidden = !overridden
