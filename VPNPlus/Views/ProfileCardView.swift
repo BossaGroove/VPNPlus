@@ -312,15 +312,20 @@ final class ProfileCardView: NSView {
 
     /// "2 hours ago", or "Never". Relative, because the number of hours is not
     /// the point — whether it worked recently is (D46's input).
-    static func lastConnected(_ date: Date?) -> String {
+    static func lastConnected(_ date: Date?, now: Date = Date()) -> String {
         guard let date else { return String(localized: "Never") }
+        // A session that began within the last minute — or, by a few
+        // milliseconds of clock skew between the provider's timestamp and this
+        // render, "in the future" — is *just now*. Left to the formatter it
+        // read "Connected in 0 seconds" (owner's screenshot, 2026-09-09).
+        if now.timeIntervalSince(date) < 60 { return String(localized: "Connected just now") }
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
         // "Connected yesterday", not "Last connected yesterday": the artboard
         // spends the width on the date rather than on the word "last", and a
         // card is 229 pt wide.
         return String(
-            localized: "Connected \(formatter.localizedString(for: date, relativeTo: Date()))")
+            localized: "Connected \(formatter.localizedString(for: date, relativeTo: now))")
     }
 
     // MARK: - Drawing
