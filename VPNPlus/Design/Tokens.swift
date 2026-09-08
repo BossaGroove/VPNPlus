@@ -37,6 +37,18 @@ enum Type {
     /// A label over a block inside prose — "Common causes".
     static var proseLabel: NSFont { semibold(.subheadline) }
 
+    /// A sheet's own title — the profile it is about. 14 pt semibold in the
+    /// artboard's 50 pt header bar: enough to say where you are, and not a
+    /// headline competing with the values below it.
+    static var sheetTitle: NSFont { semibold(.body) }
+    /// A section heading inside a sheet — "Profile", "Server", "Sign-in".
+    /// Small and heavy, from the artboard: it separates groups without
+    /// competing with the values in them.
+    static var sectionLabel: NSFont { semibold(.subheadline) }
+    /// A field's own label, **above** the field. Regular weight against
+    /// `sectionLabel`'s bold, which is what keeps the two apart.
+    static var fieldLabel: NSFont { .preferredFont(forTextStyle: .subheadline) }
+
     private static func semibold(_ style: NSFont.TextStyle) -> NSFont {
         let base = NSFont.preferredFont(forTextStyle: style)
         return NSFontManager.shared.convert(base, toHaveTrait: .boldFontMask)

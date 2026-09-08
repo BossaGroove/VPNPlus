@@ -235,7 +235,7 @@ final class ProfileCardView: NSView {
         menu.addItem(.separator())
         add(to: menu, String(localized: "Rename…"), #selector(beginRename))
         add(to: menu, String(localized: "Edit…"), #selector(configure))
-        add(to: menu, String(localized: "Reveal Configuration in Finder"), #selector(reveal))
+        add(to: menu, String(localized: "Reveal Configuration File in Finder"), #selector(reveal))
         menu.addItem(.separator())
         // Keyboard- and VoiceOver-reachable reordering: dragging is invisible
         // to VoiceOver (A18 finding 5), so it cannot be the only way.

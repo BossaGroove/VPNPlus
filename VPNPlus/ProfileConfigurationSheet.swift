@@ -81,9 +81,9 @@ final class ProfileConfigurationSheet: NSViewController {
     private let serverPicker = NSPopUpButton()
     private let usernameField = NSTextField(string: "")
     private let passwordField = NSSecureTextField(string: "")
-    private let savePasswordBox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
-    private let reconnectBox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
-    private let openAtLaunchBox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+    private let savePasswordSwitch = NSSwitch()
+    private let reconnectSwitch = NSSwitch()
+    private let openAtLaunchSwitch = NSSwitch()
 
     private let rows = NSStackView()
     /// The caption and the Revert of each row that has provenance, kept so
@@ -106,11 +106,14 @@ final class ProfileConfigurationSheet: NSViewController {
     /// One content width for the whole sheet: label column, control column, and
     /// room for a Revert. Without it a wrapping caption asks for its full
     /// single-line width and the sheet grows to suit (D243).
-    private static let labelWidth: CGFloat = 132
-    private static let controlWidth: CGFloat = 260
+    /// 520 wide with 22 pt margins, from the artboard — and the width is what
+    /// settles the layout: at 476 pt of content there is no room for a label
+    /// column *and* a field, so the labels go **above** their fields, which is
+    /// what the artboard draws.
+    private static let sheetWidth: CGFloat = 520
+    private static let margin: CGFloat = 22
+    private static let contentWidth: CGFloat = sheetWidth - 2 * margin
     private static let revertWidth: CGFloat = 72
-    private static let contentWidth: CGFloat =
-        labelWidth + Space.s + controlWidth + Space.s + revertWidth
     private static let scrollerGutter: CGFloat = 16
 
     /// How tall the rows may be before they scroll. Set from the window this
@@ -170,7 +173,7 @@ final class ProfileConfigurationSheet: NSViewController {
         scroll.autohidesScrollers = true
         scroll.translatesAutoresizingMaskIntoConstraints = false
 
-        let stack = NSStackView(views: [scroll, footer()])
+        let stack = NSStackView(views: [header(), scroll, footer()])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = Space.l
@@ -249,6 +252,13 @@ final class ProfileConfigurationSheet: NSViewController {
         /// present, and 0 pt high.
         private func dumpRows() {
             let log = Logger(subsystem: "com.bossagroove.VPNPlus", category: "sheet")
+            // The three switches, because **a capture cannot be trusted for
+            // this**: macOS draws accent controls unemphasised in a window
+            // that is not key, so a switch that is on renders with a grey
+            // track and reads as off in a screenshot. Measured, not looked at.
+            log.notice(
+                "switches: keychain=\(self.savePasswordSwitch.state == .on, privacy: .public) open=\(self.openAtLaunchSwitch.state == .on, privacy: .public) reconnect=\(self.reconnectSwitch.state == .on, privacy: .public)"
+            )
             log.notice(
                 "sheet \(self.preferredContentSize.width, privacy: .public)×\(self.preferredContentSize.height, privacy: .public), \(self.rows.views.count, privacy: .public) rows, content \(self.rows.fittingSize.height, privacy: .public) pt"
             )
@@ -273,17 +283,48 @@ final class ProfileConfigurationSheet: NSViewController {
         }
     #endif
 
+    /// **The sheet names the profile it is about**, which it did not — the
+    /// Name field was the only clue, and a field is a thing you edit rather
+    /// than a thing that tells you where you are. A fixed bar with a rule
+    /// under it, from the artboard, so it does not scroll away from the
+    /// content it names.
+    private func header() -> NSView {
+        let heading = NSTextField(labelWithString: defaultTitle)
+        heading.font = Type.sheetTitle
+        heading.textColor = Palette.textPrimary
+        heading.lineBreakMode = .byTruncatingMiddle
+        sheetTitle = heading
+
+        let rule = NSView()
+        rule.wantsLayer = true
+        rule.layer?.backgroundColor = Palette.border.cgColor
+        rule.translatesAutoresizingMaskIntoConstraints = false
+        rule.heightAnchor.constraint(equalToConstant: 1).isActive = true
+
+        let bar = NSStackView(views: [heading, rule])
+        bar.orientation = .vertical
+        bar.alignment = .leading
+        bar.spacing = Space.m
+        bar.translatesAutoresizingMaskIntoConstraints = false
+        bar.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
+        rule.widthAnchor.constraint(equalTo: bar.widthAnchor).isActive = true
+        return bar
+    }
+
     /// A13a's footer. **Replace profile file…** is where overrides earn their
     /// keep (D125): an employer reissues the profile and it costs one file
     /// picker rather than a retyped configuration.
     private func footer() -> NSView {
-        let replace = NSButton(
-            title: String(localized: "Replace Profile File…"), target: self,
-            action: #selector(replaceFile))
-        let reveal = NSButton(
-            title: String(localized: "Reveal in Finder"), target: self, action: #selector(reveal))
+        // **Links, not buttons.** The artboard gives the two left-hand actions
+        // accent-coloured text and no bezel, which is right: four bezelled
+        // buttons in a row made "Replace Profile File…" look like a peer of
+        // Done, and one of them ends the sheet while the other rewrites the
+        // profile.
+        let replace = link(
+            String(localized: "Replace profile file…"), action: #selector(replaceFile))
+        let reveal = link(String(localized: "Reveal in Finder"), action: #selector(self.reveal))
         let cancel = NSButton(
-            title: String(localized: "Cancel"), target: self, action: #selector(cancel))
+            title: String(localized: "Cancel"), target: self, action: #selector(self.cancel))
         cancel.keyEquivalent = "\u{1b}"
         let done = NSButton(title: String(localized: "Done"), target: self, action: #selector(done))
         done.keyEquivalent = "\r"
@@ -294,10 +335,33 @@ final class ProfileConfigurationSheet: NSViewController {
 
         let row = NSStackView(views: [replace, reveal, spacer, cancel, done])
         row.orientation = .horizontal
-        row.spacing = Space.s
+        row.alignment = .centerY
+        row.spacing = Space.m
         row.translatesAutoresizingMaskIntoConstraints = false
         row.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
-        return row
+
+        let rule = NSView()
+        rule.wantsLayer = true
+        rule.layer?.backgroundColor = Palette.border.cgColor
+        rule.translatesAutoresizingMaskIntoConstraints = false
+        rule.heightAnchor.constraint(equalToConstant: 1).isActive = true
+
+        let bar = NSStackView(views: [rule, row])
+        bar.orientation = .vertical
+        bar.alignment = .leading
+        bar.spacing = Space.m
+        bar.translatesAutoresizingMaskIntoConstraints = false
+        rule.widthAnchor.constraint(equalTo: row.widthAnchor).isActive = true
+        return bar
+    }
+
+    private func link(_ title: String, action: Selector) -> NSButton {
+        let button = NSButton(title: title, target: self, action: action)
+        button.isBordered = false
+        button.font = Type.control
+        button.contentTintColor = Palette.accent
+        button.setButtonType(.momentaryChange)
+        return button
     }
 
     // MARK: - The sections (A13a)
@@ -345,14 +409,14 @@ final class ProfileConfigurationSheet: NSViewController {
         buildCertificate()
 
         section(String(localized: "When connecting"))
-        reconnectBox.title = String(localized: "Reconnect automatically if the connection drops")
-        reconnectBox.target = self
-        reconnectBox.action = #selector(reconnectChanged)
-        rows.addView(reconnectBox, in: .top)
-        openAtLaunchBox.title = String(localized: "Connect when VPN Plus opens")
-        openAtLaunchBox.target = self
-        openAtLaunchBox.action = #selector(openAtLaunchChanged)
-        rows.addView(openAtLaunchBox, in: .top)
+        // The artboard's order, and it is the better one: what happens when
+        // the app opens comes before what happens if a connection drops.
+        addSwitch(
+            String(localized: "Connect when VPN Plus opens"), openAtLaunchSwitch,
+            action: #selector(openAtLaunchChanged))
+        addSwitch(
+            String(localized: "Reconnect automatically if the connection drops"), reconnectSwitch,
+            action: #selector(reconnectChanged))
 
         buildContents()
     }
@@ -392,10 +456,13 @@ final class ProfileConfigurationSheet: NSViewController {
 
         switch saving {
         case .offered:
-            savePasswordBox.title = String(localized: "Remember the password in my Keychain")
-            savePasswordBox.target = self
-            savePasswordBox.action = #selector(savePasswordChanged)
-            rows.addView(savePasswordBox, in: .top)
+            // The artboard's shorter title. Its caption — "This profile
+            // permits saving the password." — is **not** adopted: that is a
+            // caption stating the default, which is exactly what D248
+            // removed, and the owner kept D248.
+            addSwitch(
+                String(localized: "Remember in Keychain"), savePasswordSwitch,
+                action: #selector(savePasswordChanged))
         case .forbiddenByProfile:
             // 2.15: absent, not shown and disabled — A13a's own anti-pattern.
             // A caption says why, because an unexplained absence is its own
@@ -424,41 +491,43 @@ final class ProfileConfigurationSheet: NSViewController {
 
         certificateButton.target = self
         certificateButton.action = #selector(chooseCertificate)
-        // The same word as the section heading, and that is the right trade:
-        // dropping it left the label column blank beside a floating button,
-        // which reads as something missing rather than as something tidy.
-        // Every other row in the sheet has a label; this one is not special.
+        // The label goes above, like every other row in the sheet — its
+        // section heading says "Certificate" too, and the repetition is the
+        // cheaper cost than a row that looks different from its neighbours.
         let name = NSTextField(labelWithString: String(localized: "Certificate"))
         name.textColor = Palette.textSecondary
-        name.alignment = .right
-        name.translatesAutoresizingMaskIntoConstraints = false
-        name.widthAnchor.constraint(equalToConstant: Self.labelWidth).isActive = true
+        name.font = Type.fieldLabel
 
         let spacer = NSView()
         spacer.translatesAutoresizingMaskIntoConstraints = false
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        let revert = revertButton(for: .certificate)
 
         certificateRow.orientation = .horizontal
         certificateRow.spacing = Space.s
         certificateRow.alignment = .centerY
         certificateRow.translatesAutoresizingMaskIntoConstraints = false
-        for subview in [name, certificateButton, spacer, revert] {
+        for subview in [certificateButton, spacer] {
             certificateRow.addView(subview, in: .trailing)
         }
-        rows.addView(certificateRow, in: .top)
         certificateRow.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
 
-        let indent = NSView()
-        indent.translatesAutoresizingMaskIntoConstraints = false
-        indent.widthAnchor.constraint(equalToConstant: Self.labelWidth + Space.s).isActive = true
-        let note = caption("", width: Self.contentWidth - Self.labelWidth - Space.s)
+        let note = caption("", width: Self.contentWidth - Self.revertWidth - Space.s)
         captions[.certificate] = note
-        let noteRow = NSStackView(views: [indent, note])
+        let noteSpacer = NSView()
+        noteSpacer.translatesAutoresizingMaskIntoConstraints = false
+        noteSpacer.setContentHuggingPriority(.init(1), for: .horizontal)
+        let noteRow = NSStackView(views: [note, noteSpacer, revertButton(for: .certificate)])
         noteRow.orientation = .horizontal
-        noteRow.spacing = 0
+        noteRow.alignment = .centerY
+        noteRow.spacing = Space.s
         noteRow.translatesAutoresizingMaskIntoConstraints = false
-        rows.addView(noteRow, in: .top)
+        noteRow.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
+
+        let group = NSStackView(views: [name, certificateRow, noteRow])
+        group.orientation = .vertical
+        group.alignment = .leading
+        group.spacing = Space.xs
+        rows.addView(group, in: .top)
     }
 
     /// A13a §6: what this profile contains, read-only. The transparency
@@ -500,42 +569,79 @@ final class ProfileConfigurationSheet: NSViewController {
         headingRow.alignment = .centerY
         rows.addView(headingRow, in: .top)
 
+        factRows.orientation = .vertical
+        factRows.alignment = .leading
+        factRows.spacing = Space.xs
+        factRows.translatesAutoresizingMaskIntoConstraints = false
+        factRows.isHidden = !Self.contentsExpanded
+        rows.addView(factRows, in: .top)
+        contents = factRows
+
         let servers = max(descriptor.alternateServers.count, 1)
-        var lines = [String(localized: "Servers offered: \(servers)")]
+        fact(String(localized: "Servers"), "\(servers)")
 
         switch descriptor.caPresent {
         case true?:
-            lines.append(String(localized: "A CA certificate to check the server against"))
+            fact(
+                String(localized: "Certificate authority"),
+                String(localized: "Included in the profile"))
         case false?:
-            lines.append(String(localized: "No CA certificate — the server is checked another way"))
+            fact(
+                String(localized: "Certificate authority"),
+                String(localized: "None — the server is checked another way"))
         case nil:
             // Imported before this was recorded. Saying so beats guessing
             // about a server's identity.
-            lines.append(String(localized: "CA certificate: not recorded at import"))
+            fact(
+                String(localized: "Certificate authority"),
+                String(localized: "Not recorded at import"))
         }
 
         if descriptor.externalPKI == true {
-            lines.append(String(localized: "Its client identity comes from outside the file"))
-        } else if !descriptor.needsNothingFromTheUser {
-            lines.append(String(localized: "Signs in with a username and password"))
+            fact(String(localized: "Sign-in"), String(localized: "Certificate kept outside the file"))
+        } else if descriptor.needsNothingFromTheUser {
+            fact(String(localized: "Sign-in"), String(localized: "None — signs in by itself"))
+        } else {
+            fact(String(localized: "Sign-in"), String(localized: "Username and password required"))
         }
-        if descriptor.credentials.contains(.privateKeyPassphrase) {
-            lines.append(String(localized: "A private key that needs a passphrase"))
-        }
+
+        fact(
+            String(localized: "Private key passphrase"),
+            descriptor.credentials.contains(.privateKeyPassphrase)
+                ? String(localized: "Required") : String(localized: "Not required"))
+
         if !descriptor.waivedDirectives.isEmpty {
             // 2.8 / D187: this surface *is* the click behind the count, so the
-            // list is here rather than one click further.
-            lines.append(
-                String(
-                    localized: """
-                        \(descriptor.waivedDirectives.count) settings VPN Plus doesn't use: \
-                        \(descriptor.waivedDirectives.joined(separator: ", "))
-                        """))
+            // list is here rather than one click further. The artboard has no
+            // such row because the profile it draws has nothing waived.
+            fact(
+                String(localized: "Settings not used"),
+                descriptor.waivedDirectives.joined(separator: ", "))
         }
-        let note = caption(lines.joined(separator: "\n"))
-        note.isHidden = !Self.contentsExpanded
-        contents = note
-        rows.addView(note, in: .top)
+    }
+
+    /// One read-only fact: a label in a fixed column, its value beside it.
+    /// A **table**, not a paragraph — four sentences run together were the
+    /// densest thing on the sheet and the least readable.
+    private func fact(_ name: String, _ value: String) {
+        let label = NSTextField(labelWithString: name)
+        label.font = Type.hint
+        label.textColor = Palette.textTertiary
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.widthAnchor.constraint(equalToConstant: 170).isActive = true
+
+        let detail = NSTextField(wrappingLabelWithString: value)
+        detail.font = Type.hint
+        detail.textColor = Palette.textSecondary
+        detail.preferredMaxLayoutWidth = Self.contentWidth - 170 - Space.m
+
+        let row = NSStackView(views: [label, detail])
+        row.orientation = .horizontal
+        row.alignment = .firstBaseline
+        row.spacing = Space.m
+        row.translatesAutoresizingMaskIntoConstraints = false
+        factRows.addView(row, in: .top)
+        row.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
     }
 
     /// The transparency section's body, hidden until asked for. `NSStackView`
@@ -543,6 +649,10 @@ final class ProfileConfigurationSheet: NSViewController {
     /// leaving a gap.
     private var contents: NSView?
     private var disclosure: NSButton?
+    /// The facts, in their own stack, so the disclosure folds the group
+    /// rather than a single paragraph — §6 is five rows now, not one.
+    private let factRows = NSStackView()
+    private var sheetTitle: NSTextField?
 
     @objc private func headingClicked() {
         guard let disclosure else { return }
@@ -578,7 +688,7 @@ final class ProfileConfigurationSheet: NSViewController {
 
     private func section(_ name: String) {
         let heading = NSTextField(labelWithString: name)
-        heading.font = Type.cardTitle
+        heading.font = Type.sectionLabel
         heading.textColor = Palette.textPrimary
         // Space above a heading and not below it, so a heading belongs to what
         // follows rather than floating between two groups.
@@ -635,21 +745,17 @@ final class ProfileConfigurationSheet: NSViewController {
     /// One row: a name, a control, its Revert, and a caption beneath saying
     /// where the value came from (D126). `field` is nil for a row with no
     /// provenance — a value the profile fixes, which nothing can revert.
+    /// One row: **a label above its field**, with the caption beneath saying
+    /// where the value came from (D126) and its Revert at the end of that same
+    /// line. Three tiers of type, each doing one job — heading bold, label
+    /// regular, caption a size down — which is the artboard's answer to the
+    /// complaint that a label and a hint were indistinguishable (D248).
     private func add(_ name: String, _ control: NSView, field: Field?) {
         let title = NSTextField(labelWithString: name)
         title.textColor = Palette.textSecondary
-        // **Right-aligned against the field column**, which is what stops a
-        // label reading as an annotation. Left-aligned secondary grey labels
-        // and left-aligned secondary grey captions were indistinguishable —
-        // the owner could not tell which was which, and that was the labels'
-        // fault as much as the captions'.
-        title.alignment = .right
-        title.translatesAutoresizingMaskIntoConstraints = false
-        title.widthAnchor.constraint(equalToConstant: Self.labelWidth).isActive = true
+        title.font = Type.fieldLabel
 
         if let editable = control as? NSTextField {
-            editable.translatesAutoresizingMaskIntoConstraints = false
-            editable.widthAnchor.constraint(equalToConstant: Self.controlWidth).isActive = true
             editable.font = Type.control
             if editable.isEditable {
                 editable.target = self
@@ -660,50 +766,77 @@ final class ProfileConfigurationSheet: NSViewController {
                 placeholders[field] = editable.placeholderString ?? ""
             }
         }
-        if let picker = control as? NSPopUpButton {
-            picker.translatesAutoresizingMaskIntoConstraints = false
-            picker.widthAnchor.constraint(equalToConstant: Self.controlWidth).isActive = true
-        }
-
-        var line: [NSView] = [title, control]
-        if let field {
-            let spacer = NSView()
-            spacer.translatesAutoresizingMaskIntoConstraints = false
-            spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-            line.append(spacer)
-            line.append(revertButton(for: field))
-        }
-        let row = NSStackView(views: line)
-        row.orientation = .horizontal
-        row.spacing = Space.s
-        row.alignment = .centerY
-        row.translatesAutoresizingMaskIntoConstraints = false
-        row.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
+        // Full width, as the artboard has them: a field narrower than its
+        // sheet invents a second column that nothing else lines up with.
+        control.translatesAutoresizingMaskIntoConstraints = false
+        control.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
 
         guard let field else {
-            rows.addView(row, in: .top)
+            let group = NSStackView(views: [title, control])
+            group.orientation = .vertical
+            group.alignment = .leading
+            group.spacing = Space.xs
+            rows.addView(group, in: .top)
             return
         }
-        // Under the **field**, not under the label: the caption annotates the
-        // value, and sitting in the label column is what made it read as a
-        // second label.
-        let indent = NSView()
-        indent.translatesAutoresizingMaskIntoConstraints = false
-        indent.widthAnchor.constraint(equalToConstant: Self.labelWidth + Space.s).isActive = true
-        let note = caption("", width: Self.contentWidth - Self.labelWidth - Space.s)
+
+        // The caption and its Revert share one line, so the action sits with
+        // the sentence that explains why it is there.
+        let note = caption("", width: Self.contentWidth - Self.revertWidth - Space.s)
         captions[field] = note
-        let noteRow = NSStackView(views: [indent, note])
+        let spacer = NSView()
+        spacer.translatesAutoresizingMaskIntoConstraints = false
+        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
+        let noteRow = NSStackView(views: [note, spacer, revertButton(for: field)])
         noteRow.orientation = .horizontal
-        noteRow.spacing = 0
+        noteRow.alignment = .centerY
+        noteRow.spacing = Space.s
         noteRow.translatesAutoresizingMaskIntoConstraints = false
+        noteRow.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
         captionRows[field] = noteRow
 
-        let group = NSStackView(views: [row, noteRow])
+        let group = NSStackView(views: [title, control, noteRow])
         group.orientation = .vertical
         group.alignment = .leading
         group.spacing = Space.xs
         group.translatesAutoresizingMaskIntoConstraints = false
         rows.addView(group, in: .top)
+    }
+
+    /// A per-profile boolean, as the artboard draws it: the label and its
+    /// explanation on the left, an **`NSSwitch`** on the right. Not a
+    /// checkbox — three of these are the only switches in the app, and a
+    /// switch is what macOS uses for a setting that takes effect as you set
+    /// it rather than on OK.
+    private func addSwitch(
+        _ title: String, _ control: NSSwitch, caption note: String? = nil,
+        action: Selector
+    ) {
+        control.target = self
+        control.action = action
+        control.translatesAutoresizingMaskIntoConstraints = false
+
+        let label = NSTextField(labelWithString: title)
+        label.font = Type.control
+        label.textColor = Palette.textPrimary
+        label.lineBreakMode = .byWordWrapping
+        label.maximumNumberOfLines = 0
+        var text: [NSView] = [label]
+        if let note { text.append(caption(note, width: Self.contentWidth - 60)) }
+        let stack = NSStackView(views: text)
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = Space.xs
+        stack.setContentHuggingPriority(.init(1), for: .horizontal)
+        label.preferredMaxLayoutWidth = Self.contentWidth - 60
+
+        let row = NSStackView(views: [stack, control])
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.spacing = Space.m
+        row.translatesAutoresizingMaskIntoConstraints = false
+        rows.addView(row, in: .top)
+        row.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
     }
 
     // MARK: - Refreshing, without rebuilding
@@ -714,6 +847,7 @@ final class ProfileConfigurationSheet: NSViewController {
     private func refresh() {
         let current = settings
         set(titleField, to: current.title.value)
+        sheetTitle?.stringValue = current.title.value
         set(usernameField, to: overrides.username ?? "")
         note(.title, current.title.provenance)
 
@@ -738,10 +872,10 @@ final class ProfileConfigurationSheet: NSViewController {
 
         if case .credentials(let username, let saving, _) = current.signIn {
             if case .editable(let value) = username { note(.username, value.provenance) }
-            if case .offered(let on) = saving { savePasswordBox.state = on ? .on : .off }
+            if case .offered(let on) = saving { savePasswordSwitch.state = on ? .on : .off }
         }
-        reconnectBox.state = current.reconnectAutomatically ? .on : .off
-        openAtLaunchBox.state = current.connectWhenAppOpens ? .on : .off
+        reconnectSwitch.state = current.reconnectAutomatically ? .on : .off
+        openAtLaunchSwitch.state = current.connectWhenAppOpens ? .on : .off
         refreshCertificate(current)
     }
 
@@ -883,17 +1017,17 @@ final class ProfileConfigurationSheet: NSViewController {
     }
 
     @objc private func savePasswordChanged() {
-        overrides.savePassword = savePasswordBox.state == .on
+        overrides.savePassword = savePasswordSwitch.state == .on
         refresh()
     }
 
     @objc private func reconnectChanged() {
-        overrides.reconnectAutomatically = reconnectBox.state == .on
+        overrides.reconnectAutomatically = reconnectSwitch.state == .on
         refresh()
     }
 
     @objc private func openAtLaunchChanged() {
-        overrides.connectWhenAppOpens = openAtLaunchBox.state == .on
+        overrides.connectWhenAppOpens = openAtLaunchSwitch.state == .on
         refresh()
     }
 
