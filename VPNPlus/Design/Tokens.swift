@@ -135,6 +135,22 @@ enum Palette {
     static var surfaceWindow: NSColor { .windowBackgroundColor }
     static var surfaceCard: NSColor { .controlBackgroundColor }
     static var surfaceSelected: NSColor { .selectedContentBackgroundColor }
+    /// A grouped card's fill — **lighter than whatever it sits on**, which is
+    /// how System Settings raises a group off the window.
+    ///
+    /// `controlBackgroundColor` goes the other way in dark mode: it measured
+    /// 30 against a 46 window, so the card read as a recess rather than a
+    /// raised group. The dark value is the owner's, picked by eye against the
+    /// sheet (2026-09-08); light mode gets white, which is what System
+    /// Settings uses on its grey window. Dynamic rather than a constant,
+    /// because a constant that suits dark mode is near-black in light.
+    static var surfaceGrouped: NSColor {
+        NSColor(name: "surfaceGrouped") { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(srgbRed: 52 / 255, green: 51 / 255, blue: 52 / 255, alpha: 1)
+                : .white
+        }
+    }
     static var border: NSColor { .separatorColor }
 
     static var accent: NSColor { .controlAccentColor }

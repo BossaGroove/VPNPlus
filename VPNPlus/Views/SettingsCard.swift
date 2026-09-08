@@ -72,7 +72,7 @@ final class SettingsCard: NSView {
     required init?(coder: NSCoder) { fatalError("not supported") }
 
     override func updateLayer() {
-        layer?.backgroundColor = Palette.surfaceCard.cgColor
+        layer?.backgroundColor = Palette.surfaceGrouped.cgColor
     }
 
     /// Adds a row: `label` on the left, `control` at the trailing edge.
