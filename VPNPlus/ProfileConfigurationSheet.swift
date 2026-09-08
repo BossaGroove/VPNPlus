@@ -781,7 +781,15 @@ final class ProfileConfigurationSheet: NSViewController {
             editable.drawsBackground = false
             editable.alignment = .right
             editable.textColor = Palette.textPrimary
-            editable.focusRingType = .default
+            // **No focus ring either.** A ring round a value is the same box
+            // by another name, and this row already has an edge — the card's.
+            // Focus stays visible without it: tabbing into a field selects the
+            // whole value, and clicking gives an insertion point.
+            //
+            // Flagged for A18's sweep (M8): a selection highlight is a weaker
+            // keyboard cue than a ring, and if it does not survive that review
+            // the answer is to tint the row, not to put the box back.
+            editable.focusRingType = .none
             if editable.isEditable {
                 editable.target = self
                 editable.action = #selector(fieldChanged)
