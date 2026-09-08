@@ -93,7 +93,14 @@ final class CardGridView: NSView {
         return max(1, Int(((width + gap) / (cardMinimum + gap)).rounded(.down)))
     }
 
-    func show(_ profiles: [Profile], titles: [Profile.ID: String] = [:]) {
+    /// `presence` says which card is in use and what it should say. It is
+    /// **not** part of the rebuild signature: it changes on every report from
+    /// the provider, and rebuilding the cards for it would lose the selection
+    /// and any rename in progress — the exact things the signature protects.
+    func show(
+        _ profiles: [Profile], titles: [Profile.ID: String] = [:],
+        presence: [Profile.ID: ProfileCardView.Presence] = [:]
+    ) {
         // **Rebuild only when something on a card changed.**
         //
         // The window renders on every report from the provider — five phases
@@ -107,6 +114,7 @@ final class CardGridView: NSView {
             self.profiles = profiles
             self.titles = titles
             renderSelection()
+            renderPresence(presence)
             return
         }
         self.signature = signature
@@ -133,8 +141,13 @@ final class CardGridView: NSView {
             self.selected = profiles.first
         }
         renderSelection()
+        renderPresence(presence)
         needsLayout = true
         invalidateIntrinsicContentSize()
+    }
+
+    private func renderPresence(_ presence: [Profile.ID: ProfileCardView.Presence]) {
+        for card in cards { card.presence = presence[card.profile.id] ?? .idle }
     }
 
     private func select(_ profile: Profile) {

@@ -56,6 +56,33 @@ final class ProfileCardView: NSView {
     /// the rule lives with the overrides record and not in a view.
     private(set) var title: String
 
+    /// Whether this card is the profile in use, and what to say about it.
+    ///
+    /// **This is D114 reversed, on purpose** (M5.11). The lift-out took the
+    /// in-use card out of the grid, and the card in the next slot moved into
+    /// its place — label, host and selection border all changing in one frame,
+    /// which reads as a rename rather than a lift. The owner's words: *"why
+    /// did my Singapore connection suddenly become US?"* So the card stays
+    /// where it is, keeps its selection, and says what it is doing with the
+    /// same gutter mark the promoted region uses. The **word replaces the
+    /// Connect button** rather than joining it: one action, one place (D56),
+    /// and the same height, so the row does not ripple.
+    enum Presence: Equatable {
+        case idle
+        case inUse(Indicator, word: String)
+
+        enum Indicator: Equatable { case busy, connected, failed }
+    }
+
+    var presence: Presence = .idle {
+        didSet { if presence != oldValue { renderPresence(animated: window != nil) } }
+    }
+
+    private let stateLabel = NSTextField.label(font: Type.control, colour: Palette.textSecondary)
+    private let dot = NSView()
+    private let spinner = NSProgressIndicator()
+    private let warning = NSImageView()
+
     var onSelect: ((Profile) -> Void)?
     /// The new name, once the user has committed it.
     var onRename: ((Profile, String) -> Void)?
@@ -141,11 +168,39 @@ final class ProfileCardView: NSView {
         // with the name, and gives **Connect the full width** at the bottom.
         // Side by side at the bottom made the two look like peers, when one
         // is the card's whole purpose and the other is a menu.
-        let heading = NSStackView(views: [nameField, moreButton])
+        // The in-use mark sits between the name and the menu, so an idle card
+        // and an in-use card keep the name in the same place: a stack detaches
+        // a hidden view, so nothing shifts when the mark comes and goes.
+        dot.wantsLayer = true
+        dot.layer?.cornerRadius = 5
+        dot.translatesAutoresizingMaskIntoConstraints = false
+        spinner.style = .spinning
+        spinner.controlSize = .small
+        spinner.isDisplayedWhenStopped = false
+        spinner.translatesAutoresizingMaskIntoConstraints = false
+        warning.image = NSImage(
+            systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: nil)
+        warning.contentTintColor = Palette.stateFailed
+        warning.translatesAutoresizingMaskIntoConstraints = false
+        for mark in [dot, spinner, warning] { mark.isHidden = true }
+        NSLayoutConstraint.activate([
+            dot.widthAnchor.constraint(equalToConstant: 10),
+            dot.heightAnchor.constraint(equalToConstant: 10),
+            warning.widthAnchor.constraint(equalToConstant: 14),
+            warning.heightAnchor.constraint(equalToConstant: 14),
+        ])
+
+        let heading = NSStackView(views: [nameField, dot, spinner, warning, moreButton])
         heading.orientation = .horizontal
-        heading.alignment = .top
+        heading.alignment = .centerY
         heading.spacing = Space.s
         nameField.setContentHuggingPriority(.init(1), for: .horizontal)
+
+        // The state word occupies the Connect button's exact frame, so the two
+        // can cross-fade and the card's height never changes.
+        stateLabel.alignment = .center
+        stateLabel.alphaValue = 0
+        stateLabel.translatesAutoresizingMaskIntoConstraints = false
 
         let text = NSStackView(views: [heading, hostField, lastField])
         text.orientation = .vertical
@@ -155,7 +210,11 @@ final class ProfileCardView: NSView {
 
         addSubview(text)
         addSubview(connectButton)
+        addSubview(stateLabel)
         NSLayoutConstraint.activate([
+            stateLabel.leadingAnchor.constraint(equalTo: connectButton.leadingAnchor),
+            stateLabel.trailingAnchor.constraint(equalTo: connectButton.trailingAnchor),
+            stateLabel.centerYAnchor.constraint(equalTo: connectButton.centerYAnchor),
             text.topAnchor.constraint(equalTo: topAnchor, constant: Space.l),
             text.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Space.l),
             text.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Space.l),
@@ -176,6 +235,47 @@ final class ProfileCardView: NSView {
         // its controls reachable inside it. A18 owns the full sweep (M8).
         setAccessibilityRole(.group)
         setAccessibilityLabel(title)
+    }
+
+    /// Puts the presence on the card. A cross-fade rather than a swap, because
+    /// a swap in one frame is the whole defect this exists to fix.
+    private func renderPresence(animated: Bool) {
+        let inUse: Bool
+        switch presence {
+        case .idle:
+            inUse = false
+            spinner.stopAnimation(nil)
+        case .inUse(let indicator, let word):
+            inUse = true
+            stateLabel.stringValue = word
+            dot.isHidden = indicator != .connected
+            warning.isHidden = indicator != .failed
+            if indicator == .busy { spinner.startAnimation(nil) } else { spinner.stopAnimation(nil) }
+        }
+        if !inUse {
+            dot.isHidden = true
+            warning.isHidden = true
+        }
+        // Not a control while in use: the action lives in the promoted region.
+        connectButton.isEnabled = !inUse
+        connectButton.setAccessibilityLabel(
+            inUse ? stateLabel.stringValue : String(localized: "Connect to \(title)"))
+
+        let fade = {
+            self.connectButton.animator().alphaValue = inUse ? 0 : 1
+            self.stateLabel.animator().alphaValue = inUse ? 1 : 0
+        }
+        if animated {
+            // A cross-fade is also what Reduce Motion asks for (D113), so this
+            // path does not branch on it.
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                fade()
+            }
+        } else {
+            connectButton.alphaValue = inUse ? 0 : 1
+            stateLabel.alphaValue = inUse ? 1 : 0
+        }
     }
 
     /// "2 hours ago", or "Never". Relative, because the number of hours is not
@@ -203,6 +303,7 @@ final class ProfileCardView: NSView {
         layer?.backgroundColor = Palette.surfaceCard.cgColor
         layer?.borderColor = (isSelected ? Palette.accent : Palette.border).cgColor
         layer?.borderWidth = isSelected ? 2 : 1
+        dot.layer?.backgroundColor = Palette.stateConnected.cgColor
     }
 
     // MARK: - Gestures (D55, D57)
@@ -213,7 +314,9 @@ final class ProfileCardView: NSView {
     override func mouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
         onSelect?(profile)
-        if event.clickCount == 2 { onConnect?(profile) }
+        // Double-click connects an idle card and does nothing to the one in
+        // use: it is already what it would become.
+        if event.clickCount == 2, presence == .idle { onConnect?(profile) }
     }
 
     override func rightMouseDown(with event: NSEvent) {
@@ -221,7 +324,12 @@ final class ProfileCardView: NSView {
         NSMenu.popUpContextMenu(menu(), with: event, for: self)
     }
 
-    @objc private func connect() { onConnect?(profile) }
+    /// Refuses while in use: the menu's Connect item and Return both route
+    /// here, and the button being disabled covers only the button.
+    @objc private func connect() {
+        guard presence == .idle else { return }
+        onConnect?(profile)
+    }
 
     @objc private func showMenu() {
         let menu = menu()

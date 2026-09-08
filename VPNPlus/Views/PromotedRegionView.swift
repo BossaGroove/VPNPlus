@@ -158,6 +158,9 @@ final class PromotedRegionView: NSView {
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
         layer?.cornerRadius = Metric.radius
+        // Clipped, so that while the region slides in from zero height its
+        // content grows into view rather than hanging below the card's edge.
+        layer?.masksToBounds = true
         primary.target = self
         primary.action = #selector(act)
         proseButton.target = self
@@ -183,6 +186,7 @@ final class PromotedRegionView: NSView {
             content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metric.padding),
             content.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Metric.padding),
         ]
+
         NSLayoutConstraint.activate(
             padding + [
                 content.topAnchor.constraint(equalTo: gutterBox.topAnchor),

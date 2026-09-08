@@ -374,6 +374,9 @@ final class MainWindowController: NSWindowController {
     /// permission revoked — and their copy lives here, so a debug path that
     /// duplicated it would be describing a different screen (D250).
     private func render(forcing forced: WindowState? = nil) {
+        #if DEBUG
+            rendersDuringSlide += 1
+        #endif
         let stored = (try? store.profiles()) ?? []
         var titles: [Profile.ID: String] = [:]
         for profile in stored { titles[profile.id] = title(of: profile) }
@@ -451,7 +454,12 @@ final class MainWindowController: NSWindowController {
                 blocked: true)
 
         case .idle:
-            promoted.showNothing()
+            // Left showing if it was showing: `revealRegion(false)` slides it
+            // out and clears it on completion. Clearing it here emptied the
+            // region in one frame and the slide animated an invisible view —
+            // measured: zero intermediate frames on the way out, one on the
+            // way in.
+            if !regionWasShowing { promoted.showNothing() }
 
         case .active, .failed:
             // For a switch the region is about the profile being connected
@@ -470,19 +478,192 @@ final class MainWindowController: NSWindowController {
             promoted.show(tunnel.connection, name: name, switchingFrom: leaving)
         }
 
-        // Idle has no container above the grid, so it must have no gap
-        // either: the grid's own top inset is the whole of the space, exactly
-        // as the Main artboard draws it.
-        gridTop.constant = promoted.isEmpty ? 0 : Space.gutter
+        // **No card leaves the grid** (M5.11, reversing D114). The lift-out
+        // moved the next card into the clicked one's slot in a single frame —
+        // label, host and selection border all changing at once — which read
+        // as the profile being renamed rather than promoted. So the grid shows
+        // every profile, and the one in use says so on its own card.
+        grid.show(stored, titles: titles, presence: presence(titles: titles))
 
-        // **Lift-out** (D114): the grid shows the others, never a second copy
-        // of what is promoted.
-        let others = promoted.isEmpty ? stored : stored.filter { $0.id != involved }
-        grid.show(others, titles: titles)
+        // The region's arrival and departure are the only layout changes a
+        // connect makes now, and both are animated (D113).
+        revealRegion(state == .active || state == .failed || state == .setup || state == .blocked)
 
         keepTheClocksHonest()
 
     }
+
+    /// What each card says about the connection. Derived from the same model
+    /// the promoted region reads, never from the region (D236): two surfaces
+    /// that must agree read one model.
+    private func presence(titles: [Profile.ID: String]) -> [Profile.ID: ProfileCardView.Presence] {
+        var marks: [Profile.ID: ProfileCardView.Presence] = [:]
+        let connection = tunnel.connection
+        switch connection {
+        case .disconnected:
+            break
+        case .connecting(let attempt), .reconnecting(let attempt):
+            marks[attempt.profile] = .inUse(.busy, word: connection.stateLine())
+        case .connected(let session):
+            marks[session.profile] = .inUse(.connected, word: String(localized: "Connected"))
+        case .disconnecting(let teardown):
+            if let leaving = teardown.profile {
+                marks[leaving] = .inUse(.busy, word: String(localized: "Disconnecting"))
+            }
+            if let arriving = teardown.switchingTo {
+                marks[arriving] = .inUse(.busy, word: String(localized: "Switching"))
+            }
+        case .failed(let record):
+            // Marked, so the card that failed is findable when you look back
+            // at the grid; the prose and Try Again are in the region.
+            marks[record.profile] = .inUse(.failed, word: String(localized: "Failed"))
+        }
+        return marks
+    }
+
+    /// Whether the region was showing at the last render, so its arrival and
+    /// departure can be animated as transitions rather than applied as states.
+    private var regionWasShowing = false
+
+    /// Slides the region in or out, moving the grid as **one block** — every
+    /// card keeps its slot and its neighbours, so the motion reads as a banner
+    /// appearing and never as a card changing identity.
+    ///
+    /// **The model jumps; the presentation glides.** Layout goes to its final
+    /// state at once, and Core Animation carries the grid's layer from where it
+    /// was to where it now is. Two attempts at animating the *constraints*
+    /// failed the same way: `NSScrollView` does not animate a constraint-driven
+    /// frame change, so the region grew smoothly while the cards snapped —
+    /// measured from the presentation layer, `started 552, presented 448` at
+    /// both +100 ms and +200 ms. A translation on the layer is something a
+    /// scroll view cannot refuse, and something a layout pass cannot cut short.
+    ///
+    /// Reduce Motion (D113): no translation. Layout changes at once and the
+    /// region cross-fades, so there is still no single frame in which
+    /// everything is different.
+    private func revealRegion(_ showing: Bool) {
+        guard showing != regionWasShowing else { return }
+        regionWasShowing = showing
+        let slides = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        let root = content.view
+        // The grid's top edge in the root's (unflipped) coordinates, before
+        // anything moves. `render()` has changed the region's content but no
+        // layout pass has run yet, so this is still where the user sees it.
+        let before = gridScroll.frame.maxY
+
+        if showing {
+            // Model to the final state now: region at full height, grid below.
+            gridTop.constant = Space.gutter
+            root.layoutSubtreeIfNeeded()
+            let travel = before - gridScroll.frame.maxY  // > 0: the grid moved down
+            promoted.alphaValue = 1
+            #if DEBUG
+                probeSlide(label: "in", travel: travel)
+            #endif
+            guard slides, let gridLayer = gridScroll.layer, let regionLayer = promoted.layer else {
+                fadeOnly(showing: true)
+                return
+            }
+            // From the old position to the new one, presentation only.
+            let slide = CABasicAnimation(keyPath: "transform.translation.y")
+            slide.fromValue = travel
+            slide.toValue = 0
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 0
+            fade.toValue = 1
+            for animation in [slide, fade] {
+                animation.duration = 0.28
+                animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            }
+            gridLayer.add(slide, forKey: "slide")
+            regionLayer.add(fade, forKey: "fade")
+        } else {
+            // The region stays in the model until the slide is over: collapse
+            // it first and there is nothing left to fade. The grid glides up
+            // over it, then the model catches up in one silent step.
+            let travel = promoted.frame.height + Space.gutter  // the space that frees
+            #if DEBUG
+                probeSlide(label: "out", travel: travel)
+            #endif
+            guard slides, let gridLayer = gridScroll.layer, let regionLayer = promoted.layer else {
+                fadeOnly(showing: false)
+                return
+            }
+            CATransaction.begin()
+            CATransaction.setCompletionBlock { [weak self] in
+                MainActor.assumeIsolated { self?.finishSlideOut() }
+            }
+            let slide = CABasicAnimation(keyPath: "transform.translation.y")
+            slide.fromValue = 0
+            slide.toValue = travel  // up, in the layer's y-up coordinates
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 1
+            fade.toValue = 0
+            for animation in [slide, fade] {
+                animation.duration = 0.28
+                animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                // Held at the end until `finish` moves the model underneath it.
+                animation.fillMode = .forwards
+                animation.isRemovedOnCompletion = false
+            }
+            gridLayer.add(slide, forKey: "slide")
+            regionLayer.add(fade, forKey: "fade")
+            CATransaction.commit()
+        }
+    }
+
+    /// The slide out has finished: the region is gone from the presentation,
+    /// so the model may now catch up — in one step nobody sees, because the
+    /// grid's layer is already where the layout is about to put it.
+    private func finishSlideOut() {
+        promoted.showNothing()
+        gridTop.constant = 0
+        content.view.layoutSubtreeIfNeeded()
+        gridScroll.layer?.removeAnimation(forKey: "slide")
+        promoted.layer?.removeAnimation(forKey: "fade")
+        promoted.alphaValue = 1
+    }
+
+    /// Reduce Motion, or no layer to animate: the layout is already final, so
+    /// only the region's opacity changes, over 0.2 s.
+    private func fadeOnly(showing: Bool) {
+        if !showing { promoted.alphaValue = 1 }
+        NSAnimationContext.runAnimationGroup(
+            { context in
+                context.duration = 0.2
+                promoted.animator().alphaValue = showing ? 1 : 0
+            },
+            completionHandler: { [weak self] in
+                MainActor.assumeIsolated { if !showing { self?.finishSlideOut() } }
+            })
+    }
+
+    #if DEBUG
+        private var rendersDuringSlide = 0
+
+        /// Where the grid *is presented* a third and two thirds of the way
+        /// through, against where it started. A slide shows two different
+        /// intermediate numbers; a snap shows the destination both times.
+        private func probeSlide(label: String, travel: CGFloat) {
+            rendersDuringSlide = 0
+            let start = gridScroll.frame.maxY
+            Self.log.notice(
+                "slide \(label, privacy: .public): grid travels \(Int(travel), privacy: .public) pt"
+            )
+            for delay in [0.10, 0.20] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                    MainActor.assumeIsolated {
+                        guard let self else { return }
+                        let shown = self.gridScroll.layer?.presentation()?.frame.maxY ?? -1
+                        let region = self.promoted.layer?.presentation()?.opacity ?? -1
+                        Self.log.notice(
+                            "slide +\(Int(delay * 1000), privacy: .public) ms: grid top presented=\(Int(shown), privacy: .public) (model \(Int(start), privacy: .public)); region opacity=\(String(format: "%.2f", region), privacy: .public); renders: \(self.rendersDuringSlide, privacy: .public)"
+                        )
+                    }
+                }
+            }
+        }
+    #endif
 
     /// A ticking number that stopped is how A1 found OpenVPN Connect claiming
     /// a connection it did not have.
