@@ -71,6 +71,27 @@ enum Type {
     /// at the same size (D248). Size, not contrast: still a text style, so it
     /// scales, and it keeps a label's colour rather than fading out.
     static var hint: NSFont { .preferredFont(forTextStyle: .footnote) }
+    /// A message sheet's title — "Remove “Work”?", "This profile needs a file
+    /// that isn't here". 15 pt semibold, from the three M5.10 artboards; the
+    /// same weight as a promoted region's prose title, because it does the
+    /// same job over a paragraph.
+    static var messageTitle: NSFont { semibold(.title3) }
+    /// The small text of a report: a change row, a "kept" list, the footnote
+    /// under a message. 12 pt — one step under `body`, one over `hint`.
+    static var detail: NSFont { .preferredFont(forTextStyle: .callout) }
+    /// The new value in a before → after row: `detail` at medium weight,
+    /// from the ReplaceFile artboard, so the eye lands on what is true now.
+    static var detailEmphasis: NSFont {
+        .systemFont(
+            ofSize: NSFont.preferredFont(forTextStyle: .callout).pointSize, weight: .medium)
+    }
+    /// A name from a file, inline in prose — `ca.crt`, `.ovpn`, a directive.
+    /// Monospaced at `detail`'s size so it sits in a sentence rather than
+    /// jumping out of one.
+    static var code: NSFont {
+        .monospacedSystemFont(
+            ofSize: NSFont.preferredFont(forTextStyle: .callout).pointSize, weight: .regular)
+    }
     /// **The log, and nothing else.**
     static var mono: NSFont {
         .monospacedSystemFont(
@@ -159,6 +180,9 @@ enum Palette {
     static var stateFailed: NSColor { .systemRed }
     static var stateBusy: NSColor { .secondaryLabelColor }
     static var stateWarning: NSColor { .systemOrange }
+    /// The one button that cannot be undone — Remove. The system's red, as
+    /// the RemoveConfirm artboard has it, and never anywhere else.
+    static var destructive: NSColor { .systemRed }
 }
 
 extension NSTextField {

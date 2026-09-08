@@ -80,14 +80,14 @@ final class ProfileImporter {
         let outcome = inspector.inspect(url, waiving: waiving)
 
         switch outcome {
-        case let .ready(configuration, descriptor, setAside):
+        case let .ready(configuration, descriptor, _):
             do {
                 try store(configuration, descriptor, from: url, waivers: waiving)
                 onChange?()
                 if let message = ImportMessage.forOutcome(outcome, filename: filename) {
                     // Imported, and what was set aside disclosed as a count
                     // with the list behind it (2.8, D187).
-                    present(message, over: window, details: setAside.directives, url: url)
+                    present(message, over: window, url: url)
                 }
             } catch {
                 log.error("could not store \(filename, privacy: .public): \(error.localizedDescription, privacy: .public)")
@@ -102,9 +102,7 @@ final class ProfileImporter {
 
         case .missingFile, .unrecognised, .refused:
             guard let message = ImportMessage.forOutcome(outcome, filename: filename) else { return }
-            let details: [String]
-            if case .unrecognised(let directives) = outcome { details = directives } else { details = [] }
-            present(message, over: window, details: details, url: url)
+            present(message, over: window, url: url)
         }
     }
 
@@ -143,9 +141,7 @@ final class ProfileImporter {
             // messages already say the right thing about each — the only
             // difference is that nothing was replaced.
             guard let message = ImportMessage.forOutcome(outcome, filename: filename) else { return }
-            var details: [String] = []
-            if case .unrecognised(let directives) = outcome { details = directives }
-            present(message, over: window, details: details, url: url)
+            present(message, over: window, url: url)
             return
         }
         do {
@@ -158,10 +154,9 @@ final class ProfileImporter {
             )
             handOver(configuration, for: profile.id)
             onChange?()
-            presentPlain(
-                title: String(localized: "Replaced with \(filename)"),
-                body: Self.summary(conflicts: conflicts, setAside: setAside.directives),
-                over: window)
+            report(
+                profile, replacedBy: descriptor, conflicts: conflicts,
+                setAside: setAside.directives.count, over: window)
         } catch {
             log.error(
                 "could not replace \(filename, privacy: .public): \(error.localizedDescription, privacy: .public)"
@@ -177,38 +172,48 @@ final class ProfileImporter {
         }
     }
 
-    /// What changed, in the user's terms. An override the new text contradicts
-    /// is **kept and named**: dropping it silently is what D132 forbids, and
-    /// the user is the only one who can say which they meant.
-    private static func summary(conflicts: [OverrideConflict], setAside: [String]) -> String {
-        var lines: [String] = [
-            String(localized: "Your settings for this profile have been kept.")
-        ]
-        for conflict in conflicts {
-            switch conflict.kind {
-            case .serverNoLongerOffered(let host):
-                lines.append(
-                    String(localized: "The new file no longer offers \(host), which you had chosen."))
-            case .usernameNowFixed(let userValue, let fixedValue):
-                lines.append(
-                    String(
-                        localized:
-                            "The new file fixes the username to \(fixedValue); yours was \(userValue)."
-                    ))
-            case .passwordSavingNowForbidden:
-                lines.append(
-                    String(localized: "The new file does not allow saving the password."))
-            }
+    /// **The ReplaceFile artboard**: a report of what the new file changed,
+    /// what the user keeps, and the questions the two together raise. An
+    /// override the new text contradicts is **kept and asked about**:
+    /// dropping it silently is what D132 forbids, and the user is the only
+    /// one who can say which they meant.
+    ///
+    /// `profile` is the record from before the replace, so its descriptor is
+    /// the old file's — which is what the before → after rows compare with.
+    private func report(
+        _ profile: Profile, replacedBy descriptor: ProfileDescriptor,
+        conflicts: [OverrideConflict], setAside: Int, over window: NSWindow?
+    ) {
+        let overrides = (try? store.overrides(for: profile.id)) ?? Overrides()
+        let kept = ReplaceCopy.kept(
+            overrides, credentialsSaved: profile.credentialsSaved, against: descriptor)
+        let name = overrides.title ?? descriptor.preferredTitle(filename: profile.origin.filename)
+        let sheet = ReplaceReportSheet(
+            title: String(localized: "Profile file replaced"),
+            summary: ReplaceCopy.summary(name: name, keptAnything: !kept.isEmpty, setAside: setAside),
+            changes: profile.descriptor.map { descriptor.changes(since: $0).map(ReplaceCopy.row) },
+            kept: kept,
+            questions: conflicts.map { conflict -> ReplaceReportSheet.Question in
+                var resolve: (@MainActor () -> Void)?
+                if let setting = ReplaceCopy.setting(of: conflict) {
+                    resolve = { [weak self] in self?.revert(setting, for: profile.id, to: descriptor) }
+                }
+                return ReplaceReportSheet.Question(text: ReplaceCopy.question(conflict), resolve: resolve)
+            })
+        show(sheet, over: window)
+    }
+
+    /// **Use the file's**: the one row, reverted, and nothing else touched.
+    private func revert(_ setting: Overrides.Setting, for id: Profile.ID, to descriptor: ProfileDescriptor) {
+        do {
+            let current = try store.overrides(for: id)
+            try store.setOverrides(current.reverting(setting, to: descriptor), for: id)
+            onChange?()
+        } catch {
+            log.error(
+                "could not take the file's value for \(String(describing: setting), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
         }
-        if !setAside.isEmpty {
-            lines.append(
-                String(
-                    localized: """
-                        VPN Plus doesn't use \(setAside.count) of its settings: \
-                        \(setAside.joined(separator: ", ")).
-                        """))
-        }
-        return lines.joined(separator: "\n\n")
     }
 
     private func store(
@@ -263,76 +268,117 @@ final class ProfileImporter {
 
     // MARK: - Asking
 
-    private func present(_ message: ImportMessage, over window: NSWindow?, details: [String], url: URL) {
-        let alert = NSAlert()
-        alert.messageText = message.title
-        alert.informativeText = message.body
-
+    /// The message as a sheet in the window (M5.10, the ImportError artboard):
+    /// the one thing the user can do about it under the text, the alternative
+    /// as a footnote, and a list behind a count unfolding in place rather than
+    /// in a second alert (D187).
+    private func present(_ message: ImportMessage, over window: NSWindow?, url: URL) {
+        let cancel = MessageSheet.Button(title: String(localized: "Cancel"), role: .cancel)
+        let ok = MessageSheet.Button(title: String(localized: "OK"), role: .primary)
+        var buttons: [MessageSheet.Button] = [ok]
+        var details: MessageSheet.Details?
         switch message.action {
         case .chooseFile(let named):
-            alert.addButton(withTitle: String(localized: "Choose \(named)…"))
-            alert.addButton(withTitle: String(localized: "Cancel"))
+            buttons = [
+                MessageSheet.Button(title: String(localized: "Choose the file…"), role: .primary) {
+                    [weak self] in self?.locate(named, for: url, over: window)
+                },
+                cancel,
+            ]
         case .importAnyway(let setting):
-            alert.addButton(withTitle: String(localized: "Import Anyway"))
-            alert.addButton(withTitle: String(localized: "Cancel"))
-            alert.addButton(withTitle: String(localized: "Show Which"))
-            _ = setting
-        case .showDetails:
-            alert.addButton(withTitle: String(localized: "OK"))
-            alert.addButton(withTitle: String(localized: "Show Details"))
+            buttons = [
+                MessageSheet.Button(title: String(localized: "Import Anyway"), role: .primary) {
+                    [weak self] in self?.importProfile(at: url, over: window, waiving: setting)
+                },
+                cancel,
+            ]
+            details = MessageSheet.Details(link: String(localized: "Show which"), lines: setting)
+        case .showDetails(let link, let lines):
+            details = MessageSheet.Details(link: link, lines: lines)
         case nil:
-            alert.addButton(withTitle: String(localized: "OK"))
+            break
         }
-
-        let respond: (NSApplication.ModalResponse) -> Void = { [weak self] response in
-            guard let self else { return }
-            switch (message.action, response) {
-            case (.chooseFile(let named), .alertFirstButtonReturn):
-                locate(named, for: url, over: window)
-            case (.importAnyway(let setting), .alertFirstButtonReturn):
-                importProfile(at: url, over: window, waiving: setting)
-            case (.importAnyway, .alertThirdButtonReturn):
-                showDetails(
-                    titled: String(localized: "Settings VPN Plus doesn't use"), details, over: window)
-            case (.showDetails(let titled, let lines), .alertSecondButtonReturn):
-                showDetails(titled: titled, lines, over: window)
-            default:
-                break
-            }
-        }
-        if let window {
-            alert.beginSheetModal(for: window, completionHandler: respond)
-        } else {
-            respond(alert.runModal())
-        }
+        let sheet = MessageSheet(
+            icon: message.warns ? .warning : nil,
+            title: message.title,
+            body: MessageSheet.prose(message.body, bold: message.bold, code: message.code),
+            footnote: message.footnote.map { MessageSheet.note($0) },
+            details: details,
+            buttons: buttons,
+            placement: .underTheText)
+        show(sheet, over: window)
     }
 
     private func presentPlain(title: String, body: String, over window: NSWindow?) {
-        let alert = NSAlert()
-        alert.messageText = title
-        alert.informativeText = body
-        alert.addButton(withTitle: String(localized: "OK"))
-        if let window {
-            alert.beginSheetModal(for: window, completionHandler: { _ in })
-        } else {
-            alert.runModal()
-        }
+        let sheet = MessageSheet(
+            icon: .warning,
+            title: title,
+            body: MessageSheet.prose(body),
+            buttons: [MessageSheet.Button(title: String(localized: "OK"), role: .primary)],
+            placement: .underTheText)
+        show(sheet, over: window)
     }
 
-    /// The list, one click behind the count (D187).
-    private func showDetails(titled: String, _ lines: [String], over window: NSWindow?) {
-        let alert = NSAlert()
-        alert.messageText = titled
-        alert.informativeText = lines.isEmpty
-            ? String(localized: "None.")
-            : lines.joined(separator: "\n")
-        alert.addButton(withTitle: String(localized: "OK"))
-        if let window {
-            alert.beginSheetModal(for: window, completionHandler: { _ in })
-        } else {
-            alert.runModal()
+    /// In the window, as a sheet. Called from inside an Open panel's
+    /// completion as often as not, while that panel is still the window's
+    /// sheet — so a panel is waited out, and a sheet of ours (the
+    /// configuration sheet, whose footer starts a replace) is presented over.
+    private func show(_ sheet: NSViewController, over window: NSWindow?) {
+        guard let window = window ?? NSApp.mainWindow else {
+            log.error("no window to show a message in")
+            return
         }
+        if let attached = window.attachedSheet {
+            if attached is NSSavePanel {
+                Task {
+                    try? await Task.sleep(for: .milliseconds(60))
+                    show(sheet, over: window)
+                }
+                return
+            }
+            if let host = attached.contentViewController {
+                host.presentAsSheet(sheet)
+                return
+            }
+        }
+        window.contentViewController?.presentAsSheet(sheet)
     }
+
+    #if DEBUG
+        /// Development only: the two import-side M5.10 sheets on demand, so
+        /// they can be captured beside their artboards (D250).
+        func debugPresentMissingFile(filename: String, over window: NSWindow?) {
+            guard let message = ImportMessage.forOutcome(.missingFile(named: "ca.crt"), filename: filename)
+            else { return }
+            present(message, over: window, url: URL(fileURLWithPath: NSHomeDirectory()))
+        }
+
+        func debugPresentReport(for profile: Profile, over window: NSWindow?) {
+            let old = profile.descriptor
+                ?? ProfileDescriptor(
+                    displayName: profile.title,
+                    server: ServerEndpoint(host: "192.0.2.10", port: "1194", transport: "udp"))
+            let new = ProfileDescriptor(
+                displayName: old.displayName,
+                server: ServerEndpoint(host: "192.0.2.11", port: "443", transport: old.server.transport),
+                credentials: old.credentials,
+                allowsPasswordSave: old.allowsPasswordSave,
+                alternateServers: old.alternateServers,
+                waivedDirectives: old.waivedDirectives,
+                caPresent: old.caPresent,
+                externalPKI: old.externalPKI)
+            var withOld = profile
+            withOld.descriptor = old
+            report(
+                withOld, replacedBy: new,
+                conflicts: [
+                    OverrideConflict(
+                        kind: .changedUnderneath(
+                            .port, fileWas: old.server.port, fileNow: "443", mine: "8443"))
+                ],
+                setAside: 0, over: window)
+        }
+    #endif
 
     /// Lets the user point at the file the profile refers to, then imports from
     /// a folder containing both (2.3). The profile is not rewritten: a copy of

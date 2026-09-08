@@ -163,6 +163,42 @@ final class MainWindowController: NSWindowController {
         /// they come back and dismiss it themselves.
         private func installDebugTriggers() {
             var token: Int32 = NOTIFY_TOKEN_INVALID
+            // **Development only: the three M5.10 sheets**, each a toggle, so
+            // they can be captured beside their artboards (D250).
+            //
+            //   notifyutil -p com.bossagroove.VPNPlus.debug.openRemoveConfirm
+            //   notifyutil -p com.bossagroove.VPNPlus.debug.openImportError
+            //   notifyutil -p com.bossagroove.VPNPlus.debug.openReplaceReport
+            func toggleSheet(
+                _ name: String, _ present: @escaping @MainActor (MainWindowController) -> Void
+            ) {
+                var token: Int32 = NOTIFY_TOKEN_INVALID
+                notify_register_dispatch(
+                    "com.bossagroove.VPNPlus.debug.\(name)", &token, DispatchQueue.main
+                ) { _ in
+                    MainActor.assumeIsolated { [weak self] in
+                        guard let self else { return }
+                        if let shown = window?.attachedSheet {
+                            window?.endSheet(shown)
+                            return
+                        }
+                        present(self)
+                    }
+                }
+            }
+            toggleSheet("openRemoveConfirm") { controller in
+                guard let profile = controller.catalogue.profiles.last else { return }
+                controller.confirmDelete(profile)
+            }
+            toggleSheet("openImportError") { controller in
+                let filename = controller.catalogue.profiles.last?.origin.filename ?? "work.ovpn"
+                controller.importer.debugPresentMissingFile(filename: filename, over: controller.window)
+            }
+            toggleSheet("openReplaceReport") { controller in
+                guard let profile = controller.catalogue.profiles.last else { return }
+                controller.importer.debugPresentReport(for: profile, over: controller.window)
+            }
+
             // **Development only: step the promoted region through every
             // state**, without a server and without touching the tunnel.
             //
@@ -849,43 +885,58 @@ final class MainWindowController: NSWindowController {
         render()
     }
 
-    /// Deleting takes a private key with it, so it asks first.
+    /// **The RemoveConfirm artboard**: exactly what goes, as a list built
+    /// from what this profile actually has, and the one reassurance that
+    /// matters — the file on the user's Mac is not touched. "Remove", to
+    /// match the menu item that opened this (M5.9).
     private func confirmDelete(_ profile: Profile) {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Delete \(profile.title)?")
-        alert.informativeText = String(
-            localized: """
-                This removes the profile and anything saved with it, including its \
-                certificate and key. You would need the original file to import it again.
-                """)
-        alert.addButton(withTitle: String(localized: "Delete"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
-        let respond: (NSApplication.ModalResponse) -> Void = { [weak self] response in
-            guard let self, response == .alertFirstButtonReturn else { return }
+        let overrides = (try? store.overrides(for: profile.id)) ?? Overrides()
+        var goes = [String(localized: "the profile")]
+        if profile.credentialsSaved {
+            goes.append(String(localized: "its saved password in your Keychain"))
+        }
+        if overrides.certificatePath != nil {
+            goes.append(String(localized: "its certificate and key"))
+        }
+        if profile.lastConnected != nil || profile.lastFailure != nil {
+            goes.append(String(localized: "the record of when it last connected"))
+        }
+        let sheet = MessageSheet(
+            title: String(localized: "Remove “\(title(of: profile))”?"),
+            body: MessageSheet.prose(String(localized: "This removes:")),
+            bullets: goes,
+            footnote: MessageSheet.note(
+                String(localized: "The original .ovpn file on your Mac is not touched."),
+                code: [".ovpn"]),
+            buttons: [
+                MessageSheet.Button(title: String(localized: "Cancel"), role: .cancel),
+                MessageSheet.Button(title: String(localized: "Remove"), role: .destructive) {
+                    [weak self] in self?.remove(profile)
+                },
+            ],
+            placement: .trailing)
+        content.presentAsSheet(sheet)
+    }
+
+    private func remove(_ profile: Profile) {
+        do {
+            try store.remove(profile.id)
+        } catch {
+            notify(String(localized: "VPN Plus couldn't remove that profile."))
+        }
+        // The extension holds this profile's configuration and password, so
+        // removing here is only half of it. A dangling secret is a secret
+        // nobody is managing.
+        Task {
             do {
-                try store.remove(profile.id)
+                try await PrivilegedClient().deleteSecrets(for: profile.id)
             } catch {
-                notify(String(localized: "VPN Plus couldn't delete that profile."))
+                Self.log.error(
+                    "the extension may still hold secrets for a removed profile: \(error.localizedDescription, privacy: .public)"
+                )
             }
-            // The extension holds this profile's configuration and password, so
-            // deleting here is only half of it. A dangling secret is a secret
-            // nobody is managing.
-            Task {
-                do {
-                    try await PrivilegedClient().deleteSecrets(for: profile.id)
-                } catch {
-                    Self.log.error(
-                        "the extension may still hold secrets for a deleted profile: \(error.localizedDescription, privacy: .public)"
-                    )
-                }
-            }
-            render()
         }
-        if let window {
-            alert.beginSheetModal(for: window, completionHandler: respond)
-        } else {
-            respond(alert.runModal())
-        }
+        render()
     }
 
     private enum Credentials {
