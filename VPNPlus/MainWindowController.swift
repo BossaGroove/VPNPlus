@@ -199,6 +199,37 @@ final class MainWindowController: NSWindowController {
                 controller.importer.debugPresentReport(for: profile, over: controller.window)
             }
 
+            // **Development only: a switch's slide timing**, without a tunnel.
+            //
+            //   notifyutil -p com.bossagroove.VPNPlus.debug.probeSwitchSlide
+            //
+            // Out, then in 70 ms later — what a real switch does — then the
+            // grid's gap is logged half a second on. It must be the gutter.
+            var switchToken: Int32 = NOTIFY_TOKEN_INVALID
+            notify_register_dispatch(
+                "com.bossagroove.VPNPlus.debug.probeSwitchSlide", &switchToken, DispatchQueue.main
+            ) { _ in
+                MainActor.assumeIsolated { [weak self] in
+                    guard let self else { return }
+                    Task { @MainActor [weak self] in
+                        guard let self else { return }
+                        revealRegion(true)
+                        try? await Task.sleep(for: .milliseconds(400))
+                        revealRegion(false)
+                        try? await Task.sleep(for: .milliseconds(70))
+                        revealRegion(true)
+                        try? await Task.sleep(for: .milliseconds(500))
+                        let gap = promoted.frame.minY - gridScroll.frame.maxY
+                        Self.log.notice(
+                            "switch probe: gridTop=\(self.gridTop.constant, privacy: .public) gap=\(gap, privacy: .public) region alpha=\(self.promoted.alphaValue, privacy: .public)"
+                        )
+                        revealRegion(false)
+                        try? await Task.sleep(for: .milliseconds(400))
+                        render()
+                    }
+                }
+            }
+
             // **Development only: step the promoted region through every
             // state**, without a server and without touching the tunnel.
             //
@@ -597,9 +628,19 @@ final class MainWindowController: NSWindowController {
     /// Reduce Motion (D113): no translation. Layout changes at once and the
     /// region cross-fades, so there is still no single frame in which
     /// everything is different.
+    private var slideGeneration = 0
+
     private func revealRegion(_ showing: Bool) {
         guard showing != regionWasShowing else { return }
         regionWasShowing = showing
+        // **A slide that is overtaken must not finish.** A switch is a slide
+        // out followed ~70 ms later by a slide in; the out's completion then
+        // fired *after* the in had put the region back, set the grid's gap to
+        // zero and blanked the region — so every switch ended with the cards
+        // touching the region (owner's screenshots, 2026-09-08). Each reveal
+        // takes a generation; a completion from an earlier one is ignored.
+        slideGeneration += 1
+        let generation = slideGeneration
         let slides = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         let root = content.view
         // The grid's top edge in the root's (unflipped) coordinates, before
@@ -617,15 +658,18 @@ final class MainWindowController: NSWindowController {
                 probeSlide(label: "in", travel: travel)
             #endif
             guard slides, let gridLayer = gridScroll.layer, let regionLayer = promoted.layer else {
-                fadeOnly(showing: true)
+                fadeOnly(showing: true, generation: generation)
                 return
             }
-            // From the old position to the new one, presentation only.
+            // From the old position to the new one, presentation only — and
+            // "old" is where the layer *is*, which mid-slide-out is not where
+            // the model had it (a switch overtakes the slide out).
+            let held = gridLayer.presentation()?.value(forKeyPath: "transform.translation.y") as? CGFloat ?? 0
             let slide = CABasicAnimation(keyPath: "transform.translation.y")
-            slide.fromValue = travel
+            slide.fromValue = travel + held
             slide.toValue = 0
             let fade = CABasicAnimation(keyPath: "opacity")
-            fade.fromValue = 0
+            fade.fromValue = regionLayer.presentation()?.opacity ?? 0
             fade.toValue = 1
             for animation in [slide, fade] {
                 animation.duration = 0.28
@@ -642,18 +686,18 @@ final class MainWindowController: NSWindowController {
                 probeSlide(label: "out", travel: travel)
             #endif
             guard slides, let gridLayer = gridScroll.layer, let regionLayer = promoted.layer else {
-                fadeOnly(showing: false)
+                fadeOnly(showing: false, generation: generation)
                 return
             }
             CATransaction.begin()
             CATransaction.setCompletionBlock { [weak self] in
-                MainActor.assumeIsolated { self?.finishSlideOut() }
+                MainActor.assumeIsolated { self?.finishSlideOut(generation: generation) }
             }
             let slide = CABasicAnimation(keyPath: "transform.translation.y")
-            slide.fromValue = 0
+            slide.fromValue = gridLayer.presentation()?.value(forKeyPath: "transform.translation.y") as? CGFloat ?? 0
             slide.toValue = travel  // up, in the layer's y-up coordinates
             let fade = CABasicAnimation(keyPath: "opacity")
-            fade.fromValue = 1
+            fade.fromValue = regionLayer.presentation()?.opacity ?? 1
             fade.toValue = 0
             for animation in [slide, fade] {
                 animation.duration = 0.28
@@ -671,7 +715,10 @@ final class MainWindowController: NSWindowController {
     /// The slide out has finished: the region is gone from the presentation,
     /// so the model may now catch up — in one step nobody sees, because the
     /// grid's layer is already where the layout is about to put it.
-    private func finishSlideOut() {
+    private func finishSlideOut(generation: Int) {
+        // Overtaken by a later reveal: the region is back and the model is
+        // already right. Finishing now would undo both.
+        guard generation == slideGeneration else { return }
         promoted.showNothing()
         gridTop.constant = 0
         content.view.layoutSubtreeIfNeeded()
@@ -682,7 +729,7 @@ final class MainWindowController: NSWindowController {
 
     /// Reduce Motion, or no layer to animate: the layout is already final, so
     /// only the region's opacity changes, over 0.2 s.
-    private func fadeOnly(showing: Bool) {
+    private func fadeOnly(showing: Bool, generation: Int) {
         if !showing { promoted.alphaValue = 1 }
         NSAnimationContext.runAnimationGroup(
             { context in
@@ -690,7 +737,9 @@ final class MainWindowController: NSWindowController {
                 promoted.animator().alphaValue = showing ? 1 : 0
             },
             completionHandler: { [weak self] in
-                MainActor.assumeIsolated { if !showing { self?.finishSlideOut() } }
+                MainActor.assumeIsolated {
+                    if !showing { self?.finishSlideOut(generation: generation) }
+                }
             })
     }
 
