@@ -123,6 +123,11 @@ final class SettingsCard: NSView {
     }
 
     /// A row with no label — a caption, or something that spans the width.
+    ///
+    /// Note: the rule belongs to the row *below* it, so a card whose **first**
+    /// row can be hidden would show a rule at its top edge. No card in this
+    /// app has one — every card's first row is always visible — and the fix if
+    /// one ever does is to hide the first visible row's rule on refresh.
     @discardableResult
     func addFullWidthRow(_ content: NSView, height: CGFloat? = nil) -> NSView {
         let row = NSView()
@@ -141,28 +146,27 @@ final class SettingsCard: NSView {
     }
 
     private func add(_ row: NSView, constraints: [NSLayoutConstraint]) {
+        var own = constraints
         if !stack.views.isEmpty {
-            // A hairline between rows, inset to the label's left edge, which
-            // is how System Settings separates rows inside a group.
+            // **The hairline lives inside the row it separates**, not beside
+            // it. As its own view in the stack it outlived the row: every
+            // caption that reads "from this profile" is hidden, and each left
+            // a rule behind — one dangling at the bottom of a single-row card,
+            // and two abutting into a 2 pt line wherever two hidden rows met.
+            // Measured, 2026-09-08. Inside the row, hiding the row hides it.
             let rule = NSView()
             rule.wantsLayer = true
             rule.layer?.backgroundColor = Palette.border.cgColor
             rule.translatesAutoresizingMaskIntoConstraints = false
-            let holder = NSView()
-            holder.translatesAutoresizingMaskIntoConstraints = false
-            holder.addSubview(rule)
-            stack.addView(holder, in: .top)
-            NSLayoutConstraint.activate([
-                holder.widthAnchor.constraint(equalTo: widthAnchor),
-                holder.heightAnchor.constraint(equalToConstant: 1),
+            row.addSubview(rule)
+            own += [
                 rule.heightAnchor.constraint(equalToConstant: 1),
-                rule.topAnchor.constraint(equalTo: holder.topAnchor),
-                rule.leadingAnchor.constraint(
-                    equalTo: holder.leadingAnchor, constant: Metric.inset),
-                rule.trailingAnchor.constraint(equalTo: holder.trailingAnchor),
-            ])
+                rule.topAnchor.constraint(equalTo: row.topAnchor),
+                rule.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: Metric.inset),
+                rule.trailingAnchor.constraint(equalTo: row.trailingAnchor),
+            ]
         }
         stack.addView(row, in: .top)
-        NSLayoutConstraint.activate(constraints + [row.widthAnchor.constraint(equalTo: widthAnchor)])
+        NSLayoutConstraint.activate(own + [row.widthAnchor.constraint(equalTo: widthAnchor)])
     }
 }
