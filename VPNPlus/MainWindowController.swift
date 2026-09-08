@@ -1232,6 +1232,7 @@ final class MainWindowController: NSWindowController {
                     try await self.tunnel.prepare(
                         profile: profile.id, name: self.title(of: profile))
                     try self.tunnel.connect(
+                        id: profile.id,
                         profile: text,
                         username: decision.sessionUsername,
                         password: decision.sessionPassword,

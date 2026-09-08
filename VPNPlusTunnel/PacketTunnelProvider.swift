@@ -155,12 +155,26 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             "engine openvpn3 \(String(cString: vpnplus_engine_version()), privacy: .public) (\(String(cString: vpnplus_engine_platform()), privacy: .public))"
         )
 
-        // Which profile this is, from providerConfiguration — a handle, never
-        // a secret (D191). A connection from System Settings carries this and
-        // nothing else, which is what makes D75 possible.
+        // Which profile this is. **The start options first**, then
+        // providerConfiguration — both handles, never secrets (D191). The app
+        // saves the id into the configuration and then starts, and the system
+        // still handed this provider a configuration from *before* that save
+        // in 6 of 56 sessions on 2026-09-08: the session was named for one
+        // profile and connected the other. What the user asked for at the
+        // moment they asked rides in the options; the configuration is the
+        // answer only when there are none, which is a connection started from
+        // System Settings with no app running — the case that makes D75
+        // possible.
         let configuration = (protocolConfiguration as? NETunnelProviderProtocol)?
             .providerConfiguration
-        let identifier = (configuration?["profile"] as? String).flatMap(UUID.init(uuidString:))
+        let configured = (configuration?["profile"] as? String).flatMap(UUID.init(uuidString:))
+        let asked = (options?["profileID"] as? String).flatMap(UUID.init(uuidString:))
+        if let asked, let configured, asked != configured {
+            log.error(
+                "the configuration named \(configured.uuidString, privacy: .public) but the start asked for \(asked.uuidString, privacy: .public); starting what was asked for"
+            )
+        }
+        let identifier = asked ?? configured
         self.identifier = identifier
 
         let completion = Completion(completionHandler)

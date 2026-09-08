@@ -142,6 +142,7 @@ final class TunnelController {
     /// extension owns, it reads itself — which is what lets a connection start
     /// from System Settings with no app running (D75).
     func connect(
+        id: Profile.ID,
         profile: String?,
         username: String,
         password: String,
@@ -150,6 +151,14 @@ final class TunnelController {
         guard let session = manager?.connection as? NETunnelProviderSession else { return }
         stoppedByUser = false
         var options: [String: NSObject] = [:]
+        // **The id travels with the start, not only in the saved
+        // configuration.** `prepare` saves the id into providerConfiguration
+        // and the session is even *named* for it — and 6 of 56 sessions on
+        // 2026-09-08 still started the *previous* profile: the system handed
+        // the provider a protocolConfiguration from before the save. A handle
+        // in the options is what the user asked for at the moment they asked,
+        // and the provider prefers it (D191: handles, never secrets).
+        options["profileID"] = id.uuidString as NSString
         // Sent only while a profile has not yet been handed over: the provider
         // stores what it receives, so the first connection completes the move
         // and later ones carry nothing but the id in providerConfiguration.
