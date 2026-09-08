@@ -146,6 +146,13 @@ final class CardGridView: NSView {
         invalidateIntrinsicContentSize()
     }
 
+    #if DEBUG
+        /// Each card's title and what a click on its Connect button would hit.
+        var debugConnectHits: [String] {
+            cards.map { "\(titles[$0.profile.id] ?? $0.profile.title): \($0.debugHitAtConnect)" }
+        }
+    #endif
+
     private func renderPresence(_ presence: [Profile.ID: ProfileCardView.Presence]) {
         for card in cards { card.presence = presence[card.profile.id] ?? .idle }
     }

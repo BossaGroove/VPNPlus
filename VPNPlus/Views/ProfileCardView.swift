@@ -78,7 +78,37 @@ final class ProfileCardView: NSView {
         didSet { if presence != oldValue { renderPresence(animated: window != nil) } }
     }
 
-    private let stateLabel = NSTextField.label(font: Type.control, colour: Palette.textSecondary)
+    private let stateLabel: NSTextField = {
+        // **Refuses hits.** It sits exactly over the Connect button, faded to
+        // nothing while the card is idle — and an alpha-0 view still hit-tests.
+        // As a plain label it took every single click meant for the button and
+        // handed it up to the card, which selected; only a double-click reached
+        // `onConnect`, through `mouseDown`. A word is never a target, so it
+        // returns nil and the button beneath gets the click.
+        let label = PassthroughLabel(labelWithString: "")
+        label.font = Type.control
+        label.textColor = Palette.textSecondary
+        label.lineBreakMode = .byTruncatingTail
+        label.usesSingleLineMode = true
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+
+    /// A label that is never the answer to "what did the user click".
+    private final class PassthroughLabel: NSTextField {
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    }
+
+    #if DEBUG
+        /// What a click at the Connect button's centre would land on — the
+        /// mouse-free version of "does the button work". `NSButton` means yes;
+        /// anything else names the view in the way.
+        var debugHitAtConnect: String {
+            let centre = NSPoint(x: connectButton.frame.midX, y: connectButton.frame.midY)
+            let hit = hitTest(convert(centre, to: superview))
+            return hit.map { String(describing: type(of: $0)) } ?? "nil"
+        }
+    #endif
     private let dot = NSView()
     private let spinner = NSProgressIndicator()
     private let warning = NSImageView()

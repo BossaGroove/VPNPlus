@@ -181,6 +181,26 @@ final class MainWindowController: NSWindowController {
                 MainActor.assumeIsolated { [weak self] in self?.cyclePromoted() }
             }
 
+            // **Development only: what would a click on each Connect hit?**
+            //
+            //   notifyutil -p com.bossagroove.VPNPlus.debug.probeConnect
+            //
+            // The owner found single clicks on Connect doing nothing while a
+            // double-click connected — an invisible label over the button. A
+            // hit test at the button's centre answers that without a mouse,
+            // which this session does not have.
+            var probeToken: Int32 = NOTIFY_TOKEN_INVALID
+            notify_register_dispatch(
+                "com.bossagroove.VPNPlus.debug.probeConnect", &probeToken, DispatchQueue.main
+            ) { _ in
+                MainActor.assumeIsolated { [weak self] in
+                    guard let self else { return }
+                    for line in grid.debugConnectHits {
+                        Self.log.notice("debug: connect hit → \(line, privacy: .public)")
+                    }
+                }
+            }
+
             notify_register_dispatch(
                 "com.bossagroove.VPNPlus.debug.openSettingsSheet", &token, DispatchQueue.main
             ) { _ in
