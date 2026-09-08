@@ -89,7 +89,16 @@ final class ProfileConfigurationSheet: NSViewController {
     /// The caption and the Revert of each row that has provenance, kept so
     /// they can be **updated in place**.
     private var captions: [Field: NSTextField] = [:]
+    /// The caption's own container, indented to the field column. Hiding
+    /// *this* is what closes the row up: hiding only the label inside it would
+    /// leave the indent behind as a blank line.
+    private var captionRows: [Field: NSView] = [:]
     private var reverts: [Field: NSButton] = [:]
+    /// The editable field of each row, and the placeholder it has when the
+    /// profile does supply the value — so "not in this profile" can be put in
+    /// the field and taken back out again.
+    private var fields: [Field: NSTextField] = [:]
+    private var placeholders: [Field: String] = [:]
     private let certificateRow = NSStackView()
     private let certificateCaption = NSTextField(labelWithString: "")
     private let certificateButton = NSButton(title: "", target: nil, action: nil)
@@ -402,8 +411,11 @@ final class ProfileConfigurationSheet: NSViewController {
 
         certificateButton.target = self
         certificateButton.action = #selector(chooseCertificate)
-        let name = NSTextField(labelWithString: String(localized: "Certificate"))
-        name.textColor = Palette.textSecondary
+        // **No row label.** The section is called Certificate and has one row
+        // in it, so labelling the row "Certificate" as well was the same word
+        // twice. The column is kept, so the button lines up with the fields
+        // above it.
+        let name = NSView()
         name.translatesAutoresizingMaskIntoConstraints = false
         name.widthAnchor.constraint(equalToConstant: Self.labelWidth).isActive = true
 
@@ -422,9 +434,16 @@ final class ProfileConfigurationSheet: NSViewController {
         rows.addView(certificateRow, in: .top)
         certificateRow.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
 
-        let note = caption("")
-        rows.addView(note, in: .top)
+        let indent = NSView()
+        indent.translatesAutoresizingMaskIntoConstraints = false
+        indent.widthAnchor.constraint(equalToConstant: Self.labelWidth + Space.s).isActive = true
+        let note = caption("", width: Self.contentWidth - Self.labelWidth - Space.s)
         captions[.certificate] = note
+        let noteRow = NSStackView(views: [indent, note])
+        noteRow.orientation = .horizontal
+        noteRow.spacing = 0
+        noteRow.translatesAutoresizingMaskIntoConstraints = false
+        rows.addView(noteRow, in: .top)
     }
 
     /// A13a §6: what this profile contains, read-only. The transparency
@@ -498,17 +517,23 @@ final class ProfileConfigurationSheet: NSViewController {
         return field
     }
 
-    private func caption(_ text: String) -> NSTextField {
+    private func caption(_ text: String, width: CGFloat = ProfileConfigurationSheet.contentWidth)
+        -> NSTextField
+    {
         let field = NSTextField(wrappingLabelWithString: text)
+        // A step down in size, and **not** a step down in contrast: size,
+        // the indent and the labels' right alignment already tell a hint from
+        // a label, and dimming it further would buy nothing legibility does
+        // not have to pay for (A18).
         field.textColor = Palette.textSecondary
-        field.font = Type.caption
+        field.font = Type.hint
         // Both, and the constraint is the load-bearing one: on its own
         // `preferredMaxLayoutWidth` decides where text wraps when measuring
         // height, while the field still asks for its full single-line width
         // and the sheet obliges (D243).
-        field.preferredMaxLayoutWidth = Self.contentWidth
+        field.preferredMaxLayoutWidth = width
         field.translatesAutoresizingMaskIntoConstraints = false
-        field.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
+        field.widthAnchor.constraint(equalToConstant: width).isActive = true
         return field
     }
 
@@ -533,6 +558,12 @@ final class ProfileConfigurationSheet: NSViewController {
     private func add(_ name: String, _ control: NSView, field: Field?) {
         let title = NSTextField(labelWithString: name)
         title.textColor = Palette.textSecondary
+        // **Right-aligned against the field column**, which is what stops a
+        // label reading as an annotation. Left-aligned secondary grey labels
+        // and left-aligned secondary grey captions were indistinguishable —
+        // the owner could not tell which was which, and that was the labels'
+        // fault as much as the captions'.
+        title.alignment = .right
         title.translatesAutoresizingMaskIntoConstraints = false
         title.widthAnchor.constraint(equalToConstant: Self.labelWidth).isActive = true
 
@@ -543,6 +574,10 @@ final class ProfileConfigurationSheet: NSViewController {
             if editable.isEditable {
                 editable.target = self
                 editable.action = #selector(fieldChanged)
+            }
+            if let field {
+                fields[field] = editable
+                placeholders[field] = editable.placeholderString ?? ""
             }
         }
         if let picker = control as? NSPopUpButton {
@@ -569,9 +604,21 @@ final class ProfileConfigurationSheet: NSViewController {
             rows.addView(row, in: .top)
             return
         }
-        let note = caption("")
+        // Under the **field**, not under the label: the caption annotates the
+        // value, and sitting in the label column is what made it read as a
+        // second label.
+        let indent = NSView()
+        indent.translatesAutoresizingMaskIntoConstraints = false
+        indent.widthAnchor.constraint(equalToConstant: Self.labelWidth + Space.s).isActive = true
+        let note = caption("", width: Self.contentWidth - Self.labelWidth - Space.s)
         captions[field] = note
-        let group = NSStackView(views: [row, note])
+        let noteRow = NSStackView(views: [indent, note])
+        noteRow.orientation = .horizontal
+        noteRow.spacing = 0
+        noteRow.translatesAutoresizingMaskIntoConstraints = false
+        captionRows[field] = noteRow
+
+        let group = NSStackView(views: [row, noteRow])
         group.orientation = .vertical
         group.alignment = .leading
         group.spacing = Space.xs
@@ -629,33 +676,67 @@ final class ProfileConfigurationSheet: NSViewController {
         if let chosenName {
             certificateButton.title = String(localized: "Replace…")
             captions[.certificate]?.stringValue = String(
-                localized: "Using \(chosenName) for this profile instead of the profile's own.")
+                localized: "Using \(chosenName) instead of the profile's own.")
         } else {
             certificateButton.title = String(localized: "Choose…")
+            certificateButton.setAccessibilityLabel(
+                String(localized: "Choose a certificate for this profile"))
             captions[.certificate]?.stringValue = String(
-                localized: """
-                    A certificate and its private key, in one PEM file, used for this profile \
-                    alone. Leave it unset to use whatever the profile carries.
-                    """)
+                localized: "One PEM file holding a certificate and its private key.")
         }
         reverts[.certificate]?.isHidden = chosenName == nil
     }
 
+    /// Makes a row's provenance apparent — **and a caption is the last
+    /// resort, not the mechanism** (D248).
+    ///
+    /// From the profile says nothing: it is true of almost every row, and
+    /// stating it five times running buried the one row that was actually the
+    /// user's. Not in the profile goes in the field, where an empty field's
+    /// explanation belongs natively. Only an override gets a line, and it says
+    /// the thing nothing else can — what Revert would put back.
     private func note(_ field: Field, _ provenance: Provenance) {
+        var overridden = false
+        var placeholder = placeholders[field] ?? ""
+
         switch provenance {
         case .fromProfile:
-            captions[field]?.stringValue = String(localized: "from this profile")
-            reverts[field]?.isHidden = true
+            break
         case .notInProfile:
-            captions[field]?.stringValue = String(localized: "not in this profile")
-            reverts[field]?.isHidden = true
+            placeholder = String(localized: "not in this profile")
         case .overridden(let profileValue):
+            overridden = true
+            let original = display(profileValue, for: field)
+            // Two strings, not one with the phrase passed in as the value: a
+            // translator handed `%@` cannot know whether it will be a number
+            // or a phrase, and German and Japanese need different grammar
+            // around each (A18).
             captions[field]?.stringValue =
-                profileValue.isEmpty
-                ? String(localized: "your choice")
-                : String(localized: "this profile says \(profileValue)")
-            reverts[field]?.isHidden = false
+                original.isEmpty
+                ? String(localized: "Original value: Not provided")
+                : String(localized: "Original value: \(original)")
+            // The value is what makes the action decidable, so a VoiceOver
+            // user gets it from the button rather than having to go and find
+            // the line under the field.
+            reverts[field]?.setAccessibilityLabel(
+                original.isEmpty
+                    ? String(localized: "Revert this setting to not provided")
+                    : String(localized: "Revert this setting to \(original)"))
         }
+
+        captionRows[field]?.isHidden = !overridden
+        reverts[field]?.isHidden = !overridden
+        fields[field]?.placeholderString = placeholder
+    }
+
+    /// The configuration's value in the **control's** vocabulary. The profile
+    /// says `tcp-client` where the picker says `TCP`, and a caption naming a
+    /// setting the control never shows looks like it is describing something
+    /// else entirely.
+    private func display(_ profileValue: String, for field: Field) -> String {
+        guard field == .transport, !profileValue.isEmpty else { return profileValue }
+        return Self.transports.first { profileValue.hasPrefix($0.id) }?.label
+            ?? profileValue.uppercased()
     }
 
     /// Writes a field only when it differs, so a refresh never moves the

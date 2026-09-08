@@ -37,6 +37,14 @@ enum Type {
     static var cardTitle: NSFont { .preferredFont(forTextStyle: .headline) }
     /// Host, last-connected, elapsed.
     static var caption: NSFont { .preferredFont(forTextStyle: .subheadline) }
+    /// **An annotation on a control**, one step below a caption.
+    ///
+    /// Its own style because a hint that shares a label's must be told apart
+    /// some other way, and there was no other way — the owner could not
+    /// separate "Port" from the line under it when both were secondary grey
+    /// at the same size (D248). Size, not contrast: still a text style, so it
+    /// scales, and it keeps a label's colour rather than fading out.
+    static var hint: NSFont { .preferredFont(forTextStyle: .footnote) }
     /// **The log, and nothing else.**
     static var mono: NSFont {
         .monospacedSystemFont(
