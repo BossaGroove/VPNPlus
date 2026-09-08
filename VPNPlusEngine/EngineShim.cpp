@@ -190,6 +190,15 @@ class Client final : public ClientAPI::OpenVPNClient
         config.tunPersist = false;
         config.googleDnsFallback = false;
         config.allowLocalLanAccess = false;
+        // "asym": decompress what the server sends, never compress what the user
+        // sends. Left empty, the engine runs in its strictest mode and treats a
+        // pushed `comp-lzo` as fatal (cliproto.hpp, check_proto_warnings:
+        // COMPRESS_ERROR, "server pushed compression settings that are not
+        // allowed") *after* announcing CONNECTED, which the owner's US profile
+        // did on 2026-09-08. The decompressor is the engine's own
+        // `lzoasym`, so no LZO library is added; and our own traffic is never
+        // compressed, which is what VORACLE needs.
+        config.compressionMode = "asym";
         // Ask the server for a session token where it offers one, so a later
         // connection can be made with something the server can revoke rather
         // than with the user's password (D220).
