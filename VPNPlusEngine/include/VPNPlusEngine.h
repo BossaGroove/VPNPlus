@@ -80,6 +80,10 @@ typedef struct {
     char remote_port[16];
     char remote_proto[16];
     size_t server_count;
+    /// Whether the profile carries a CA for checking the server. Empty for a
+    /// profile that pins the server's fingerprint instead, which is why this
+    /// is reported rather than assumed.
+    bool ca_present;
 } vpnplus_profile_info;
 
 /// Fills out from the profile text, and calls servers once per alternate
@@ -204,6 +208,13 @@ typedef struct {
     const char *server;   ///< host to connect to instead of the profile's
     const char *port;
     const char *transport;
+    /// A client certificate for this profile alone, as PEM (D134). Supplied
+    /// to the engine as a key/value entry rather than by editing the profile
+    /// text, which is stored verbatim (D188).
+    const char *certificate;
+    /// Its private key, as PEM. A certificate without one is not a client
+    /// identity openvpn3 can use.
+    const char *private_key;
 } vpnplus_overrides;
 
 /// Evaluates the profile and stores the credentials. Must succeed before run().

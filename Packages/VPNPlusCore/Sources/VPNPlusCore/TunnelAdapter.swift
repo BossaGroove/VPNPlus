@@ -59,6 +59,16 @@ public struct ProfileDescriptor: Sendable, Equatable, Codable {
     /// Directives the engine does not support, waived at import and disclosed
     /// as a count with the list behind it (D187).
     public let waivedDirectives: [String]
+    /// Whether the configuration carries a CA to check the server against.
+    /// Absent for a profile that pins the server's fingerprint instead, so it
+    /// is reported rather than assumed.
+    ///
+    /// **Optional because it is newer than the stored records.** A profile
+    /// imported before this existed decodes with `nil`, and the surface says
+    /// "not recorded" rather than making a claim about a server (A13a §6).
+    public let caPresent: Bool?
+    /// Whether the client identity comes from outside the file.
+    public let externalPKI: Bool?
 
     public init(
         displayName: String,
@@ -66,7 +76,9 @@ public struct ProfileDescriptor: Sendable, Equatable, Codable {
         credentials: [CredentialRequirement] = [],
         allowsPasswordSave: Bool = true,
         alternateServers: [ServerChoice] = [],
-        waivedDirectives: [String] = []
+        waivedDirectives: [String] = [],
+        caPresent: Bool? = nil,
+        externalPKI: Bool? = nil
     ) {
         self.displayName = displayName
         self.server = server
@@ -74,6 +86,8 @@ public struct ProfileDescriptor: Sendable, Equatable, Codable {
         self.allowsPasswordSave = allowsPasswordSave
         self.alternateServers = alternateServers
         self.waivedDirectives = waivedDirectives
+        self.caPresent = caPresent
+        self.externalPKI = externalPKI
     }
 
     /// True when nothing need be asked of the user before connecting.

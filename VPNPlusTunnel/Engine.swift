@@ -128,19 +128,36 @@ final class Engine: @unchecked Sendable {
         profile: String,
         username: String?,
         password: String?,
-        server: ServerOverride = ServerOverride()
+        server: ServerOverride = ServerOverride(),
+        identity: ClientIdentity = ClientIdentity()
     ) throws {
         guard let handle else { throw Failure(message: "The engine could not be created.") }
         var message = [CChar](repeating: 0, count: 1024)
         let ok = server.host.withCString { host in
             server.port.withCString { port in
                 server.transport.withCString { transport in
-                    var overrides = vpnplus_overrides(server: host, port: port, transport: transport)
-                    return vpnplus_engine_prepare(handle, profile, username, password, &overrides, &message, message.count)
+                    identity.certificate.withCString { certificate in
+                        identity.privateKey.withCString { key in
+                            var overrides = vpnplus_overrides(
+                                server: host, port: port, transport: transport,
+                                certificate: certificate, private_key: key)
+                            return vpnplus_engine_prepare(
+                                handle, profile, username, password, &overrides, &message,
+                                message.count)
+                        }
+                    }
                 }
             }
         }
         if !ok { throw Failure(message: Self.string(message)) }
+    }
+
+    /// A certificate and key the user supplied for this profile alone (D134),
+    /// as PEM. Empty when the profile's own identity is to be used.
+    struct ClientIdentity {
+        var certificate = ""
+        var privateKey = ""
+        var isEmpty: Bool { certificate.isEmpty && privateKey.isEmpty }
     }
 
     /// Connects and returns when the connection has ended.

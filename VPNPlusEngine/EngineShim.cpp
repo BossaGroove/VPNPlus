@@ -158,6 +158,7 @@ class Client final : public ClientAPI::OpenVPNClient
     {
         ClientAPI::Config config;
         config.content = profile ? profile : "";
+        bool supplied_certificate = false;
         // The user's choice of server, applied without rewriting the profile
         // text, which is stored verbatim (D188).
         if (overrides != nullptr)
@@ -168,6 +169,17 @@ class Client final : public ClientAPI::OpenVPNClient
                 config.portOverride = overrides->port;
             if (overrides->transport != nullptr)
                 config.protoOverride = overrides->transport;
+            // D134's certificate, given to the engine the way the engine
+            // itself supplies a referenced file: a key/value entry that
+            // becomes an inline directive during the parse. The stored profile
+            // text is untouched (D188).
+            if (overrides->certificate != nullptr && *overrides->certificate != '\0')
+            {
+                config.contentList.emplace_back("cert", overrides->certificate);
+                supplied_certificate = true;
+            }
+            if (overrides->private_key != nullptr && *overrides->private_key != '\0')
+                config.contentList.emplace_back("key", overrides->private_key);
         }
         config.guiVersion = client_version_;
         config.info = true;   // INFO events carry server messages the user should see
@@ -191,8 +203,10 @@ class Client final : public ClientAPI::OpenVPNClient
         // most.
         config.autologinSessions = true;
         // Before eval_config, which is when the engine takes its copy of these
-        // settings (ovpncli.cpp: import_client_settings).
-        config.disableClientCert = !has_client_certificate(config.content);
+        // settings (ovpncli.cpp: import_client_settings). A certificate the
+        // user supplied for this profile counts as the profile having one.
+        config.disableClientCert =
+            !supplied_certificate && !has_client_certificate(config.content);
 
         const ClientAPI::EvalConfig eval = eval_config(config);
         if (eval.error)
@@ -704,6 +718,7 @@ extern "C" bool vpnplus_engine_describe(const char *profile, vpnplus_profile_inf
         copy_field(out->remote_port, sizeof out->remote_port, eval.remotePort);
         copy_field(out->remote_proto, sizeof out->remote_proto, eval.remoteProto);
         out->server_count = eval.serverList.size();
+        out->ca_present = !eval.vpnCa.empty();
         if (servers != nullptr)
             for (const auto &entry : eval.serverList)
                 servers(context, entry.server.c_str(), entry.friendlyName.c_str());

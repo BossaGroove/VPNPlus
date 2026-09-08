@@ -66,6 +66,18 @@ enum SecretKind: Int, CaseIterable {
     /// (D220): the two have different lifetimes, the server can revoke this
     /// one at any time, and the user asked us to remember the other one.
     case sessionToken = 3
+    /// A client certificate the user supplied for this profile alone (D134),
+    /// as PEM.
+    ///
+    /// It goes to the extension rather than travelling in `startTunnel`
+    /// options, because a connection started from System Settings carries no
+    /// options — and a certificate that is only present when the app started
+    /// the connection would work in one place and fail in the other.
+    case certificate = 4
+    /// Its private key, as PEM. Separate from the certificate because a
+    /// private key is a secret in a way a certificate is not, and because a
+    /// user may replace one without the other.
+    case privateKey = 5
 
     /// The largest value this kind may carry. A cap is not paranoia: the
     /// caller runs as the user and can be attacked (D194), and root should
@@ -75,6 +87,8 @@ enum SecretKind: Int, CaseIterable {
         case .configuration: 1 << 20  // 1 MiB; openvpn3's own profile cap is smaller
         case .password: 4 << 10       // 4 KiB, which is generous for a password
         case .sessionToken: 4 << 10   // the protocol's own cap is 256 characters
+        case .certificate: 128 << 10  // a chain, generously; not a disk image
+        case .privateKey: 128 << 10
         }
     }
 
@@ -85,7 +99,7 @@ enum SecretKind: Int, CaseIterable {
     /// app. Refusing it costs nothing and narrows the surface (D194).
     var settableByApp: Bool {
         switch self {
-        case .configuration, .password: true
+        case .configuration, .password, .certificate, .privateKey: true
         case .sessionToken: false
         }
     }
@@ -98,6 +112,8 @@ enum SecretKind: Int, CaseIterable {
         case .configuration: "\(profile.uuidString).profile"
         case .password: "\(profile.uuidString).password"
         case .sessionToken: "\(profile.uuidString).session"
+        case .certificate: "\(profile.uuidString).certificate"
+        case .privateKey: "\(profile.uuidString).key"
         }
     }
 }

@@ -211,7 +211,9 @@ struct ProfileImport {
             credentials: credentials,
             allowsPasswordSave: info.allow_password_save,
             alternateServers: servers.all,
-            waivedDirectives: setAside)
+            waivedDirectives: setAside,
+            caPresent: info.ca_present,
+            externalPKI: info.external_pki)
     }
 
     private static func string<T>(_ field: T) -> String {

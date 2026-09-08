@@ -415,14 +415,92 @@ final class MainWindowController: NSWindowController {
         guard let descriptor = catalogue.descriptor(of: profile) else { return }
         let overrides = (try? store.overrides(for: profile.id)) ?? Overrides()
         let sheet = ProfileConfigurationSheet(
-            profile: profile, descriptor: descriptor, overrides: overrides
-        ) { [weak self] updated in
-            guard let self else { return }
-            try? store.setOverrides(updated, for: profile.id)
-            // The title in the list follows the user's name for it.
-            render()
-        }
+            profile: profile,
+            descriptor: descriptor,
+            overrides: overrides,
+            passwordAlreadySaved: profile.credentialsSaved,
+            onDone: { [weak self] outcome in
+                guard let self else { return }
+                Task { await commit(outcome, to: profile, descriptor: descriptor) }
+            },
+            onReplaceFile: { [weak self] in
+                self?.importer.replaceFile(of: profile, over: self?.window)
+            },
+            onReveal: { [weak self] in self?.reveal(profile) })
         content.presentAsSheet(sheet)
+    }
+
+    /// Carries out what the sheet decided: the overrides, then the sign-in
+    /// details, then the certificate. In that order because each is a
+    /// different store, and the one that can fail loudest goes last.
+    private func commit(
+        _ outcome: ProfileConfigurationSheet.Outcome, to profile: Profile,
+        descriptor: ProfileDescriptor
+    ) async {
+        var overrides = outcome.overrides
+        switch outcome.certificate {
+        case .unchanged:
+            break
+        case .chosen(let path, _, _):
+            overrides.certificatePath = path
+        case .cleared:
+            overrides.certificatePath = nil
+        }
+        try? store.setOverrides(overrides, for: profile.id)
+        // The title in the list follows the user's name for it.
+        render()
+
+        // The password never went into the overrides record (D127), so it is
+        // applied here by the same path the sign-in sheet uses — and against
+        // the settings the sheet has **just returned**, not the ones it opened
+        // with. Unticking "remember the password" is a decision this surface
+        // makes, and reading the old settings would have quietly ignored it.
+        let decision = credentials(
+            typedUsername: outcome.username, typedPassword: outcome.password,
+            profile: profile,
+            settings: ProfileSettings.compose(
+                descriptor, with: overrides, filename: profile.origin.filename))
+        if case .missing(let forgetting) = decision {
+            // Nothing typed and nothing may be kept, so what is stored goes.
+            // No prompt: this surface is never on the path to connecting
+            // (2.13), so there is nothing here to ask for.
+            if forgetting { await forget(profile) }
+        } else {
+            await apply(decision, to: profile)
+        }
+        await applyCertificate(outcome.certificate, to: profile)
+    }
+
+    /// D134's certificate, handed to the extension so a connection started
+    /// from System Settings has it too.
+    private func applyCertificate(
+        _ change: ProfileConfigurationSheet.CertificateChange, to profile: Profile
+    ) async {
+        do {
+            switch change {
+            case .unchanged:
+                return
+            case .chosen(_, let certificate, let privateKey):
+                let client = PrivilegedClient()
+                try await client.setSecret(certificate, kind: .certificate, for: profile.id)
+                try await client.setSecret(privateKey, kind: .privateKey, for: profile.id)
+                Self.log.notice("stored a certificate for this profile")
+            case .cleared:
+                let client = PrivilegedClient()
+                try await client.deleteSecret(kind: .certificate, for: profile.id)
+                try await client.deleteSecret(kind: .privateKey, for: profile.id)
+                Self.log.notice("removed this profile's certificate")
+            }
+        } catch {
+            Self.log.error(
+                "the certificate could not be stored: \(error.localizedDescription, privacy: .public)"
+            )
+            notify(
+                String(
+                    localized:
+                        "VPN Plus couldn't store that certificate. The profile still works, using whatever certificate it carries."
+                ))
+        }
     }
 
     /// A rename is an override, not a rewrite: an employer who reissues the

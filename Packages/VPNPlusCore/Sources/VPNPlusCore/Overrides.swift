@@ -62,6 +62,65 @@ public struct Overrides: Sendable, Equatable, Codable {
     }
 
     public var isEmpty: Bool { self == Overrides() }
+
+    /// One thing this record can override. The unit a **Revert** works on:
+    /// the blunt Revert this replaces cleared the whole record, because a
+    /// button in a row had no way to name its row (A13a's provenance table,
+    /// M3.6's note).
+    public enum Setting: Sendable, Hashable, CaseIterable {
+        case title, host, port, transport, selectedServer, username, certificate
+    }
+
+    /// Whether this record overrides `setting` at all — which is what decides
+    /// whether a Revert is offered for it.
+    public func overrides(_ setting: Setting, comparedTo descriptor: ProfileDescriptor) -> Bool {
+        switch setting {
+        case .title: title != nil && title != descriptor.displayName
+        case .host: server != nil && server?.host != descriptor.server.host
+        case .port: server != nil && server?.port != descriptor.server.port
+        case .transport: server != nil && server?.transport != descriptor.server.transport
+        case .selectedServer: selectedServer != nil
+        case .username: username?.isEmpty == false
+        case .certificate: certificatePath != nil
+        }
+    }
+
+    /// This record with `setting` put back to what the configuration says.
+    ///
+    /// The server is one stored endpoint rather than three, so reverting the
+    /// port has to keep the host — and once all three agree with the
+    /// configuration again the record is **removed** rather than left holding
+    /// a copy of it, so "the user has not spoken" stays a single state.
+    public func reverting(_ setting: Setting, to descriptor: ProfileDescriptor) -> Overrides {
+        var copy = self
+        switch setting {
+        case .title: copy.title = nil
+        case .selectedServer: copy.selectedServer = nil
+        case .username: copy.username = nil
+        case .certificate: copy.certificatePath = nil
+        case .host: copy.server = Self.endpoint(server, replacingHost: descriptor.server.host)
+        case .port: copy.server = Self.endpoint(server, replacingPort: descriptor.server.port)
+        case .transport:
+            copy.server = Self.endpoint(server, replacingTransport: descriptor.server.transport)
+        }
+        if copy.server == descriptor.server { copy.server = nil }
+        return copy
+    }
+
+    /// The server override with one part rewritten, keeping the others.
+    /// `nil` in, `nil` out: there was nothing overridden to revert.
+    public static func endpoint(
+        _ current: ServerEndpoint?,
+        replacingHost host: String? = nil,
+        replacingPort port: String? = nil,
+        replacingTransport transport: String? = nil
+    ) -> ServerEndpoint? {
+        guard let current else { return nil }
+        return ServerEndpoint(
+            host: host ?? current.host,
+            port: port ?? current.port,
+            transport: transport ?? current.transport)
+    }
 }
 
 /// An override the profile text no longer agrees with. Replacing a profile

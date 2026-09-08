@@ -125,6 +125,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     /// two rejections in a row are a rejection, not a stale token.
     private var tokenRefused = false
     private var serverOverride = Engine.ServerOverride()
+    private var identity = Engine.ClientIdentity()
     private let secrets = ExtensionSecretStore()
     private var deadline: DispatchWorkItem?
     /// Every phase has one of its own (feature-spec 3.5). One attempt deadline
@@ -272,6 +273,27 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         {
             token = StoredSessionToken(data)
         }
+        readClientIdentity(for: identifier)
+    }
+
+    /// D134's certificate, from the extension's own keychain rather than from
+    /// `startTunnel` options — a connection started from System Settings
+    /// carries no options, and an identity that is only there when the app
+    /// asked would work in one place and fail in the other.
+    private func readClientIdentity(for identifier: UUID) {
+        func pem(_ kind: SecretKind) -> String {
+            guard let data = (try? secrets.secret(for: kind.account(for: identifier))) ?? nil,
+                let text = String(data: data, encoding: .utf8)
+            else { return "" }
+            return text
+        }
+        identity = Engine.ClientIdentity(
+            certificate: pem(.certificate), privateKey: pem(.privateKey))
+        if !identity.isEmpty {
+            // Never the contents, and not even a length: what matters for a
+            // diagnosis is that one was used at all.
+            log.notice("using the certificate stored for this profile")
+        }
     }
 
     /// The freshest credential available, and where it came from.
@@ -323,7 +345,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
                 profile: profile,
                 username: current.username,
                 password: current.password,
-                server: serverOverride)
+                server: serverOverride,
+                identity: identity)
         } catch {
             log.error("prepare failed: \(error.localizedDescription, privacy: .public)")
             failAttempt(Failure("\(error)"))

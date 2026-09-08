@@ -108,6 +108,109 @@ final class ProfileImporter {
         }
     }
 
+    /// A13a's **Replace profile file…**, and D125's model made concrete: an
+    /// employer reissues the profile and it costs one file picker rather than a
+    /// retyped configuration.
+    ///
+    /// Unlike an import, this replaces *this* profile whatever the new file is
+    /// called — the user pointed at it, so matching on filename would be
+    /// second-guessing them. Overrides are kept, and any the new text now
+    /// contradicts are named rather than dropped in silence (D132).
+    func replaceFile(of profile: Profile, over window: NSWindow?) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [Self.profileType]
+        panel.allowsOtherFileTypes = true
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.prompt = String(localized: "Replace")
+        panel.message = String(localized: "Choose the profile file to use from now on.")
+        let finish: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard let self, response == .OK, let url = panel.url else { return }
+            DispatchQueue.main.async { [weak self] in self?.replace(profile, with: url, over: window) }
+        }
+        if let window {
+            panel.beginSheetModal(for: window, completionHandler: finish)
+        } else {
+            finish(panel.runModal())
+        }
+    }
+
+    private func replace(_ profile: Profile, with url: URL, over window: NSWindow?) {
+        let filename = url.lastPathComponent
+        let outcome = inspector.inspect(url, waiving: profile.acceptedWaivers)
+        guard case let .ready(configuration, descriptor, setAside) = outcome else {
+            // Every other outcome is a refusal or a question, and the existing
+            // messages already say the right thing about each — the only
+            // difference is that nothing was replaced.
+            guard let message = ImportMessage.forOutcome(outcome, filename: filename) else { return }
+            var details: [String] = []
+            if case .unrecognised(let directives) = outcome { details = directives }
+            present(message, over: window, details: details, url: url)
+            return
+        }
+        do {
+            let conflicts = try store.replaceConfiguration(
+                configuration, descriptor: descriptor,
+                title: descriptor.preferredTitle(filename: filename), for: profile.id)
+            try store.setDescriptor(descriptor, for: profile.id)
+            log.notice(
+                "replaced the file for \(profile.id.uuidString, privacy: .public); \(conflicts.count, privacy: .public) overrides now contradicted"
+            )
+            handOver(configuration, for: profile.id)
+            onChange?()
+            presentPlain(
+                title: String(localized: "Replaced with \(filename)"),
+                body: Self.summary(conflicts: conflicts, setAside: setAside.directives),
+                over: window)
+        } catch {
+            log.error(
+                "could not replace \(filename, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            presentPlain(
+                title: String(localized: "Couldn't replace \(filename)"),
+                body: String(
+                    localized: """
+                        The profile was read, but VPN Plus couldn't store it. \
+                        Your Keychain may have denied access, and the old profile is still in place.
+                        """),
+                over: window)
+        }
+    }
+
+    /// What changed, in the user's terms. An override the new text contradicts
+    /// is **kept and named**: dropping it silently is what D132 forbids, and
+    /// the user is the only one who can say which they meant.
+    private static func summary(conflicts: [OverrideConflict], setAside: [String]) -> String {
+        var lines: [String] = [
+            String(localized: "Your settings for this profile have been kept.")
+        ]
+        for conflict in conflicts {
+            switch conflict.kind {
+            case .serverNoLongerOffered(let host):
+                lines.append(
+                    String(localized: "The new file no longer offers \(host), which you had chosen."))
+            case .usernameNowFixed(let userValue, let fixedValue):
+                lines.append(
+                    String(
+                        localized:
+                            "The new file fixes the username to \(fixedValue); yours was \(userValue)."
+                    ))
+            case .passwordSavingNowForbidden:
+                lines.append(
+                    String(localized: "The new file does not allow saving the password."))
+            }
+        }
+        if !setAside.isEmpty {
+            lines.append(
+                String(
+                    localized: """
+                        VPN Plus doesn't use \(setAside.count) of its settings: \
+                        \(setAside.joined(separator: ", ")).
+                        """))
+        }
+        return lines.joined(separator: "\n\n")
+    }
+
     private func store(
         _ configuration: Data,
         _ descriptor: ProfileDescriptor,

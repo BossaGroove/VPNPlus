@@ -282,3 +282,67 @@ struct ProfileSettingsTests {
                 [OverrideConflict(kind: .passwordSavingNowForbidden)])
     }
 }
+
+/// Per-row Revert (M5.7). The blunt Revert it replaces cleared the whole
+/// record, so what these pin is that reverting one row leaves every other
+/// row alone.
+struct PerSettingRevertTests {
+    private let base = ProfileDescriptor(
+        displayName: "Company SG",
+        server: ServerEndpoint(host: "sg.example.invalid", port: "1194", transport: "udp"))
+
+    private var everything: Overrides {
+        Overrides(
+            title: "Work", selectedServer: nil,
+            server: ServerEndpoint(host: "elsewhere.invalid", port: "443", transport: "tcp"),
+            username: "alex", savePassword: false, certificatePath: "/tmp/id.pem",
+            connectWhenAppOpens: true, reconnectAutomatically: false)
+    }
+
+    @Test func revertingOneRowLeavesTheOthersAlone() {
+        let reverted = everything.reverting(.username, to: base)
+        #expect(reverted.username == nil)
+        #expect(reverted.title == "Work")
+        #expect(reverted.server?.host == "elsewhere.invalid")
+        #expect(reverted.certificatePath == "/tmp/id.pem")
+        // The two per-profile switches are not rows with provenance, and
+        // nothing about a Revert may touch them.
+        #expect(reverted.connectWhenAppOpens == true)
+        #expect(reverted.reconnectAutomatically == false)
+        #expect(reverted.savePassword == false)
+    }
+
+    /// The server is one stored endpoint and three rows, which is the only
+    /// place a per-row Revert has real work to do.
+    @Test func revertingThePortKeepsTheHost() {
+        let reverted = everything.reverting(.port, to: base)
+        #expect(reverted.server?.port == "1194")
+        #expect(reverted.server?.host == "elsewhere.invalid")
+        #expect(reverted.server?.transport == "tcp")
+    }
+
+    @Test func revertingTheLastServerRowRemovesTheRecord() {
+        var overrides = Overrides(
+            server: ServerEndpoint(host: "elsewhere.invalid", port: "1194", transport: "udp"))
+        overrides = overrides.reverting(.host, to: base)
+        #expect(
+            overrides.server == nil,
+            "a record holding exactly what the profile says is not an override")
+    }
+
+    @Test func revertingSomethingThatWasNotOverriddenChangesNothing() {
+        let untouched = Overrides(title: "Work")
+        #expect(untouched.reverting(.port, to: base) == untouched)
+        #expect(untouched.reverting(.certificate, to: base) == untouched)
+    }
+
+    @Test func whetherARevertIsOfferedFollowsTheRecord() {
+        let overrides = Overrides(server: ServerEndpoint(
+            host: "sg.example.invalid", port: "443", transport: "udp"))
+        #expect(overrides.overrides(.port, comparedTo: base))
+        // The host in that record agrees with the profile, so that row has
+        // nothing to revert even though the record exists.
+        #expect(!overrides.overrides(.host, comparedTo: base))
+        #expect(!overrides.overrides(.username, comparedTo: base))
+    }
+}
