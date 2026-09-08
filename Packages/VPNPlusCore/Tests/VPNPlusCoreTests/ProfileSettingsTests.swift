@@ -37,35 +37,60 @@ struct ProfileSettingsTests {
             waivedDirectives: waived)
     }
 
+    /// `ProfileSettings.compose` requires a filename so that no caller in the
+    /// app can forget one. These tests are not about the filename except where
+    /// they say so, so they go through here.
+    static func compose(
+        _ descriptor: ProfileDescriptor, with overrides: Overrides, filename: String = ""
+    ) -> ProfileSettings {
+        ProfileSettings.compose(descriptor, with: overrides, filename: filename)
+    }
+
     // MARK: - Provenance (D126)
 
+    /// The defect that shipped twice, pinned at the level both surfaces read.
+    /// `preferredTitle` was tested on its own from the start and was always
+    /// right; what was never tested was `compose` *carrying the filename to
+    /// it*, so both callers could bypass it and stay green.
+    @Test func aComposedTitlePrefersTheFilenameOverTheServerAddress() {
+        // What the engine actually reports for a profile with no name: the
+        // server's own address, as the name.
+        let byAddress = descriptor(
+            name: "203.0.113.18",
+            server: ServerEndpoint(host: "203.0.113.18", port: "443", transport: "udp"))
+        let settings = ProfileSettings.compose(
+            byAddress, with: Overrides(), filename: "Configure SG.ovpn")
+        #expect(settings.title.value == "Configure SG")
+        #expect(settings.title.provenance == .fromProfile)
+    }
+
     @Test func aValueFromTheProfileSaysSo() {
-        let settings = ProfileSettings.compose(descriptor(), with: Overrides())
+        let settings = Self.compose(descriptor(), with: Overrides())
         #expect(settings.title.value == "Company SG")
         #expect(settings.title.provenance == .fromProfile)
     }
 
     @Test func anOverriddenValueKeepsWhatTheProfileSaid() {
-        let settings = ProfileSettings.compose(descriptor(), with: Overrides(title: "Work"))
+        let settings = Self.compose(descriptor(), with: Overrides(title: "Work"))
         #expect(settings.title.value == "Work")
         #expect(settings.title.provenance == .overridden(profileValue: "Company SG"))
     }
 
     @Test func aValueTheProfileDoesNotSupplyIsNotInvented() {
-        let settings = ProfileSettings.compose(descriptor(name: ""), with: Overrides())
+        let settings = Self.compose(descriptor(name: ""), with: Overrides())
         #expect(settings.title.value.isEmpty)
         #expect(settings.title.provenance == .notInProfile)
     }
 
     @Test func anOverrideEqualToTheProfileIsNotAnOverride() {
-        let settings = ProfileSettings.compose(descriptor(), with: Overrides(title: "Company SG"))
+        let settings = Self.compose(descriptor(), with: Overrides(title: "Company SG"))
         #expect(settings.title.provenance == .fromProfile)
     }
 
     // MARK: - 2.14: a fixed username is read-only, never an empty field
 
     @Test func aFixedUsernameIsReadOnly() {
-        let settings = ProfileSettings.compose(
+        let settings = Self.compose(
             descriptor(credentials: [.usernamePassword(usernameLocked: "alex")]), with: Overrides())
         guard case .credentials(let username, _, _) = settings.signIn else {
             Issue.record("expected credentials, got \(settings.signIn)"); return
@@ -77,7 +102,7 @@ struct ProfileSettingsTests {
         // The user may have typed one before the profile was reissued; the
         // profile wins, and the conflict is reported rather than silently kept.
         let fixed = descriptor(credentials: [.usernamePassword(usernameLocked: "alex")])
-        let settings = ProfileSettings.compose(fixed, with: Overrides(username: "someone-else"))
+        let settings = Self.compose(fixed, with: Overrides(username: "someone-else"))
         guard case .credentials(let username, _, _) = settings.signIn else {
             Issue.record("expected credentials"); return
         }
@@ -87,7 +112,7 @@ struct ProfileSettingsTests {
     }
 
     @Test func aFreeUsernameIsEditable() {
-        let settings = ProfileSettings.compose(descriptor(), with: Overrides(username: "alex"))
+        let settings = Self.compose(descriptor(), with: Overrides(username: "alex"))
         guard case .credentials(let username, _, _) = settings.signIn else {
             Issue.record("expected credentials"); return
         }
@@ -97,7 +122,7 @@ struct ProfileSettingsTests {
     // MARK: - 2.15: password saving is not offered when the profile forbids it
 
     @Test func passwordSavingIsNotOfferedWhenTheProfileForbidsIt() {
-        let settings = ProfileSettings.compose(descriptor(allowsPasswordSave: false), with: Overrides())
+        let settings = Self.compose(descriptor(allowsPasswordSave: false), with: Overrides())
         guard case .credentials(_, let saving, _) = settings.signIn else {
             Issue.record("expected credentials"); return
         }
@@ -106,7 +131,7 @@ struct ProfileSettingsTests {
 
     @Test func aForbiddingProfileOverridesTheUsersEarlierChoice() {
         // D129: our default applies where the profile is silent, never against it.
-        let settings = ProfileSettings.compose(
+        let settings = Self.compose(
             descriptor(allowsPasswordSave: false), with: Overrides(savePassword: true))
         guard case .credentials(_, let saving, _) = settings.signIn else {
             Issue.record("expected credentials"); return
@@ -115,7 +140,7 @@ struct ProfileSettingsTests {
     }
 
     @Test func passwordSavingIsOnByDefaultWhereThePofileIsSilent() {
-        let settings = ProfileSettings.compose(descriptor(), with: Overrides())
+        let settings = Self.compose(descriptor(), with: Overrides())
         guard case .credentials(_, let saving, _) = settings.signIn else {
             Issue.record("expected credentials"); return
         }
@@ -125,7 +150,7 @@ struct ProfileSettingsTests {
     // MARK: - 2.16 / D130: several servers make a picker
 
     @Test func severalServersBecomeAPicker() {
-        let settings = ProfileSettings.compose(
+        let settings = Self.compose(
             descriptor(alternates: [
                 ServerChoice(host: "sg.example.invalid", label: "Singapore"),
                 ServerChoice(host: "hk.example.invalid", label: "Hong Kong"),
@@ -140,7 +165,7 @@ struct ProfileSettingsTests {
 
     @Test func aChoiceTheProfileNoLongerOffersFallsBackRatherThanShowingADeadOne() {
         let reissued = descriptor(alternates: [ServerChoice(host: "sg.example.invalid", label: "Singapore")])
-        let settings = ProfileSettings.compose(reissued, with: Overrides(selectedServer: "gone.example.invalid"))
+        let settings = Self.compose(reissued, with: Overrides(selectedServer: "gone.example.invalid"))
         guard case .choice(_, let selected) = settings.server else {
             Issue.record("expected a picker"); return
         }
@@ -150,7 +175,7 @@ struct ProfileSettingsTests {
     }
 
     @Test func oneServerStaysAValueWithItsOwnProvenance() {
-        let settings = ProfileSettings.compose(descriptor(), with: Overrides())
+        let settings = Self.compose(descriptor(), with: Overrides())
         guard case .single(let host, let port, let transport) = settings.server else {
             Issue.record("expected a single server"); return
         }
@@ -161,7 +186,7 @@ struct ProfileSettingsTests {
     }
 
     @Test func aTypedServerOverridesTheProfilesOwn() {
-        let settings = ProfileSettings.compose(
+        let settings = Self.compose(
             descriptor(), with: Overrides(server: ServerEndpoint(host: "vpn.example.invalid", port: "443", transport: "tcp")))
         guard case .single(let host, let port, _) = settings.server else {
             Issue.record("expected a single server"); return
@@ -174,12 +199,12 @@ struct ProfileSettingsTests {
     // MARK: - Nothing to ask, and the rest
 
     @Test func aProfileThatSignsInByItselfAsksNothing() {
-        let settings = ProfileSettings.compose(descriptor(credentials: [.none]), with: Overrides())
+        let settings = Self.compose(descriptor(credentials: [.none]), with: Overrides())
         #expect(settings.signIn == .notNeeded)
     }
 
     @Test func aChallengeIsCarriedWithItsPromptAndWhetherItEchoes() {
-        let settings = ProfileSettings.compose(
+        let settings = Self.compose(
             descriptor(credentials: [
                 .usernamePassword(usernameLocked: nil),
                 .challenge(prompt: "Enter your code", echo: false),
@@ -192,13 +217,13 @@ struct ProfileSettingsTests {
     }
 
     @Test func reconnectingAutomaticallyIsOnUnlessTheUserSaysOtherwise() {
-        #expect(ProfileSettings.compose(descriptor(), with: Overrides()).reconnectAutomatically)
-        #expect(!ProfileSettings.compose(descriptor(), with: Overrides(reconnectAutomatically: false)).reconnectAutomatically)
-        #expect(!ProfileSettings.compose(descriptor(), with: Overrides()).connectWhenAppOpens)
+        #expect(Self.compose(descriptor(), with: Overrides()).reconnectAutomatically)
+        #expect(!Self.compose(descriptor(), with: Overrides(reconnectAutomatically: false)).reconnectAutomatically)
+        #expect(!Self.compose(descriptor(), with: Overrides()).connectWhenAppOpens)
     }
 
     @Test func waivedDirectivesAreCarriedThroughForDisclosure() {
-        let settings = ProfileSettings.compose(
+        let settings = Self.compose(
             descriptor(waived: ["resolv-retry", "persist-key", "persist-tun"]), with: Overrides())
         #expect(settings.waivedDirectives.count == 3)
     }

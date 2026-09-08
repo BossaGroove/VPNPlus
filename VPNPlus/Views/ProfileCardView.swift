@@ -91,6 +91,13 @@ final class ProfileCardView: NSView {
         wantsLayer = true
         layer?.cornerRadius = 10
         layer?.borderWidth = 1
+        // **One selection indicator, not two.** The accent border below *is*
+        // the focus indicator (D57), and the system ring drew a second one
+        // just outside it at a wider corner radius — two blue strokes with a
+        // sliver of card between them, worst at the corners. The border is
+        // also the better of the two here: it stays visible when the window
+        // is not key, and selection outlives focus.
+        focusRingType = .none
         // **The grid positions a card by frame**, so this stays on: a view
         // with it turned off and no constraints placing it has no position and
         // no size, which is exactly how M5.4 first shipped an empty window.
@@ -275,11 +282,6 @@ final class ProfileCardView: NSView {
         return true
     }
 
-    override func drawFocusRingMask() {
-        NSBezierPath(roundedRect: bounds, xRadius: 10, yRadius: 10).fill()
-    }
-
-    override var focusRingMaskBounds: NSRect { bounds }
 }
 
 extension ProfileCardView: NSTextFieldDelegate {

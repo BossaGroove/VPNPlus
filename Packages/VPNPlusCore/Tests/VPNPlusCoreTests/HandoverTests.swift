@@ -71,7 +71,9 @@ struct HandoverTests {
         #expect(stored.descriptor == descriptor)
         #expect(stored.descriptor?.server.host == "sg.example.invalid")
         // And composing still works with no configuration in reach.
-        let settings = ProfileSettings.compose(stored.descriptor!, with: Overrides(username: "alex"))
+        let settings = ProfileSettings.compose(
+            stored.descriptor!, with: Overrides(username: "alex"),
+            filename: stored.origin.filename)
         #expect(settings.effectiveServer.host == "sg.example.invalid")
     }
 

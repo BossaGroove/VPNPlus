@@ -35,7 +35,26 @@ final class ProfileConfigurationSheet: NSViewController {
     private var overrides: Overrides
     private let onDone: (Overrides) -> Void
 
-    private var settings: ProfileSettings { ProfileSettings.compose(descriptor, with: overrides) }
+    /// D215: without the filename this calls the profile by its IP address,
+    /// which is what the sheet did until M5.6 while the card beside it said
+    /// "Configure NA". Two surfaces naming the same profile differently is the
+    /// defect, not the cosmetics of either one.
+    private var settings: ProfileSettings {
+        ProfileSettings.compose(descriptor, with: overrides, filename: profile.origin.filename)
+    }
+
+    /// The name the profile has when the user has not renamed it. `readFields`
+    /// compares against this, so typing the name already shown is not stored
+    /// as an override.
+    private var defaultTitle: String {
+        descriptor.preferredTitle(filename: profile.origin.filename)
+    }
+
+    /// One content width for the whole sheet, so the sheet is as wide as its
+    /// widest row and no wider. Without it a wrapping caption asks for its
+    /// full single-line width, the sheet grows to suit, and the rows sit in a
+    /// gutter — which is what "the size looks wrong" was.
+    private static let contentWidth: CGFloat = 110 + 8 + 260 + 8 + 72
 
     private let titleField = NSTextField(string: "")
     private let hostField = NSTextField(string: "")
@@ -68,23 +87,34 @@ final class ProfileConfigurationSheet: NSViewController {
 
         let done = NSButton(title: String(localized: "Done"), target: self, action: #selector(done))
         done.keyEquivalent = "\r"
-        let buttons = NSStackView(views: [done])
+        // A spacer that gives way, so Done sits at the trailing edge of the
+        // content rather than the rows being dragged over there with it.
+        let spacer = NSView()
+        spacer.translatesAutoresizingMaskIntoConstraints = false
+        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
+        let buttons = NSStackView(views: [spacer, done])
         buttons.orientation = .horizontal
 
         let stack = NSStackView(views: [rows, buttons])
         stack.orientation = .vertical
-        stack.alignment = .trailing
+        stack.alignment = .leading
         stack.spacing = 18
         stack.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
         stack.translatesAutoresizingMaskIntoConstraints = false
 
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 460))
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: Self.contentWidth + 40, height: 460))
         container.addSubview(stack)
         NSLayoutConstraint.activate([
+            rows.widthAnchor.constraint(equalToConstant: Self.contentWidth),
+            buttons.widthAnchor.constraint(equalTo: rows.widthAnchor),
             stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             stack.topAnchor.constraint(equalTo: container.topAnchor),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor),
+            // Equal, not at-most: the sheet takes its height from its rows.
+            // At-most left the height at whatever the frame above happened to
+            // say, so the sheet was too tall for a short profile and clipped a
+            // long one.
+            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
         view = container
     }
@@ -209,7 +239,13 @@ final class ProfileConfigurationSheet: NSViewController {
         let field = NSTextField(wrappingLabelWithString: text)
         field.textColor = .secondaryLabelColor
         field.font = .preferredFont(forTextStyle: .caption1)
-        field.preferredMaxLayoutWidth = 400
+        // Both, and the constraint is the load-bearing one:
+        // `preferredMaxLayoutWidth` alone only decides where the text wraps
+        // for the purpose of measuring height — the field still asks for its
+        // full single-line width, and the sheet obliges.
+        field.preferredMaxLayoutWidth = Self.contentWidth
+        field.translatesAutoresizingMaskIntoConstraints = false
+        field.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
         return field
     }
 
@@ -232,12 +268,20 @@ final class ProfileConfigurationSheet: NSViewController {
             revert.bezelStyle = .accessoryBarAction
             revert.identifier = control.identifier
             revert.tag = rows.views.count
+            // Flush with the content's trailing edge, so Revert and Done sit
+            // in the same column rather than a few points apart.
+            let spacer = NSView()
+            spacer.translatesAutoresizingMaskIntoConstraints = false
+            spacer.setContentHuggingPriority(.init(1), for: .horizontal)
+            line.append(spacer)
             line.append(revert)
         }
         let row = NSStackView(views: line)
         row.orientation = .horizontal
         row.spacing = 8
+        row.translatesAutoresizingMaskIntoConstraints = false
         rows.addView(row, in: .top)
+        row.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
 
         let text: String?
         switch (custom, provenance) {
@@ -267,7 +311,7 @@ final class ProfileConfigurationSheet: NSViewController {
     /// Reads what is typed into the overrides. No layout of any kind: a
     /// caller that is closing the sheet has no business rebuilding it.
     private func readFields() {
-        overrides.title = value(titleField, default: descriptor.displayName)
+        overrides.title = value(titleField, default: defaultTitle)
         overrides.username = value(usernameField, default: "")
         let host = value(hostField, default: descriptor.server.host)
         let port = value(portField, default: descriptor.server.port)

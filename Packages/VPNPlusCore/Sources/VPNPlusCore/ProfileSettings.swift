@@ -121,10 +121,15 @@ public struct ProfileSettings: Sendable, Equatable {
     /// address** (D215), so composing the title from the descriptor alone
     /// calls the profile `203.0.113.18`. `preferredTitle` is the rule that
     /// fixes it, and it needs the filename to apply.
+    ///
+    /// It has **no default on purpose.** It had one, and omitting it produced a
+    /// plausible wrong answer instead of an error — which is how the same
+    /// defect shipped twice: the card called the profile `203.0.113.18` at
+    /// M5.4, and the settings sheet still did at M5.6.
     public static func compose(
         _ descriptor: ProfileDescriptor,
         with overrides: Overrides,
-        filename: String = ""
+        filename: String
     ) -> ProfileSettings {
         let server: ServerSelection
         if descriptor.alternateServers.isEmpty {

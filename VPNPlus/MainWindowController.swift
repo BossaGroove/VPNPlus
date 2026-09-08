@@ -136,7 +136,47 @@ final class MainWindowController: NSWindowController {
         importer.handOverPending()
         installer.activate()
         Task { await tunnel.load() }
+
+        #if DEBUG
+            installDebugTriggers()
+        #endif
     }
+
+    #if DEBUG
+        /// **Development only: the app opens and closes its own settings
+        /// sheet.**
+        ///
+        ///   notifyutil -p com.bossagroove.VPNPlus.debug.openSettingsSheet
+        ///
+        /// The sheet is two clicks into a card's `…` menu, and neither click is
+        /// one this session can make. Same reason the status menu has a
+        /// trigger: a surface nobody can open is a surface nobody can look at,
+        /// and looking at it is how its defects were found.
+        ///
+        /// It **toggles**, and that is the part worth keeping: a trigger that
+        /// only opens leaves a modal sheet sitting on somebody's screen until
+        /// they come back and dismiss it themselves.
+        private func installDebugTriggers() {
+            var token: Int32 = NOTIFY_TOKEN_INVALID
+            notify_register_dispatch(
+                "com.bossagroove.VPNPlus.debug.openSettingsSheet", &token, DispatchQueue.main
+            ) { _ in
+                MainActor.assumeIsolated { [weak self] in
+                    guard let self else { return }
+                    if let open = window?.attachedSheet {
+                        Self.log.notice("debug: closing the sheet")
+                        window?.endSheet(open)
+                        return
+                    }
+                    guard let profile = catalogue.profiles.last else { return }
+                    Self.log.notice(
+                        "debug: opening the settings sheet for \(profile.id.uuidString, privacy: .public)"
+                    )
+                    configure(profile)
+                }
+            }
+        }
+    #endif
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("not supported") }
