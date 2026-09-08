@@ -411,11 +411,13 @@ final class ProfileConfigurationSheet: NSViewController {
 
         certificateButton.target = self
         certificateButton.action = #selector(chooseCertificate)
-        // **No row label.** The section is called Certificate and has one row
-        // in it, so labelling the row "Certificate" as well was the same word
-        // twice. The column is kept, so the button lines up with the fields
-        // above it.
-        let name = NSView()
+        // The same word as the section heading, and that is the right trade:
+        // dropping it left the label column blank beside a floating button,
+        // which reads as something missing rather than as something tidy.
+        // Every other row in the sheet has a label; this one is not special.
+        let name = NSTextField(labelWithString: String(localized: "Certificate"))
+        name.textColor = Palette.textSecondary
+        name.alignment = .right
         name.translatesAutoresizingMaskIntoConstraints = false
         name.widthAnchor.constraint(equalToConstant: Self.labelWidth).isActive = true
 
