@@ -99,6 +99,10 @@ final class ProfileConfigurationSheet: NSViewController {
     /// the field and taken back out again.
     private var fields: [Field: NSTextField] = [:]
     private var placeholders: [Field: String] = [:]
+    /// The two ways a value's trailing edge can be pinned, of which exactly
+    /// one is active at a time — see `note`.
+    private var besideRevert: [Field: NSLayoutConstraint] = [:]
+    private var atTrailingEdge: [Field: NSLayoutConstraint] = [:]
     private let certificateRow = NSStackView()
     private let certificateCaption = NSTextField(labelWithString: "")
     private let certificateButton = NSButton(title: "", target: nil, action: nil)
@@ -820,11 +824,16 @@ final class ProfileConfigurationSheet: NSViewController {
             return
         }
 
-        // **Revert sits in the row, beside the value** — and to the *left* of
-        // it, so the value's trailing edge still lines up with every other
-        // row's. It had a row of its own with an "Original value: …" caption,
-        // which cost a whole row per override and read as a half-height
-        // oddity between two proper rows.
+        // **Revert sits in the row, to the right of the value.** It had a row
+        // of its own with an "Original value: …" caption, which cost a whole
+        // row per override and read as a half-height oddity between two proper
+        // rows.
+        //
+        // I put it to the *left* first, so the value's trailing edge would
+        // keep lining up with the rows that have no Revert. The owner looked
+        // at it and moved it right, which is the better call: the action reads
+        // after the thing it acts on, and a column of values is worth less
+        // than that when only one row in a card ever has a button.
         //
         // The original value is not lost: it is the Revert button's tooltip
         // and its accessibility label, which is where it belongs — it exists
@@ -841,20 +850,33 @@ final class ProfileConfigurationSheet: NSViewController {
         holder.addSubview(revert)
         holder.addSubview(control)
         NSLayoutConstraint.activate([
-            revert.leadingAnchor.constraint(equalTo: holder.leadingAnchor),
-            // **The button defines the row's height, not the field.** Pinning
-            // the field's top *and* bottom made the holder as short as the
-            // field, the 28 pt button then could not fit, and Auto Layout
-            // resolved it by breaking the constraint that kept the two apart
-            // — so Revert rendered on top of the value.
+            revert.trailingAnchor.constraint(equalTo: holder.trailingAnchor),
+            // The button defines the row's height, not the field: the field is
+            // shorter, and pinning its top and bottom would leave the 28 pt
+            // button nowhere to go.
             revert.topAnchor.constraint(equalTo: holder.topAnchor),
             revert.bottomAnchor.constraint(equalTo: holder.bottomAnchor),
-            control.leadingAnchor.constraint(
-                equalTo: revert.trailingAnchor, constant: Space.s),
-            control.trailingAnchor.constraint(equalTo: holder.trailingAnchor),
+            control.leadingAnchor.constraint(equalTo: holder.leadingAnchor),
             control.centerYAnchor.constraint(equalTo: holder.centerYAnchor),
         ])
-        group.addRow(name, holder, fillsWidth: true)
+
+        // **A hidden view still occupies its space in the constraint
+        // system** — `isHidden` is not `removeFromSuperview`, and only
+        // `NSStackView` pretends otherwise. So the value's trailing edge is
+        // pinned two ways and exactly one is active: to the button when there
+        // is a button, and to the row's own edge when there is not. Without
+        // this, every un-overridden row's value sat 80 pt short of the margin,
+        // reserving room for a Revert nobody could see.
+        besideRevert[field] = control.trailingAnchor.constraint(
+            equalTo: revert.leadingAnchor, constant: -Space.s)
+        atTrailingEdge[field] = control.trailingAnchor.constraint(
+            equalTo: holder.trailingAnchor)
+        // Only a text field fills the row — a popup hugs its content at the
+        // trailing edge, which is what the artboard draws and what every
+        // capture before this refactor showed. Routing every overridable row
+        // through the holder had quietly stretched the Transport picker across
+        // half the sheet.
+        group.addRow(name, holder, fillsWidth: control is NSTextField)
     }
 
     /// A per-profile boolean, as the artboard draws it: the label and its
@@ -977,6 +999,10 @@ final class ProfileConfigurationSheet: NSViewController {
         captionRows[field]?.isHidden = !overridden
         reverts[field]?.isHidden = !overridden
         fields[field]?.placeholderString = placeholder
+        // Exactly one, and in this order: deactivate before activating, or the
+        // two fight for a frame and Auto Layout logs a conflict.
+        (overridden ? atTrailingEdge[field] : besideRevert[field])?.isActive = false
+        (overridden ? besideRevert[field] : atTrailingEdge[field])?.isActive = true
     }
 
     /// The configuration's value in the **control's** vocabulary. The profile
