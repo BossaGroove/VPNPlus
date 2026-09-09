@@ -77,9 +77,19 @@ extension TunnelFailure {
     }
 
     /// The events whose text is the **server's** words, which A10 may quote
-    /// and attribute (D104, M9). The other seven reason-bearing events carry
-    /// text too; it goes to the details, never to a surface.
-    static let quotableEvents: Set<String> = ["CLIENT_HALT", "CLIENT_SETUP"]
+    /// and attribute (D104). The editorial pass over the nine events that
+    /// carry a reason (B4, M6.4):
+    ///
+    /// | Event | Whose words | Where |
+    /// |---|---|---|
+    /// | `CLIENT_HALT`, `CLIENT_SETUP` | the server's | quoted in M9 |
+    /// | `AUTH_FAILED` | the server's reason, when it gave one — "account locked", "session revoked" | quoted under M1, because it changes what the user does (D102) |
+    /// | `SESSION_EXPIRED` | the server's | a prompt, not a message (D98) |
+    /// | `CLIENT_RESTART` | the server's | never surfaced: the Reconnecting state is the story (D76) |
+    /// | `TUN_HALT` | the server's halt of the tunnel | the details; M10's remedy does not change with it |
+    /// | `CERT_VERIFY_FAIL`, `TLS_ALERT_MISC` | OpenSSL's | the details, never a surface |
+    /// | `RELAY_ERROR`, `COMPRESS_ERROR` | the engine's | the details, under M19's *Show details* |
+    static let quotableEvents: Set<String> = ["CLIENT_HALT", "CLIENT_SETUP", "AUTH_FAILED"]
 }
 
 extension FailureDetail {

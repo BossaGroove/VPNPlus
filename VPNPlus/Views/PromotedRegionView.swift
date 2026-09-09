@@ -82,6 +82,19 @@ final class PromotedRegionView: NSView {
 
     private let primary = NSButton()
     private let proseButton = NSButton()
+    /// A10's second action where a message has one — M7's *Open Date & Time*.
+    /// *Show details* joins it in M6.5.
+    private let secondaryButton = NSButton()
+
+    // The Failed artboard's two blocks under the paragraph (A7's parts three
+    // and four): a small heavy heading, then a list or a paragraph.
+    private let causesHeading = NSTextField.label(
+        font: Type.sectionLabel, colour: Palette.textSecondary)
+    private let causesList = NSStackView()
+    private let changedHeading = NSTextField.label(
+        font: Type.sectionLabel, colour: Palette.textSecondary)
+    private let changedBody = NSTextField.label(
+        font: Type.body, colour: Palette.textSecondary, truncation: .byWordWrapping)
 
     private let shortForm: NSStackView
     private let proseForm: NSStackView
@@ -91,6 +104,11 @@ final class PromotedRegionView: NSView {
 
     private var primaryAction: (() -> Void)?
     private var proseAction: (() -> Void)?
+    private var secondaryAction: (() -> Void)?
+
+    /// Now against the last time the failed profile worked, when the window
+    /// has it (A7, D46). Set like `facts`: exactly one state reads it.
+    var comparison: NetworkComparison?
 
     var onCancel: (() -> Void)?
     var onDisconnect: (() -> Void)?
@@ -113,7 +131,7 @@ final class PromotedRegionView: NSView {
         icon.imageScaling = .scaleProportionallyUpOrDown
         icon.translatesAutoresizingMaskIntoConstraints = false
 
-        for control in [primary, proseButton] {
+        for control in [primary, proseButton, secondaryButton] {
             control.bezelStyle = .rounded
             control.font = Type.control
             control.translatesAutoresizingMaskIntoConstraints = false
@@ -138,12 +156,32 @@ final class PromotedRegionView: NSView {
         lines.setContentHuggingPriority(.init(1), for: .horizontal)
         primary.setContentHuggingPriority(.required, for: .horizontal)
 
-        // Prose states: a title, a paragraph, and the actions below it.
-        proseForm = NSStackView(views: [proseTitle, proseBody, proseButton])
+        // Prose states: a title, a paragraph, the Failed artboard's two blocks
+        // — *Common causes*, *What changed since it last worked* — and the
+        // actions below it all. The blocks hide when a message has nothing for
+        // them, and the stack closes up around them.
+        causesHeading.stringValue = String(localized: "Common causes")
+        causesList.orientation = .vertical
+        causesList.alignment = .leading
+        causesList.spacing = Space.xs
+        changedHeading.stringValue = String(localized: "What changed since it last worked")
+        let actions = NSStackView(views: [proseButton, secondaryButton])
+        actions.orientation = .horizontal
+        actions.alignment = .centerY
+        actions.spacing = Space.s
+        proseForm = NSStackView(views: [
+            proseTitle, proseBody, causesHeading, causesList, changedHeading, changedBody, actions,
+        ])
         proseForm.orientation = .vertical
         proseForm.alignment = .leading
         proseForm.spacing = Space.s
-        proseForm.setCustomSpacing(Space.xl, after: proseBody)
+        // The artboard's rhythm: 16 above a heading, 4 under it, 20 above the
+        // buttons.
+        proseForm.setCustomSpacing(Space.l, after: proseBody)
+        proseForm.setCustomSpacing(Space.xs, after: causesHeading)
+        proseForm.setCustomSpacing(Space.l, after: causesList)
+        proseForm.setCustomSpacing(Space.xs, after: changedHeading)
+        proseForm.setCustomSpacing(Space.xl, after: changedBody)
 
         content = NSStackView(views: [shortForm, proseForm])
         content.orientation = .vertical
@@ -165,6 +203,8 @@ final class PromotedRegionView: NSView {
         primary.action = #selector(act)
         proseButton.target = self
         proseButton.action = #selector(actProse)
+        secondaryButton.target = self
+        secondaryButton.action = #selector(actSecondary)
 
         gutterBox.translatesAutoresizingMaskIntoConstraints = false
         for indicator in [dot, spinner, icon] { gutterBox.addSubview(indicator) }
@@ -292,6 +332,12 @@ final class PromotedRegionView: NSView {
         clockLabel.isHidden = false
         primary.isHidden = false
         proseBody.preferredMaxLayoutWidth = 560
+        changedBody.preferredMaxLayoutWidth = 560
+        causesHeading.isHidden = true
+        causesList.isHidden = true
+        changedHeading.isHidden = true
+        changedBody.isHidden = true
+        secondaryButton.isHidden = true
 
         switch connection {
         case .connecting(let attempt), .reconnecting(let attempt):
@@ -341,18 +387,28 @@ final class PromotedRegionView: NSView {
             gutter(.warning(Palette.stateFailed))
             shortForm.isHidden = true
             proseForm.isHidden = false
-            proseTitle.stringValue = FailureCopy.title(record, name: name)
-            proseBody.stringValue = FailureCopy.body(record, name: name, facts: facts)
+            // A7's four parts (D81), from A10's set.
+            let message = FailureCopy.message(record, name: name, facts: facts, comparison: comparison)
+            proseTitle.stringValue = message.title
+            proseBody.stringValue = message.body
             proseBody.isHidden = false
+            show(causes: message.causes)
+            show(changed: message.whatChanged)
             // Try again is the default button, so it is the blue one the
             // artboard draws. **Show details is deliberately absent until
-            // M6**: the diagnostics window it opens does not exist, and an
+            // M6.5**: the diagnostics sheet it opens does not exist yet, and an
             // enabled control with nothing behind it is A13a's own named
             // anti-pattern.
             label(proseButton, String(localized: "Try Again"), keyEquivalent: "\r") { [weak self] in
                 self?.onRetry?()
             }
             proseAction = primaryAction
+            if let secondary = message.secondary {
+                secondaryButton.isHidden = false
+                secondaryButton.title = Self.title(of: secondary)
+                secondaryButton.keyEquivalent = ""
+                secondaryAction = { Self.perform(secondary) }
+            }
 
         case .disconnected:
             showNothing()
@@ -393,6 +449,12 @@ final class PromotedRegionView: NSView {
         proseBody.stringValue = content.body
         proseBody.isHidden = false
         proseBody.preferredMaxLayoutWidth = 560
+        changedBody.preferredMaxLayoutWidth = 560
+        causesHeading.isHidden = true
+        causesList.isHidden = true
+        changedHeading.isHidden = true
+        changedBody.isHidden = true
+        secondaryButton.isHidden = true
         if let action = content.action {
             label(proseButton, action.title, keyEquivalent: "\r", run: action.run)
             proseAction = primaryAction
@@ -423,4 +485,44 @@ final class PromotedRegionView: NSView {
 
     @objc private func act() { primaryAction?() }
     @objc private func actProse() { proseAction?() }
+    @objc private func actSecondary() { secondaryAction?() }
+
+    /// *Common causes*: A7's third part, as the artboard's bulleted list.
+    private func show(causes: [String]) {
+        causesList.views.forEach { $0.removeFromSuperview() }
+        guard !causes.isEmpty else { return }
+        for cause in causes {
+            let line = NSTextField.label(
+                font: Type.body, colour: Palette.textSecondary, truncation: .byWordWrapping)
+            line.stringValue = "· " + cause
+            line.preferredMaxLayoutWidth = 560
+            causesList.addArrangedSubview(line)
+        }
+        causesHeading.isHidden = false
+        causesList.isHidden = false
+    }
+
+    /// *What changed since it last worked*: A7's fourth part (D46).
+    private func show(changed: String?) {
+        guard let changed else { return }
+        changedBody.stringValue = changed
+        changedHeading.isHidden = false
+        changedBody.isHidden = false
+    }
+
+    private static func title(of action: FailureMessage.SecondaryAction) -> String {
+        switch action {
+        case .openDateAndTime: String(localized: "Open Date & Time")
+        }
+    }
+
+    /// The remedy lives in System Settings, so that is where the button goes.
+    private static func perform(_ action: FailureMessage.SecondaryAction) {
+        switch action {
+        case .openDateAndTime:
+            if let url = URL(string: "x-apple.systempreferences:com.apple.Date-Time-Settings.extension") {
+                NSWorkspace.shared.open(url)
+            }
+        }
+    }
 }

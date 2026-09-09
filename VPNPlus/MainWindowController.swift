@@ -361,12 +361,25 @@ final class MainWindowController: NSWindowController {
                 (
                     "failed",
                     {
+                        // A10 M2 with both blocks: the owner's own failure, on
+                        // a Mac that moved from Wi-Fi to Ethernet since it last
+                        // worked (A7's worked example).
+                        self.promoted.comparison = NetworkComparison(
+                            lastGood: NetworkFacts(
+                                at: now.addingTimeInterval(-7200), interfaceName: "en0",
+                                interfaceKind: .wiFi, gateway: "192.0.2.1",
+                                gatewayHardwareAddress: "00:00:5e:00:53:01",
+                                subnetMask: "255.255.255.0", addressIsRandomised: false),
+                            now: NetworkFacts(
+                                at: now, interfaceName: "en5", interfaceKind: .ethernet,
+                                gateway: "192.0.2.1", gatewayHardwareAddress: "00:00:5e:00:53:01",
+                                subnetMask: "255.255.255.0", addressIsRandomised: false))
                         self.promoted.show(
                             .failed(
                                 FailureRecord(
-                                    profile: id, at: now, reason: .timedOut,
+                                    profile: id, at: now, reason: .settingsNeverSent,
                                     phase: OpenVPNPhase.waitingForSettings.rawValue,
-                                    elapsed: .seconds(20))),
+                                    elapsed: .seconds(27), waited: .seconds(20), attempts: 7)),
                             name: name)
                     }
                 ),
@@ -627,6 +640,20 @@ final class MainWindowController: NSWindowController {
             }
             let name = subject.flatMap { titles[$0] } ?? String(localized: "this VPN")
             promoted.facts = tunnel.facts
+            // *What changed since it last worked* (A7, D46): now against the
+            // profile's last-good record, for the failure message's fourth
+            // part. Only a failure reads it, so only a failure pays for it.
+            if case .failed(let record) = tunnel.connection,
+                let failed = stored.first(where: { $0.id == record.profile })
+            {
+                promoted.comparison = NetworkComparison(
+                    lastGood: failed.lastGood,
+                    now: tunnel.facts ?? currentNetwork(),
+                    profileReplaced: (failed.origin.replacedAt ?? .distantPast)
+                        > (failed.lastGood?.at ?? .distantFuture))
+            } else {
+                promoted.comparison = nil
+            }
             promoted.show(tunnel.connection, name: name, switchingFrom: leaving)
         }
 

@@ -63,9 +63,15 @@ struct FailureMappingTests {
         #expect(halt.serverText == "maintenance window")
         #expect(halt.detail == "CLIENT_HALT: maintenance window")
 
-        let refused = FailureDetail.forEvent("AUTH_FAILED", info: "bad username")
-        #expect(refused.serverText == nil, "the engine's words are not the server's")
-        #expect(refused.detail == "AUTH_FAILED: bad username")
+        // M6.4's editorial pass: a sign-in refusal's reason is the server's,
+        // and it changes what the user does (D102) — "account locked" is not
+        // "wrong password".
+        let refused = FailureDetail.forEvent("AUTH_FAILED", info: "account locked")
+        #expect(refused.serverText == "account locked")
+
+        let openssl = FailureDetail.forEvent("CERT_VERIFY_FAIL", info: "certificate verify failed")
+        #expect(openssl.serverText == nil, "the engine's words are not the server's")
+        #expect(openssl.detail == "CERT_VERIFY_FAIL: certificate verify failed")
     }
 
     /// Feature-spec 4.10: how long, and how many times.

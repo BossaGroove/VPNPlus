@@ -61,6 +61,17 @@
                ReferencedContainer = "container:VPNPlus.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "0E31D1E24269AEB543820167"
+               BuildableName = "VPNPlusCopyTests.xctest"
+               BlueprintName = "VPNPlusCopyTests"
+               ReferencedContainer = "container:VPNPlus.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>

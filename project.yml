@@ -39,11 +39,14 @@ targets:
     type: application
     platform: macOS
     scheme:
-      testTargets: [VPNPlusEngineTests, VPNPlusSharedTests]
+      testTargets: [VPNPlusEngineTests, VPNPlusSharedTests, VPNPlusCopyTests]
     sources:
       - path: VPNPlus
         excludes: ["*.entitlements", "Info.plist"]
       - path: VPNPlusShared
+      # The words: failure messages, phase labels, the record's phrases. Their
+      # own folder so a test bundle can render every one of them (M6.4).
+      - path: VPNPlusCopy
     dependencies:
       - package: VPNPlusCore
         product: VPNPlusCore
@@ -224,6 +227,27 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bossagroove.VPNPlus.SharedTests
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""
+
+  # Every message the user can read, rendered with every payload, and checked
+  # for what must never be in one: a code, an engine identifier, the word
+  # "Error" (feature-spec 4.1, D105). Foundation and the core only — no AppKit
+  # — which is what lets a logic bundle render them.
+  VPNPlusCopyTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: VPNPlusCopyTests
+      - path: VPNPlusCopy
+      - path: VPNPlusShared
+    dependencies:
+      - package: VPNPlusCore
+        product: VPNPlusCore
+      - sdk: SystemConfiguration.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bossagroove.VPNPlus.CopyTests
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: ""
 

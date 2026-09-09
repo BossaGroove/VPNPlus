@@ -1064,7 +1064,14 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             // token with nothing behind it means nobody here can sign in.
             let failure: TunnelFailure =
                 current.isToken ? .credentialsUnavailable : .authenticationFailed
-            failAttempt(FailureDetail(failure, detail: "\(event.name): \(event.info)"))
+            // The server's reason, when it gave one, is the server's to be
+            // quoted (D104) — and only a refused *password* gets it; a refused
+            // token is nobody's fault and its text explains nothing (M21).
+            let said =
+                failure == .authenticationFailed && TunnelFailure.quotableEvents.contains(event.name)
+                && !event.info.isEmpty ? event.info : nil
+            failAttempt(
+                FailureDetail(failure, serverText: said, detail: "\(event.name): \(event.info)"))
         default:
             // Through the model, whatever state it is in. Failing only the
             // pending start covered an attempt, and left a fatal error *after*
