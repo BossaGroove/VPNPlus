@@ -107,6 +107,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editItem.submenu = editMenu
         main.addItem(editItem)
 
+        // View ▸ Show Diagnostics: the log is reachable without a failure
+        // (D141). ⌘D, and the window controller answers it.
+        let viewItem = NSMenuItem()
+        let viewMenu = NSMenu(title: String(localized: "View"))
+        viewMenu.addItem(
+            withTitle: String(localized: "Show Diagnostics"),
+            action: #selector(MainWindowController.showDiagnostics(_:)), keyEquivalent: "d")
+        viewItem.submenu = viewMenu
+        main.addItem(viewItem)
+
         NSApp.mainMenu = main
     }
 

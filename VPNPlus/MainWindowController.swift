@@ -127,6 +127,7 @@ final class MainWindowController: NSWindowController {
 
         promoted.onCancel = { [weak self] in self?.tunnel.disconnect() }
         promoted.onDisconnect = { [weak self] in self?.tunnel.disconnect() }
+        promoted.onShowDetails = { [weak self] in self?.showDiagnostics(nil) }
         promoted.onRetry = { [weak self] in self?.retry() }
 
         grid.onSelect = { _ in }
@@ -197,6 +198,9 @@ final class MainWindowController: NSWindowController {
             toggleSheet("openReplaceReport") { controller in
                 guard let profile = controller.catalogue.profiles.last else { return }
                 controller.importer.debugPresentReport(for: profile, over: controller.window)
+            }
+            toggleSheet("openDiagnostics") { controller in
+                controller.showDiagnostics(nil)
             }
 
             // **Development only: fold or unfold the open configuration sheet's
@@ -318,6 +322,9 @@ final class MainWindowController: NSWindowController {
         }
 
         private var debugStep = 0
+        /// The synthetic failure the cycle is showing, so the Diagnostics sheet
+        /// opened from it carries the same sentence and comparison.
+        private var debugFailure: (record: FailureRecord, comparison: NetworkComparison)?
 
         private func cyclePromoted() {
             let profiles = catalogue.profiles
@@ -327,7 +334,7 @@ final class MainWindowController: NSWindowController {
             let otherName = profiles.dropFirst().first.map { title(of: $0) } ?? "Configure NA"
             let now = Date()
             let states: [(String, () -> Void)] = [
-                ("idle", { self.render() }),
+                ("idle", { self.debugFailure = nil; self.render() }),
                 (
                     "connecting",
                     {
@@ -374,13 +381,12 @@ final class MainWindowController: NSWindowController {
                                 at: now, interfaceName: "en5", interfaceKind: .ethernet,
                                 gateway: "192.0.2.1", gatewayHardwareAddress: "00:00:5e:00:53:01",
                                 subnetMask: "255.255.255.0", addressIsRandomised: false))
-                        self.promoted.show(
-                            .failed(
-                                FailureRecord(
-                                    profile: id, at: now, reason: .settingsNeverSent,
-                                    phase: OpenVPNPhase.waitingForSettings.rawValue,
-                                    elapsed: .seconds(27), waited: .seconds(20), attempts: 7)),
-                            name: name)
+                        let record = FailureRecord(
+                            profile: id, at: now, reason: .settingsNeverSent,
+                            phase: OpenVPNPhase.waitingForSettings.rawValue,
+                            elapsed: .seconds(27), waited: .seconds(20), attempts: 7)
+                        self.debugFailure = (record, self.promoted.comparison!)
+                        self.promoted.show(.failed(record), name: name)
                     }
                 ),
                 ("blocked", { self.render(forcing: .blocked) }),
@@ -957,6 +963,54 @@ final class MainWindowController: NSWindowController {
     /// and not to a view (D230).
     private func title(of profile: Profile) -> String {
         catalogue.settings(of: profile)?.title.value ?? profile.title
+    }
+
+    /// `View ▸ Show Diagnostics`, and *Show details* on a failure (A14).
+    ///
+    /// **Reachable without a failure** (D141): with nothing wrong it shows the
+    /// current environment against the last good connection, which is useful
+    /// *before* connecting, and the recent attempts, successful ones included.
+    /// The profile is the one involved — failed, in use — else the selected
+    /// card, else the first; a sheet about nothing is not shown.
+    @objc func showDiagnostics(_ sender: Any?) {
+        let stored = catalogue.profiles
+        let involved = tunnel.connection.profile.flatMap { id in stored.first { $0.id == id } }
+        guard let profile = involved ?? grid.selected ?? stored.first else { return }
+        presentDiagnostics(for: profile)
+    }
+
+    private func presentDiagnostics(for profile: Profile) {
+        let name = title(of: profile)
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let record = await tunnel.diagnostics(for: profile.id) ?? DiagnosticsLog(profile: profile.id)
+            let now = tunnel.facts ?? currentNetwork()
+            var comparison = NetworkComparison(
+                lastGood: profile.lastGood, now: now,
+                profileReplaced: (profile.origin.replacedAt ?? .distantPast)
+                    > (profile.lastGood?.at ?? .distantFuture))
+            // The sentence at the top is the failure the user is looking at,
+            // when there is one: the live one, else the last recorded one if
+            // it is what the record's latest attempt ended in.
+            var failure: FailureRecord?
+            if case .failed(let live) = tunnel.connection, live.profile == profile.id {
+                failure = live
+            } else if let kept = profile.lastFailure, case .failed? = record.latest?.outcome {
+                failure = kept
+            }
+            #if DEBUG
+                if let synthetic = debugFailure, synthetic.record.profile == profile.id {
+                    failure = synthetic.record
+                    comparison = synthetic.comparison
+                }
+            #endif
+            let message = failure.map {
+                FailureCopy.message($0, name: name, facts: now, comparison: comparison)
+            }
+            let sheet = DiagnosticsSheet(
+                profileName: name, record: record, comparison: comparison, message: message)
+            content.presentAsSheet(sheet)
+        }
     }
 
     /// File > Import Profile…, and the button (2.1).

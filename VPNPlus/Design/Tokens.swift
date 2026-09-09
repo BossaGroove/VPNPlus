@@ -92,10 +92,11 @@ enum Type {
         .monospacedSystemFont(
             ofSize: NSFont.preferredFont(forTextStyle: .callout).pointSize, weight: .regular)
     }
-    /// **The log, and nothing else.**
+    /// **The log, and nothing else.** A step below the sheet's title, as the
+    /// Diagnostics artboard draws it: many lines that are scanned, not read.
     static var mono: NSFont {
         .monospacedSystemFont(
-            ofSize: NSFont.preferredFont(forTextStyle: .body).pointSize, weight: .regular)
+            ofSize: NSFont.preferredFont(forTextStyle: .subheadline).pointSize, weight: .regular)
     }
 
     /// A number that ticks, in the size it would otherwise have been.

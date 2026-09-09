@@ -223,10 +223,13 @@ struct FailureCopyTests {
 
     // MARK: - Actions
 
-    @Test func onlyTheClockOffersASecondAction() {
+    /// D50: the details are always one click away; only the clock adds a
+    /// remedy that lives elsewhere.
+    @Test func theDetailsAreAlwaysOfferedAndOnlyTheClockAddsARemedy() {
         for reason in TunnelFailure.allCases {
             let message = FailureCopy.message(FailureRecord(profile: profile, at: start, reason: reason), name: name)
-            #expect((message.secondary == .openDateAndTime) == (reason == .clockWrong), "\(reason)")
+            #expect(message.actions.first == .showDetails, "\(reason)")
+            #expect(message.actions.contains(.openDateAndTime) == (reason == .clockWrong), "\(reason)")
         }
     }
 

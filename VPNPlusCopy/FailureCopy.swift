@@ -32,11 +32,15 @@ struct FailureMessage: Equatable {
     /// *What changed since it last worked* (D46, A7) — only when there is a
     /// last time to compare with.
     var whatChanged: String?
-    /// Something to do besides trying again, when there is one that is not
-    /// the details (which M6.5 owns).
-    var secondary: SecondaryAction?
+    /// What to do besides trying again, in order. D80's fourth tier — the
+    /// details — is always reachable from a failure (D50: the route in is
+    /// permanent), so `.showDetails` is always first; a remedy that lives
+    /// elsewhere follows it.
+    var actions: [SecondaryAction] = [.showDetails]
 
     enum SecondaryAction: Equatable {
+        /// The Diagnostics sheet (A14, M6.5).
+        case showDetails
         /// A10 M7: the remedy lives in System Settings.
         case openDateAndTime
     }
@@ -83,7 +87,7 @@ enum FailureCopy {
         if !alreadySaid, let hint = addressHint(record, facts: facts) {
             message.body = joined(message.body, hint)
         }
-        if case .clockWrong = record.reason { message.secondary = .openDateAndTime }
+        if case .clockWrong = record.reason { message.actions.append(.openDateAndTime) }
         return message
     }
 
