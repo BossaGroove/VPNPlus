@@ -43,7 +43,7 @@ struct DiagnosticsExportTests {
         // Our phrase, with the identifier the screen never shows.
         #expect(text.contains("Waiting for connection settings  [GET_CONFIG]"))
         // The engine's own line.
-        #expect(text.contains("› Sending PUSH_REQUEST to server..."))
+        #expect(text.contains("> Sending PUSH_REQUEST to server..."))
         // The artboard's own sentence.
         #expect(text.contains("Gave up waiting for connection settings after 20 seconds"))
         // The footer's promise.
@@ -74,7 +74,7 @@ struct DiagnosticsExportTests {
             profileName: "Work", record: record(), comparison: comparison, message: message, at: start)
         #expect(text.contains("Couldn't finish connecting to Work"))
         #expect(text.contains("Common causes"))
-        #expect(text.contains("Interface: Wi-Fi → Ethernet *"))
+        #expect(text.contains("Interface: Wi-Fi -> Ethernet *"))
         #expect(text.contains("You're on Ethernet now"))
     }
 
@@ -96,7 +96,40 @@ struct DiagnosticsExportTests {
         #expect(text.contains("Network: Wi-Fi, gateway 192.0.2.1, address randomised: no"))
         #expect(!text.contains("wiFi"))
         #expect(text.contains("The connection dropped"))
-        #expect(text.contains("· retried"))
+        #expect(text.contains("- retried"))
+    }
+
+    /// D291: the export is ASCII, end to end, and so is its filename.
+    @Test func theExportIsPlainASCII() {
+        var log = record()
+        log.add(.engine("Résumé → naïve “quoted” — done…"), at: start + 6)
+        let facts = NetworkFacts(
+            at: start - 7200, interfaceKind: .wiFi, gateway: "192.168.1.1",
+            gatewayHardwareAddress: "00:00:5e:00:53:01", subnetMask: "255.255.255.0",
+            addressIsRandomised: false)
+        let comparison = NetworkComparison(lastGood: facts, now: facts)
+        let message = FailureCopy.message(
+            FailureRecord(profile: profile, at: start + 24, reason: .settingsNeverSent, waited: .seconds(20), attempts: 7),
+            name: "Work", comparison: comparison)
+        let text = DiagnosticsExport.text(
+            profileName: "Work", record: log, comparison: comparison, message: message, at: start)
+        let plain = text.unicodeScalars.allSatisfy { $0.isASCII }
+        #expect(plain)
+        #expect(text.contains("VPN Plus diagnostics - Work"))
+        #expect(text.contains("Attempt 1 - "))
+        #expect(text.contains("R?sum? -> na?ve \"quoted\" - done..."))
+        #expect(text.contains("Interface: Wi-Fi -> Wi-Fi"))
+    }
+
+    @Test func theFilenameCarriesTheProfileAndAUTCStamp() throws {
+        // 2026-09-09 03:41:10 UTC.
+        let when = Date(timeIntervalSince1970: 1_788_925_270)
+        let name = DiagnosticsExport.filename(profileName: "Work — 東京", at: when)
+        #expect(name == "VPN Plus diagnostics - Work - __ - 20260909T03:41:10Z.txt")
+        let plain = name.unicodeScalars.allSatisfy { $0.isASCII }
+        #expect(plain)
+        let pattern = try Regex(#"^VPN Plus diagnostics - .+ - \d{8}T\d{2}:\d{2}:\d{2}Z\.txt$"#)
+        #expect(name.contains(pattern))
     }
 
     @Test func anEmptyRecordSaysSo() {

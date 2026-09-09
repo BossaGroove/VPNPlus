@@ -101,8 +101,65 @@ enum DiagnosticsExport {
         lines.append(String(localized: "Passwords and keys are removed."))
         // The second pass (D87). The first was at the sink; this is the one
         // the footer promises.
-        return Redactor.scrub(lines.joined(separator: "\n"))
+        return ascii(Redactor.scrub(lines.joined(separator: "\n")))
     }
+
+    /// The file the export is offered as: the profile, and when, in UTC —
+    /// `VPN Plus diagnostics - Work - 20260909T03:41:10Z.txt` (owner,
+    /// 2026-09-09). ASCII only, like the text; anything the name carries that
+    /// is not ASCII becomes `_`, since `?` is a poor character in a filename.
+    static func filename(profileName: String, at now: Date = Date()) -> String {
+        let stamp = DateFormatter()
+        stamp.locale = Locale(identifier: "en_US_POSIX")
+        stamp.timeZone = TimeZone(identifier: "UTC")
+        stamp.dateFormat = "yyyyMMdd'T'HH:mm:ss'Z'"
+        let name = ascii(profileName, unknown: "_").replacingOccurrences(of: "/", with: "-")
+        return "VPN Plus diagnostics - \(name) - \(stamp.string(from: now)).txt"
+    }
+
+    /// **ASCII only** (D291). The export is read by tools as often as by
+    /// people — pasted into tickets, grepped, diffed — and typography is where
+    /// those trip: an em dash that is not a hyphen, quotes that are not
+    /// quotes. Punctuation is mapped to its plain equivalent; anything else
+    /// outside ASCII becomes `unknown`.
+    static func ascii(_ text: String, unknown: String = "?") -> String {
+        var out = ""
+        out.reserveCapacity(text.utf8.count)
+        for scalar in text.unicodeScalars {
+            if scalar.isASCII {
+                out.unicodeScalars.append(scalar)
+            } else if let plain = Self.plain[scalar] {
+                out += plain
+            } else {
+                out += unknown
+            }
+        }
+        return out
+    }
+
+    private static let plain: [Unicode.Scalar: String] = [
+        "\u{2014}": "-",  // em dash
+        "\u{2013}": "-",  // en dash
+        "\u{2012}": "-",  // figure dash
+        "\u{2010}": "-",  // hyphen
+        "\u{2011}": "-",  // non-breaking hyphen
+        "\u{2212}": "-",  // minus
+        "\u{2026}": "...",
+        "\u{2018}": "'", "\u{2019}": "'", "\u{201A}": "'", "\u{201B}": "'",
+        "\u{201C}": "\"", "\u{201D}": "\"", "\u{201E}": "\"", "\u{201F}": "\"",
+        "\u{2192}": "->",
+        "\u{2190}": "<-",
+        "\u{00B7}": "-",  // middle dot, the header's separator
+        "\u{2022}": "*",  // bullet
+        "\u{2023}": "*",
+        "\u{203A}": ">",  // the engine-line marker
+        "\u{2039}": "<",
+        "\u{00A0}": " ",  // no-break space
+        "\u{2009}": " ", "\u{200A}": " ", "\u{2002}": " ", "\u{2003}": " ",
+        "\u{00D7}": "x",
+        "\u{00B0}": " deg",
+        "\u{00AB}": "\"", "\u{00BB}": "\"",
+    ]
 
     private static func time(_ date: Date) -> String {
         let formatter = DateFormatter()

@@ -376,7 +376,7 @@ final class DiagnosticsSheet: NSViewController {
     @objc private func exportDiagnostics() {
         guard let window = view.window else { return }
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = String(localized: "VPN Plus diagnostics — \(profileName).txt")
+        panel.nameFieldStringValue = DiagnosticsExport.filename(profileName: profileName)
         panel.canCreateDirectories = true
         let text = exportText
         panel.beginSheetModal(for: window) { response in
