@@ -31,13 +31,19 @@ final class GuidanceView: NSView {
     private let hintLabel = NSTextField.label(
         font: Type.caption, colour: Palette.textTertiary, truncation: .byWordWrapping)
     private let actionButton = NSButton()
+    private let secondaryButton = NSButton()
     private var action: (() -> Void)?
+    private var secondary: (() -> Void)?
 
     init() {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         titleLabel.lineBreakMode = .byWordWrapping
         titleLabel.usesSingleLineMode = false
+        // Centred prose, as every full-window artboard draws it (Empty,
+        // WrongLocation, SetupExplain): the screen is about one thing, and
+        // that thing sits in the middle.
+        for label in [titleLabel, bodyLabel, hintLabel] { label.alignment = .center }
 
         actionButton.bezelStyle = .rounded
         actionButton.font = Type.control
@@ -45,10 +51,25 @@ final class GuidanceView: NSView {
         actionButton.target = self
         actionButton.action = #selector(act)
         actionButton.translatesAutoresizingMaskIntoConstraints = false
+        actionButton.keyEquivalent = "\r"
 
-        let stack = NSStackView(views: [titleLabel, bodyLabel, actionButton, hintLabel])
+        // The way out sits beside the way forward (the SetupExplain
+        // artboard's *Continue · Not now*), and is hidden everywhere else.
+        secondaryButton.bezelStyle = .rounded
+        secondaryButton.font = Type.control
+        secondaryButton.controlSize = .large
+        secondaryButton.target = self
+        secondaryButton.action = #selector(actSecondary)
+        secondaryButton.translatesAutoresizingMaskIntoConstraints = false
+        secondaryButton.isHidden = true
+        let buttons = NSStackView(views: [actionButton, secondaryButton])
+        buttons.orientation = .horizontal
+        buttons.spacing = Space.s
+        buttons.alignment = .centerY
+
+        let stack = NSStackView(views: [titleLabel, bodyLabel, buttons, hintLabel])
         stack.orientation = .vertical
-        stack.alignment = .leading
+        stack.alignment = .centerX
         stack.spacing = Space.m
         stack.setCustomSpacing(Space.l, after: bodyLabel)
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -57,8 +78,9 @@ final class GuidanceView: NSView {
             stack.topAnchor.constraint(equalTo: topAnchor),
             stack.bottomAnchor.constraint(equalTo: bottomAnchor),
             stack.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
             actionButton.heightAnchor.constraint(greaterThanOrEqualToConstant: Space.hitTarget),
+            secondaryButton.heightAnchor.constraint(greaterThanOrEqualToConstant: Space.hitTarget),
         ])
     }
 
@@ -68,14 +90,15 @@ final class GuidanceView: NSView {
     /// `hint` is the quiet line under the button — the drag hint on the empty
     /// screen, and nothing on the others.
     func show(
-        title: String, body: String, action: (title: String, run: () -> Void)?, hint: String = ""
+        title: String, body: String, action: (title: String, run: () -> Void)?,
+        secondary: (title: String, run: () -> Void)? = nil, hint: String = ""
     ) {
         titleLabel.stringValue = title
         bodyLabel.stringValue = body
-        bodyLabel.preferredMaxLayoutWidth = 460
+        bodyLabel.preferredMaxLayoutWidth = 440  // the artboards' max-width
         hintLabel.stringValue = hint
         hintLabel.isHidden = hint.isEmpty
-        hintLabel.preferredMaxLayoutWidth = 460
+        hintLabel.preferredMaxLayoutWidth = 440
         if let action {
             actionButton.title = action.title
             actionButton.isHidden = false
@@ -84,7 +107,16 @@ final class GuidanceView: NSView {
             actionButton.isHidden = true
             self.action = nil
         }
+        if let secondary {
+            secondaryButton.title = secondary.title
+            secondaryButton.isHidden = false
+            self.secondary = secondary.run
+        } else {
+            secondaryButton.isHidden = true
+            self.secondary = nil
+        }
     }
 
     @objc private func act() { action?() }
+    @objc private func actSecondary() { secondary?() }
 }

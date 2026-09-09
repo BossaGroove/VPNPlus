@@ -44,7 +44,18 @@ struct WindowStateTests {
     /// blocked about.
     @Test func anEmptyLibraryIsNotAskedAboutApproval() {
         #expect(derive(profiles: false, setup: .waitingForApproval) == .empty)
-        #expect(derive(profiles: false, setup: .blocked) == .empty)
+        #expect(derive(profiles: false, setup: .blocked(nil)) == .empty)
+        #expect(derive(profiles: false, setup: .explaining(again: false)) == .empty)
+    }
+
+    /// D65: the explanation is its own window state, before anything is asked
+    /// of macOS; D66's re-approval travels with it.
+    @Test func theExplanationComesBeforeThePromptAndKnowsARepeat() {
+        #expect(derive(setup: .explaining(again: false)) == .setupExplain(again: false))
+        #expect(derive(setup: .explaining(again: true)) == .setupExplain(again: true))
+        // A live tunnel outranks it, like every setup state.
+        let live = Connection.connected(Session(profile: profile, since: now))
+        #expect(derive(live, setup: .explaining(again: false)) == .active)
     }
 
     @Test func profilesAndNothingRunningIsTheGrid() {
@@ -70,7 +81,7 @@ struct WindowStateTests {
 
     @Test func approvalOutstandingShowsWhatIsBeingWaitedOn() {
         #expect(derive(setup: .waitingForApproval) == .setup)
-        #expect(derive(setup: .blocked) == .blocked)
+        #expect(derive(setup: .blocked(nil)) == .blocked)
     }
 
     /// The precedence that matters most, and the reason it is written down: a
@@ -80,7 +91,7 @@ struct WindowStateTests {
     @Test func aLiveTunnelOutranksEveryReasonToShowSomethingElse() {
         let live = Connection.connected(Session(profile: profile, since: now))
         #expect(derive(live, profiles: false) == .active)
-        #expect(derive(live, profiles: false, setup: .blocked) == .active)
+        #expect(derive(live, profiles: false, setup: .blocked(nil)) == .active)
         #expect(derive(live, setup: .waitingForApproval) == .active)
     }
 
@@ -99,7 +110,7 @@ struct WindowStateTests {
         for connection in connections {
             seen.insert(connection.state)
             for profiles in [true, false] {
-                for setup in [SetupState.ready, .waitingForApproval, .blocked] {
+                for setup in [SetupState.ready, .waitingForApproval, .blocked(nil), .explaining(again: false)] {
                     _ = WindowState.derive(connection: connection, hasProfiles: profiles, setup: setup)
                 }
             }

@@ -25,12 +25,36 @@ import Foundation
 public enum SetupState: Sendable, Equatable {
     /// Approved, or not yet needed.
     case ready
+    /// The moment before the OS prompt: **our own words first** (D65, D152).
+    /// The user pressed Connect, approval is missing, and nothing has been
+    /// asked of macOS yet. `again` is D66's case — this Mac approved us once
+    /// and the approval is gone — which is an experienced user whose setup
+    /// broke, not a first run.
+    case explaining(again: Bool)
     /// Asked for, outstanding, and we are watching for it — the window says
     /// what it is waiting on and *notices* when it lands (D61).
     case waitingForApproval
     /// Missing or declined. Everything that is not connecting still works,
     /// and the window says so rather than looking broken (D67–D69).
-    case blocked
+    case blocked(SetupFailure?)
+}
+
+/// Why setup did not complete, in a vocabulary the app can word (4.1). The
+/// system's error codes are mapped to these where the request fails, and
+/// nothing else about them travels.
+public enum SetupFailure: Sendable, Equatable {
+    /// The user said *Not now*, or dismissed the OS prompt.
+    case declined
+    /// The app is not in `/Applications`, which the mechanism requires (C3).
+    case wrongLocation(path: String)
+    /// A device-management policy forbids the component.
+    case forbiddenByPolicy
+    /// The bundle failed the system's checks: signature, entitlement,
+    /// structure. Nothing the user did; a fresh download is the remedy.
+    case damaged
+    /// Installed, but macOS wants a restart before it runs.
+    case needsRestart
+    case unknown
 }
 
 /// What the main window is showing. **Derived**, never stored (D93):
@@ -47,6 +71,9 @@ public enum WindowState: Sendable, Equatable {
     /// (D22). The same screen when the last profile is removed — not a
     /// different state, and it needs no different words.
     case empty
+    /// A5's *One-time setup*: the explanation before the OS prompt, in the
+    /// window's centre where Empty is, with the grid put away (D65).
+    case setupExplain(again: Bool)
     case setup
     case blocked
     /// Profiles exist and nothing is running: the grid.
@@ -80,6 +107,7 @@ public enum WindowState: Sendable, Equatable {
         switch setup {
         case .blocked where !live: return .blocked
         case .waitingForApproval where !live: return .setup
+        case .explaining(let again) where !live: return .setupExplain(again: again)
         default: break
         }
 

@@ -55,7 +55,9 @@ final class MainWindowController: NSWindowController {
     private static let defaultSize = NSSize(width: 760, height: 560)
     private static let minimumSize = NSSize(width: 620, height: 440)
 
-    private let installer = ExtensionInstaller(identifier: "com.bossagroove.VPNPlus.tunnel")
+    /// A5's setup sequence, holding the connect intent across it (D60).
+    private let setup = SetupFlow(
+        installer: ExtensionInstaller(identifier: "com.bossagroove.VPNPlus.tunnel"))
     /// **Injected, not owned.** The status item reads the same one, which is
     /// what makes commitment 6 structural rather than a promise (D93).
     private let tunnel: TunnelController
@@ -126,7 +128,8 @@ final class MainWindowController: NSWindowController {
         acceptDrops()
 
         importer.onChange = { [weak self] in self?.render() }
-        installer.onChange = { [weak self] _ in self?.render() }
+        setup.onChange = { [weak self] in self?.render() }
+        setup.onReady = { [weak self] in self?.connect(to: $0) }
         tunnel.observe { [weak self] _, _ in self?.render() }
 
         promoted.onCancel = { [weak self] in self?.tunnel.disconnect() }
@@ -144,7 +147,10 @@ final class MainWindowController: NSWindowController {
 
         render()
         importer.handOverPending()
-        installer.activate()
+        // Launch asks macOS what is installed and nothing else (D59): an
+        // approved extension is brought up silently, an unapproved one waits
+        // for the first Connect and our explanation (D65).
+        setup.probe()
         Task { await tunnel.load() }
 
         #if DEBUG
@@ -406,6 +412,8 @@ final class MainWindowController: NSWindowController {
                         self.grid.show(profiles, titles: self.catalogue.titles(), presence: [id: .failed])
                     }
                 ),
+                ("explain", { self.render(forcing: .setupExplain(again: false)) }),
+                ("reapprove", { self.render(forcing: .setupExplain(again: true)) }),
                 ("blocked", { self.render(forcing: .blocked) }),
                 ("setup", { self.render(forcing: .setup) }),
             ]
@@ -493,7 +501,8 @@ final class MainWindowController: NSWindowController {
             // The empty screen is the content, centred, with no grid and no
             // region behind it.
             empty.centerYAnchor.constraint(equalTo: root.centerYAnchor),
-            empty.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: Space.xxl),
+            empty.centerXAnchor.constraint(equalTo: root.centerXAnchor),
+            empty.leadingAnchor.constraint(greaterThanOrEqualTo: root.leadingAnchor, constant: Space.xxl),
             empty.trailingAnchor.constraint(
                 lessThanOrEqualTo: root.trailingAnchor, constant: -Space.xxl),
         ])
@@ -511,16 +520,6 @@ final class MainWindowController: NSWindowController {
 
     // MARK: - The six states (D93)
 
-    private var setup: SetupState {
-        switch installer.status {
-        // Setup is deferred to the first Connect (D59), so "nothing asked for
-        // yet" is not a state the user is shown. *When* it is asked for is
-        // M7's; what it looks like is here.
-        case .idle, .active, .requesting: .ready
-        case .needsApproval: .waitingForApproval
-        case .failed: .blocked
-        }
-    }
 
     /// `forcing` is **DEBUG-only in practice** and exists for one reason: the
     /// Setup and Blocked states cannot be reached on demand — they need the
@@ -571,10 +570,13 @@ final class MainWindowController: NSWindowController {
         let state =
             forced
             ?? WindowState.derive(
-                connection: tunnel.connection, hasProfiles: !stored.isEmpty, setup: setup)
+                connection: tunnel.connection, hasProfiles: !stored.isEmpty, setup: setup.state)
 
-        empty.isHidden = state != .empty
-        gridScroll.isHidden = state == .empty
+        // The explanation takes the Empty screen's place: centred prose, the
+        // grid put away, nothing else competing for the moment (D65).
+        let explaining: Bool = if case .setupExplain = state { true } else { false }
+        empty.isHidden = state != .empty && !explaining
+        gridScroll.isHidden = state == .empty || explaining
         promoted.isHidden = false
 
         switch state {
@@ -596,47 +598,31 @@ final class MainWindowController: NSWindowController {
                 ),
                 hint: String(localized: "or drag a .ovpn file anywhere in this window"))
 
+        case .setupExplain(let again):
+            promoted.isHidden = true
+            promoted.showNothing()
+            let message = SetupCopy.explanation(again: again)
+            empty.show(
+                title: message.title, body: message.body,
+                action: message.action.map { ($0, { [weak self] in self?.setup.continueSetup() }) },
+                secondary: message.secondary.map { ($0, { [weak self] in self?.setup.notNow() }) })
+
         case .setup:
+            let message = SetupCopy.waiting
             promoted.show(
                 guidance: (
-                    String(localized: "Waiting for your approval"),
-                    String(
-                        localized: """
-                            System Settings should be open. Turn on VPN Plus there, then come back — this \
-                            window will notice.
-                            """),
-                    (
-                        String(localized: "Open System Settings again"),
-                        {
-                            // The pane the approval lives on. A0 C2 found the OS's own
-                            // prompt merely dismissible, leaving "little chance that
-                            // the user will be able to find the correct place" — so
-                            // the window takes them there rather than describing it.
-                            if let url = URL(
-                                string:
-                                    "x-apple.systempreferences:com.apple.LoginItems-Settings.extension"
-                            ) {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
-                    )
+                    message.title, message.body,
+                    message.action.map { ($0, { [weak self] in self?.setup.openSystemSettings() }) }
                 ),
-                blocked: false)
+                blocked: false, emphasis: SetupCopy.waitingEmphasis)
 
         case .blocked:
+            let reason: SetupFailure? = if case .blocked(let failure) = setup.state { failure } else { nil }
+            let message = SetupCopy.blocked(reason)
             promoted.show(
                 guidance: (
-                    String(localized: "Setup isn't finished"),
-                    String(
-                        localized: """
-                            VPN Plus doesn't have permission from macOS to create a VPN connection, so it \
-                            can't connect yet. Everything else still works — you can add, rename and \
-                            remove profiles.
-                            """),
-                    (
-                        String(localized: "Continue setup"),
-                        { [weak self] in self?.installer.activate() }
-                    )
+                    message.title, message.body,
+                    message.action.map { ($0, { [weak self] in self?.setup.resume() }) }
                 ),
                 blocked: true)
 
@@ -1440,6 +1426,13 @@ final class MainWindowController: NSWindowController {
         typed: (username: String, password: String, remember: Bool)? = nil,
         confirmed: Bool = false
     ) {
+        // **Setup is deferred to this moment** (D59). Approval missing: hold
+        // the intent, explain first (D65), and come back here when it lands
+        // (D60) — the user never clicks Connect twice.
+        guard setup.isReady else {
+            setup.begin(for: profile)
+            return
+        }
         // **J12: already on this network** (A10 M13, D40). A profile whose
         // server is inside this Mac's own subnet is the owner's "arrived
         // home" case: connecting works and then quietly breaks everything

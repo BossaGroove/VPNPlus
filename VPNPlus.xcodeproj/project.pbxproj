@@ -62,10 +62,12 @@
 		85A69E9C05C3C6BDEFDE6966 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E855E821FD66EF1537305B0 /* SystemConfiguration.framework */; };
 		8981E9BE5E5FD541C58CC2F1 /* PhaseLabels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 647C8572875DE2E4455B46E1 /* PhaseLabels.swift */; };
 		8B6E7B8FF4513EF84DE7B55F /* Engine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43BD04530C7322F12A73C014 /* Engine.swift */; };
+		8C562D94087FF132862E5B84 /* SetupCopyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 302A71E65FD01AA5BEEFE23E /* SetupCopyTests.swift */; };
 		919F30053FD246BACAC7AB1E /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 10BC1655F49A221682EA0E4A /* IOKit.framework */; };
 		92EBC36E033F0AABFCEFC337 /* libc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = DFB57BBBCF629E49A6B82483 /* libc++.tbd */; };
 		9AE19D99788D00C9F3D93275 /* Redaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78465DC02DD9E2EF9A28C78E /* Redaction.swift */; };
 		9B437588A0CD6D989C601D25 /* PrivilegedInterface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C8C37F94F76028963C3E687 /* PrivilegedInterface.swift */; };
+		9C0203F098216AE9CFAEC3A2 /* SetupFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C76D22463B70D1161646FC8E /* SetupFlow.swift */; };
 		9E2E4AAA7C9C5DC288275424 /* VPNPlusCore in Frameworks */ = {isa = PBXBuildFile; productRef = 3D2D5714DD1249014A1B7218 /* VPNPlusCore */; };
 		9EA526DD14193C5BD8B02281 /* DiagnosticsExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9C0D8B239DD61BBE192732 /* DiagnosticsExportTests.swift */; };
 		9FB9278F96A9D8B4D6944321 /* TunnelReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5278224C6E252321C6BC566 /* TunnelReport.swift */; };
@@ -101,6 +103,7 @@
 		D567631A9E4E841EF5C19DD2 /* RedactionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D45C9B5991CC9DE3A8A581D /* RedactionTests.swift */; };
 		D6233C9C2F5338664608BA4C /* AutoLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B8DADE87564AFDA3C8B3CC /* AutoLayout.swift */; };
 		DD1118C0F8E834F09160946A /* InstallLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 014171C7BC3E81B7ACFD6DA1 /* InstallLocation.swift */; };
+		DEC7730B30484F284E6EBBE6 /* SetupCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D5B80E157B8033FE601F567 /* SetupCopy.swift */; };
 		E07A107241DDC403F27A17FB /* EngineShim.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05D57C00265B12AEF250D992 /* EngineShim.cpp */; };
 		E331C45DCD7FC398D5538B6F /* TunnelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0C0DB62A25CADB2DFD5CB5F /* TunnelController.swift */; };
 		E3A3779B05540B21EA5EEDD4 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 10BC1655F49A221682EA0E4A /* IOKit.framework */; };
@@ -113,6 +116,7 @@
 		F3BB3E71A32F37960150D401 /* TunnelReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5278224C6E252321C6BC566 /* TunnelReport.swift */; };
 		F46038638D5D288A3A345A24 /* FailureCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 749C613E0DE74BE7DE505D14 /* FailureCopy.swift */; };
 		F4808618DD2930504319912A /* OpenVPNPhases.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C272E4AD0B0F8E346C08845 /* OpenVPNPhases.swift */; };
+		F5EEC0BAB4BD07488521CB11 /* SetupCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D5B80E157B8033FE601F567 /* SetupCopy.swift */; };
 		FB556FCAF7D5B786F0EE4F22 /* ExtensionInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = C535D99BB8588E6A6E0F467E /* ExtensionInstaller.swift */; };
 		FDC5E5B2F51D9BACD256037D /* ProfileCatalogue.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEBFF959B90678044D60D0AA /* ProfileCatalogue.swift */; };
 		FE3381B49CD9666D98F63824 /* CardGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC7D701DCB81C31777EE7880 /* CardGridView.swift */; };
@@ -191,6 +195,8 @@
 		23BAA2476B265EB039506C3B /* ProfileConfigurationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileConfigurationSheet.swift; sourceTree = "<group>"; };
 		2455A69E951DCA668094ABA2 /* VPNPlusEngineTests-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "VPNPlusEngineTests-Bridging-Header.h"; sourceTree = "<group>"; };
 		2AF44C54C60E6F5CDD8ECAD0 /* DiagnosticsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsStore.swift; sourceTree = "<group>"; };
+		2D5B80E157B8033FE601F567 /* SetupCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupCopy.swift; sourceTree = "<group>"; };
+		302A71E65FD01AA5BEEFE23E /* SetupCopyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupCopyTests.swift; sourceTree = "<group>"; };
 		376EA33312BE31C560F89273 /* ReplaceCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplaceCopy.swift; sourceTree = "<group>"; };
 		3C272E4AD0B0F8E346C08845 /* OpenVPNPhases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenVPNPhases.swift; sourceTree = "<group>"; };
 		3CBF178DBF0AF1CAED795117 /* TestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFixtures.swift; sourceTree = "<group>"; };
@@ -239,6 +245,7 @@
 		C1D2ABAC985E95919E908B53 /* FailureNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FailureNotifier.swift; sourceTree = "<group>"; };
 		C493C5064E5F2932244C834C /* VPNPlusTunnel-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "VPNPlusTunnel-Bridging-Header.h"; sourceTree = "<group>"; };
 		C535D99BB8588E6A6E0F467E /* ExtensionInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionInstaller.swift; sourceTree = "<group>"; };
+		C76D22463B70D1161646FC8E /* SetupFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupFlow.swift; sourceTree = "<group>"; };
 		CA3DDF22608AF05265B0B92A /* PrivilegedClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivilegedClient.swift; sourceTree = "<group>"; };
 		CC7D701DCB81C31777EE7880 /* CardGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardGridView.swift; sourceTree = "<group>"; };
 		CEBFF959B90678044D60D0AA /* ProfileCatalogue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileCatalogue.swift; sourceTree = "<group>"; };
@@ -361,6 +368,7 @@
 				749C613E0DE74BE7DE505D14 /* FailureCopy.swift */,
 				75E9B549A3A4D818B3183CD6 /* FailureNotice.swift */,
 				647C8572875DE2E4455B46E1 /* PhaseLabels.swift */,
+				2D5B80E157B8033FE601F567 /* SetupCopy.swift */,
 			);
 			path = VPNPlusCopy;
 			sourceTree = "<group>";
@@ -408,6 +416,7 @@
 				78598EE5564F61AE94D4B153 /* ProfileImporter.swift */,
 				4B4A4F17AAADBDA419BA9006 /* ProfileStorage.swift */,
 				376EA33312BE31C560F89273 /* ReplaceCopy.swift */,
+				C76D22463B70D1161646FC8E /* SetupFlow.swift */,
 				8FEE9E343B5527DF69A7C22D /* StatusItem.swift */,
 				A0C0DB62A25CADB2DFD5CB5F /* TunnelController.swift */,
 				9CDD25E6602DBB2C35764F2B /* VPNPlus-Bridging-Header.h */,
@@ -479,6 +488,7 @@
 				0B9C0D8B239DD61BBE192732 /* DiagnosticsExportTests.swift */,
 				B662ACFBFBA20C9F7EFCA673 /* FailureCopyTests.swift */,
 				962FFB35529700DA512C13A4 /* FailureNoticeTests.swift */,
+				302A71E65FD01AA5BEEFE23E /* SetupCopyTests.swift */,
 			);
 			path = VPNPlusCopyTests;
 			sourceTree = "<group>";
@@ -741,6 +751,8 @@
 				32FA7E6C072EBD7B4B79A43E /* PhaseLabels.swift in Sources */,
 				9B437588A0CD6D989C601D25 /* PrivilegedInterface.swift in Sources */,
 				CBBC167801A60682B985D0D5 /* Redaction.swift in Sources */,
+				DEC7730B30484F284E6EBBE6 /* SetupCopy.swift in Sources */,
+				8C562D94087FF132862E5B84 /* SetupCopyTests.swift in Sources */,
 				9FB9278F96A9D8B4D6944321 /* TunnelReport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -793,6 +805,8 @@
 				412483FF6640922BA1319165 /* ReplaceCopy.swift in Sources */,
 				3B3396910AF411F656E42A22 /* ReplaceReportSheet.swift in Sources */,
 				784F3BD0C9BA6C24ED194D95 /* SettingsCard.swift in Sources */,
+				F5EEC0BAB4BD07488521CB11 /* SetupCopy.swift in Sources */,
+				9C0203F098216AE9CFAEC3A2 /* SetupFlow.swift in Sources */,
 				7B961AB53C94B83E4F8A6803 /* SignInSheet.swift in Sources */,
 				2903FFE66AF2035C206A32EE /* StatusItem.swift in Sources */,
 				EA742C4B3EFF74AA5E55DBF5 /* Tokens.swift in Sources */,

@@ -443,7 +443,7 @@ final class PromotedRegionView: NSView {
     /// stated once here rather than repeated on every card** (D116).
     func show(
         guidance content: (title: String, body: String, action: (title: String, run: () -> Void)?),
-        blocked: Bool
+        blocked: Bool, emphasis: String? = nil
     ) {
         isEmpty = false
         needsDisplay = true
@@ -457,7 +457,19 @@ final class PromotedRegionView: NSView {
         // work. Setup is in progress, and the artboard spins for it.
         gutter(blocked ? .warning(Palette.stateWarning) : .busy)
         proseTitle.stringValue = content.title
-        proseBody.stringValue = content.body
+        if let emphasis, let range = content.body.range(of: emphasis) {
+            // "…this window will notice" — the Setup artboard's one bold
+            // phrase, because it is a promise (D153).
+            let text = NSMutableAttributedString(
+                string: content.body,
+                attributes: [.font: Type.body, .foregroundColor: Palette.textSecondary])
+            text.addAttributes(
+                [.font: Type.bodyEmphasis, .foregroundColor: Palette.textPrimary],
+                range: NSRange(range, in: content.body))
+            proseBody.attributedStringValue = text
+        } else {
+            proseBody.stringValue = content.body
+        }
         proseBody.isHidden = false
         proseBody.preferredMaxLayoutWidth = 560
         changedBody.preferredMaxLayoutWidth = 560
@@ -468,7 +480,10 @@ final class PromotedRegionView: NSView {
         secondaryButton.isHidden = true
         tertiaryButton.isHidden = true
         if let action = content.action {
-            label(proseButton, action.title, keyEquivalent: "\r", run: action.run)
+            // Blocked's *Continue setup* is the accent button: it is the way
+            // forward. Setup's *Open System Settings again* is a plain one —
+            // the way forward is in System Settings, not here (the artboards).
+            label(proseButton, action.title, keyEquivalent: blocked ? "\r" : "", run: action.run)
             proseAction = primaryAction
         } else {
             proseButton.isHidden = true

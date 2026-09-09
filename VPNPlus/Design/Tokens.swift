@@ -57,6 +57,11 @@ enum Type {
     static var sectionTitle: NSFont { .preferredFont(forTextStyle: .title3) }
     /// Message bodies, descriptions.
     static var body: NSFont { .preferredFont(forTextStyle: .body) }
+    /// One phrase in a body that is a promise (the Setup artboard's *this
+    /// window will notice*).
+    static var bodyEmphasis: NSFont {
+        .systemFont(ofSize: NSFont.preferredFont(forTextStyle: .body).pointSize, weight: .semibold)
+    }
     /// Buttons and fields.
     static var control: NSFont { .preferredFont(forTextStyle: .body) }
     /// A profile name on a card.
