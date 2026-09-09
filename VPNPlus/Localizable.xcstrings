@@ -79,7 +79,7 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
+            "state": "translated",
             "value": "%1$@ — %2$llds"
           }
         }
@@ -89,7 +89,7 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
+            "state": "translated",
             "value": "%1$@ — attempt %2$lld of %3$lld"
           }
         }
@@ -99,7 +99,7 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
+            "state": "translated",
             "value": "%1$@ — attempt %2$lld of %3$lld, %4$llds"
           }
         }
@@ -109,7 +109,7 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
+            "state": "translated",
             "value": "%1$@ · attempt %2$lld"
           }
         }
@@ -219,7 +219,7 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
+            "state": "translated",
             "value": "%1$@ refers to %2$@, which wasn't alongside it."
           }
         }
@@ -291,7 +291,7 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
+            "state": "translated",
             "value": "%1$lld:%2$@ elapsed"
           }
         }
@@ -412,7 +412,7 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
+            "state": "translated",
             "value": "Another VPN (%1$@) was already carrying this Mac's traffic when %2$@ tried to connect, so %3$@ couldn't take over. Disconnect the other one first."
           }
         }
@@ -442,7 +442,7 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
+            "state": "translated",
             "value": "Another VPN was already carrying this Mac's traffic when %1$@ tried to connect, so %2$@ couldn't take over. Disconnect the other one first."
           }
         }
@@ -492,7 +492,7 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
+            "state": "translated",
             "value": "Attempt %1$lld · %2$@"
           }
         }
@@ -1250,7 +1250,7 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
+            "state": "translated",
             "value": "gateway %1$@…%2$@"
           }
         }
@@ -1483,7 +1483,7 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
+            "state": "translated",
             "value": "It last connected %1$@ on %2$@. You're on %3$@ now — a different network interface, which some servers treat as a different device."
           }
         }
@@ -1807,7 +1807,7 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
+            "state": "translated",
             "value": "Network: %1$@, gateway %2$@, address randomised: %3$@"
           }
         }
@@ -3188,7 +3188,7 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
+            "state": "translated",
             "value": "The new file fixes the username to %1$@; yours was %2$@."
           }
         }
@@ -4461,7 +4461,7 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
+            "state": "translated",
             "value": "Your %1$@ override (%2$@) no longer matches the file, which now says %3$@."
           }
         }
