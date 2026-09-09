@@ -165,9 +165,10 @@ final class SettingsViewController: NSViewController {
             sidebar.topAnchor.constraint(equalTo: root.topAnchor, constant: Self.sidebarInset),
             sidebar.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -Self.sidebarInset),
             sidebar.widthAnchor.constraint(equalToConstant: Self.sidebarWidth),
-            list.topAnchor.constraint(equalTo: sidebar.topAnchor, constant: Space.s),
-            list.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: Space.s),
-            list.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -Space.s),
+            // The sibling's panel: a full gutter around the pills, not a lip.
+            list.topAnchor.constraint(equalTo: sidebar.topAnchor, constant: Self.sidebarInset),
+            list.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: Self.sidebarInset),
+            list.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -Self.sidebarInset),
             content.leadingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: Self.contentInset),
             content.topAnchor.constraint(equalTo: root.topAnchor, constant: Self.sidebarInset),
             content.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -Self.contentInset),
@@ -202,22 +203,44 @@ final class SettingsViewController: NSViewController {
 
     // MARK: - Sidebar
 
+    private var icons: [Section: NSImageView] = [:]
+    private var labels: [Section: NSTextField] = [:]
+
+    /// A pill: the button for the click and the keyboard, and its content
+    /// laid out by us — NSButton's own image-leading layout puts the icon on
+    /// the pill's edge, and the sibling insets it (owner, 2026-09-09).
     private func sidebarItem(for section: Section) -> NSButton {
-        let button = NSButton(title: section.title, target: self, action: #selector(select(_:)))
+        let button = NSButton(title: "", target: self, action: #selector(select(_:)))
         button.tag = Section.allCases.firstIndex(of: section) ?? 0
         button.isBordered = false
         button.wantsLayer = true
         button.layer?.cornerRadius = 8
-        button.image = NSImage(systemSymbolName: section.symbol, accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: 15, weight: .medium))
-        button.imagePosition = .imageLeading
-        button.imageHugsTitle = true
-        button.alignment = .left
-        button.font = Type.control
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.heightAnchor.constraint(equalToConstant: 40).isActive = true
-        // The icon-to-label gap and the left inset, the artboard's 14 and 12.
+        button.heightAnchor.constraint(equalToConstant: 32).isActive = true
         button.setAccessibilityLabel(section.title)
+
+        let icon = NSImageView(
+            image: NSImage(systemSymbolName: section.symbol, accessibilityDescription: nil)?
+                .withSymbolConfiguration(.init(pointSize: 14, weight: .medium)) ?? NSImage())
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        let label = NSTextField(labelWithString: section.title)
+        label.font = Type.control
+        label.translatesAutoresizingMaskIntoConstraints = false
+        for view in [icon, label] as [NSView] {
+            // Clicks fall through to the button beneath.
+            view.setAccessibilityElement(false)
+            button.addSubview(view)
+        }
+        NSLayoutConstraint.activate([
+            icon.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 18),
+            icon.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: 18),
+            label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: Space.s),
+            label.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: button.trailingAnchor, constant: -Space.m),
+        ])
+        icons[section] = icon
+        labels[section] = label
         return button
     }
 
@@ -230,13 +253,9 @@ final class SettingsViewController: NSViewController {
             let selected = candidate == section
             button.layer?.backgroundColor = selected ? Palette.accent.cgColor : NSColor.clear.cgColor
             let colour: NSColor = selected ? .white : Palette.textPrimary
-            button.contentTintColor = colour
-            button.attributedTitle = NSAttributedString(
-                string: "  " + candidate.title,
-                attributes: [
-                    .font: selected ? Type.controlEmphasis : Type.control,
-                    .foregroundColor: colour,
-                ])
+            icons[candidate]?.contentTintColor = colour
+            labels[candidate]?.textColor = colour
+            labels[candidate]?.font = selected ? Type.controlEmphasis : Type.control
         }
     }
 
@@ -258,7 +277,10 @@ final class SettingsViewController: NSViewController {
         for choice in AppSettings.Language.allCases { languagePicker.addItem(withTitle: choice.title) }
         languagePicker.target = self
         languagePicker.action = #selector(languageChanged)
-        languagePicker.widthAnchor.constraint(equalToConstant: 150).isActive = true
+        // The sibling's picker: the value and its chevron, no bezel — a
+        // setting reads as a value, not as a form field (owner, 2026-09-09).
+        languagePicker.isBordered = false
+        languagePicker.font = Type.control
         language.addRow(String(localized: "Language"), languagePicker)
         footnote(String(localized: "Changing this restarts VPN Plus."))
 
