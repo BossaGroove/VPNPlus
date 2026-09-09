@@ -397,6 +397,9 @@ final class MainWindowController: NSWindowController {
                             elapsed: .seconds(27), waited: .seconds(20), attempts: 7)
                         self.debugFailure = (record, self.promoted.comparison!)
                         self.promoted.show(.failed(record), name: name)
+                        // The card as a real failure marks it (D292): the
+                        // triangle, with Connect live.
+                        self.grid.show(profiles, titles: self.catalogue.titles(), presence: [id: .failed])
                     }
                 ),
                 ("blocked", { self.render(forcing: .blocked) }),
