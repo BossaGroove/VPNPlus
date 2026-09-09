@@ -231,21 +231,7 @@ final class ProfileConfigurationSheet: NSViewController {
 
     override func viewWillAppear() {
         super.viewWillAppear()
-        // The sheet may be nearly as tall as the window it is attached to.
-        // What is subtracted is this view's own chrome: the insets above and
-        // below, the gap to the footer, and the footer itself.
-        // **From the screen, not the parent window.** Measured 2026-09-08: a
-        // sheet taller than the window it is attached to hangs past the
-        // window's bottom edge and is **not clipped** — every row renders. So
-        // the window's height was never the real limit, and using it made a
-        // 570 pt surface scroll inside a 467 pt cap for no reason. The screen
-        // is the limit that exists.
-        let available =
-            view.window?.screen?.visibleFrame.height
-            ?? view.window?.sheetParent?.contentLayoutRect.height
-            ?? 640
-        cap = max(240, available - (2 * Space.xl + Space.l + 40))
-
+        recomputeCap()
         // **And then say how big that makes the sheet.** Without this AppKit
         // keeps the height the root view was constructed with, the stack is
         // stretched to fill it, and the footer floats above a band of empty
@@ -260,6 +246,42 @@ final class ProfileConfigurationSheet: NSViewController {
         #if DEBUG
             dumpRows()
         #endif
+    }
+
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        // The sheet is on screen now, so its position is known for certain;
+        // if `viewWillAppear` had to guess, this corrects it before the user
+        // has read a line.
+        recomputeCap()
+        fitSheet()
+    }
+
+    /// How tall the rows may be before they scroll: **the room below the
+    /// sheet's top edge**, less this sheet's own chrome.
+    ///
+    /// The first version subtracted the chrome from the *whole* screen and
+    /// let an unfolded sheet run past the bottom of the owner's display,
+    /// footer and all (2026-09-09). A sheet hangs from the top of its parent's
+    /// content area, so that is where the room starts — and D249 still holds:
+    /// the parent window's *height* is not the limit, the screen's bottom edge
+    /// is. The chrome is measured, not estimated: whatever the header, footer,
+    /// insets and gaps come to with the scroll view taken out.
+    private func recomputeCap() {
+        let window = view.window
+        let parent = window?.sheetParent
+        let screen = window?.screen ?? parent?.screen ?? NSScreen.main
+        let bottom = screen?.visibleFrame.minY ?? 0
+        let top: CGFloat
+        if let parent {
+            top = parent.convertToScreen(parent.contentLayoutRect).maxY
+        } else {
+            top = screen?.visibleFrame.maxY ?? 640
+        }
+        let chromeHeight = (chrome?.fittingSize.height ?? 0) - scrollHeight.constant
+        // A little air under the sheet, so its shadow is not the screen edge.
+        let room = top - bottom - Space.l
+        cap = max(240, room - chromeHeight)
     }
 
     #if DEBUG
@@ -294,8 +316,9 @@ final class ProfileConfigurationSheet: NSViewController {
             log.notice(
                 "switches: keychain=\(self.savePasswordSwitch.state == .on, privacy: .public) open=\(self.openAtLaunchSwitch.state == .on, privacy: .public) reconnect=\(self.reconnectSwitch.state == .on, privacy: .public)"
             )
+            let screenHeight = self.view.window?.screen?.visibleFrame.height ?? -1
             log.notice(
-                "sheet \(self.preferredContentSize.width, privacy: .public)×\(self.preferredContentSize.height, privacy: .public), \(self.rows.views.count, privacy: .public) rows, content \(self.rows.fittingSize.height, privacy: .public) pt"
+                "sheet \(self.preferredContentSize.width, privacy: .public)×\(self.preferredContentSize.height, privacy: .public), \(self.rows.views.count, privacy: .public) rows, content \(self.rows.fittingSize.height, privacy: .public) pt, cap \(self.cap, privacy: .public), scroll \(self.scrollHeight.constant, privacy: .public), screen visible \(screenHeight, privacy: .public)"
             )
             for card in rows.views.compactMap({ $0 as? SettingsCard }) {
                 log.notice(
