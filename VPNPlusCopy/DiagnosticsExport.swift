@@ -104,15 +104,17 @@ enum DiagnosticsExport {
         return ascii(Redactor.scrub(lines.joined(separator: "\n")))
     }
 
-    /// The file the export is offered as: the profile, and when, in UTC —
-    /// `VPN Plus diagnostics - Work - 20260909T03:41:10Z.txt` (owner,
-    /// 2026-09-09). ASCII only, like the text; anything the name carries that
-    /// is not ASCII becomes `_`, since `?` is a poor character in a filename.
+    /// The file the export is offered as: the profile, and when, in UTC, in
+    /// ISO 8601's basic form — `VPN Plus diagnostics - Work -
+    /// 20260909T034110Z.txt` (owner, 2026-09-09; no colons, which macOS
+    /// shows as `/`). ASCII only, like the text; anything the name carries
+    /// that is not ASCII becomes `_`, since `?` is a poor character in a
+    /// filename.
     static func filename(profileName: String, at now: Date = Date()) -> String {
         let stamp = DateFormatter()
         stamp.locale = Locale(identifier: "en_US_POSIX")
         stamp.timeZone = TimeZone(identifier: "UTC")
-        stamp.dateFormat = "yyyyMMdd'T'HH:mm:ss'Z'"
+        stamp.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
         let name = ascii(profileName, unknown: "_").replacingOccurrences(of: "/", with: "-")
         return "VPN Plus diagnostics - \(name) - \(stamp.string(from: now)).txt"
     }
