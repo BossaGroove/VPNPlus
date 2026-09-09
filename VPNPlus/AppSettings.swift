@@ -95,9 +95,9 @@ enum AppSettings {
     static let showsDockIconKey = "dock.showIcon"
 
     static var showsDockIcon: Bool {
-        get { UserDefaults.standard.object(forKey: showsDockIconKey) as? Bool ?? true }
+        get { Preferences.defaults.object(forKey: showsDockIconKey) as? Bool ?? true }
         set {
-            UserDefaults.standard.set(newValue, forKey: showsDockIconKey)
+            Preferences.defaults.set(newValue, forKey: showsDockIconKey)
             applyDockPolicy()
             NotificationCenter.default.post(name: didChange, object: nil)
         }
@@ -118,9 +118,9 @@ enum AppSettings {
     // MARK: Menu bar
 
     static var showsProfileNameInMenuBar: Bool {
-        get { UserDefaults.standard.bool(forKey: StatusItemController.showProfileNameKey) }
+        get { Preferences.defaults.bool(forKey: StatusItemController.showProfileNameKey) }
         set {
-            UserDefaults.standard.set(newValue, forKey: StatusItemController.showProfileNameKey)
+            Preferences.defaults.set(newValue, forKey: StatusItemController.showProfileNameKey)
             NotificationCenter.default.post(name: didChange, object: nil)
         }
     }

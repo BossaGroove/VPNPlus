@@ -78,8 +78,8 @@ final class Updater: NSObject {
         set { updater?.automaticallyDownloadsUpdates = newValue }
     }
     var includesBetas: Bool {
-        get { UserDefaults.standard.bool(forKey: Self.includesBetasKey) }
-        set { UserDefaults.standard.set(newValue, forKey: Self.includesBetasKey) }
+        get { Preferences.defaults.bool(forKey: Self.includesBetasKey) }
+        set { Preferences.defaults.set(newValue, forKey: Self.includesBetasKey) }
     }
 
     /// *Check for Updates Now*: a silent check, reported on the card.
@@ -102,7 +102,7 @@ final class Updater: NSObject {
 
 extension Updater: SPUUpdaterDelegate {
     nonisolated func allowedChannels(for updater: SPUUpdater) -> Set<String> {
-        UserDefaults.standard.bool(forKey: Updater.includesBetasKey) ? ["beta"] : []
+        Preferences.defaults.bool(forKey: Updater.includesBetasKey) ? ["beta"] : []
     }
 
     nonisolated func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {

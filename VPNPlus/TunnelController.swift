@@ -55,7 +55,11 @@ final class TunnelController {
     // live for the app's lifetime — would be true today and a leak later.
     private nonisolated(unsafe) var observer: (any NSObjectProtocol)?
 
-    init() {
+    /// The stand-in under UI testing (M8.4); nil in every ordinary launch.
+    private let rehearsal: RehearsalTunnel?
+
+    init(rehearsal: RehearsalTunnel? = nil) {
+        self.rehearsal = rehearsal
         observer = NotificationCenter.default.addObserver(
             forName: .NEVPNStatusDidChange, object: nil, queue: .main
         ) { [weak self] _ in
@@ -80,6 +84,7 @@ final class TunnelController {
     /// work (D75). Saving is what raises the configuration prompt; loading
     /// raises nothing.
     func load() async {
+        if rehearsal != nil { return }
         do {
             let existing = try await NETunnelProviderManager.loadAllFromPreferences()
             guard let manager = existing.first else {
@@ -112,6 +117,7 @@ final class TunnelController {
     /// switching works. Free, honest, and it turns C6's constraint from a trap
     /// into a label (A13). Neither incumbent does this.
     func prepare(profile: UUID? = nil, name: String? = nil) async throws {
+        if rehearsal != nil { return }
         let existing = try await NETunnelProviderManager.loadAllFromPreferences()
         let manager = existing.first ?? NETunnelProviderManager()
 
@@ -148,6 +154,21 @@ final class TunnelController {
         password: String,
         server: ServerEndpoint = ServerEndpoint()
     ) throws {
+        if let rehearsal {
+            stoppedByUser = false
+            rehearsal.start(id) { [weak self] in self?.rehearse($0) }
+            return
+        }
+        if let rehearsal {
+            stoppedByUser = false
+            rehearsal.start(id) { [weak self] in self?.rehearse($0) }
+            return
+        }
+        if let rehearsal {
+            stoppedByUser = false
+            rehearsal.start(id) { [weak self] in self?.rehearse($0) }
+            return
+        }
         guard let session = manager?.connection as? NETunnelProviderSession else { return }
         stoppedByUser = false
         var options: [String: NSObject] = [:]
@@ -285,7 +306,17 @@ final class TunnelController {
     func disconnect() {
         start = nil
         stoppedByUser = true
+        if let rehearsal {
+            rehearsal.stop { [weak self] in self?.rehearse($0) }
+            return
+        }
         (manager?.connection as? NETunnelProviderSession)?.stopVPNTunnel()
+    }
+
+    /// The stand-in's events, through the same machine and the same switch
+    /// decoration a provider's would go through.
+    private func rehearse(_ event: TunnelEvent) {
+        connection = decorate(ConnectionMachine.next(connection, on: event))
     }
 
     /// True when the last thing that happened was the user asking to stop.
@@ -557,6 +588,7 @@ final class TunnelController {
     ///
     /// Whichever has more attempts wins; a tie goes to the live one.
     func diagnostics(for profile: Profile.ID) async -> DiagnosticsLog? {
+        if rehearsal != nil { return nil }
         let live = await fromTheProvider(profile)
         let kept: DiagnosticsLog?
         do {

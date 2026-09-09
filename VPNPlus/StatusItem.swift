@@ -249,7 +249,7 @@ final class StatusItemController: NSObject {
     /// (D164) — org-issued profiles share a prefix, and the tail is what
     /// distinguishes them.
     private func label(for connection: Connection) -> String {
-        guard UserDefaults.standard.bool(forKey: Self.showProfileNameKey),
+        guard Preferences.defaults.bool(forKey: Self.showProfileNameKey),
             connection.state != .disconnected,
             let profile = catalogue.profile(connection.profile)
         else { return "" }

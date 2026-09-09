@@ -69,8 +69,8 @@ final class SetupFlow {
     }
 
     var approvedOnce: Bool {
-        get { UserDefaults.standard.bool(forKey: Self.approvedOnceKey) }
-        set { UserDefaults.standard.set(newValue, forKey: Self.approvedOnceKey) }
+        get { Preferences.defaults.bool(forKey: Self.approvedOnceKey) }
+        set { Preferences.defaults.set(newValue, forKey: Self.approvedOnceKey) }
     }
 
     /// What the window derives from (D93).

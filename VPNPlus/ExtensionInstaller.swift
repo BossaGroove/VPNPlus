@@ -64,8 +64,13 @@ final class ExtensionInstaller: NSObject {
     /// so the installer asks again every two seconds until it is on.
     private var poll: Timer?
 
-    init(identifier: String) {
+    /// Under UI testing (M8.4) the extension is treated as enabled: no request
+    /// is ever submitted, and the setup screens are reached by other means.
+    private let rehearsing: Bool
+
+    init(identifier: String, rehearsing: Bool = false) {
         self.identifier = identifier
+        self.rehearsing = rehearsing
     }
 
     /// What is installed, and is it enabled. Enabled means approved on this
@@ -73,6 +78,10 @@ final class ExtensionInstaller: NSObject {
     /// silent in-place replacement (C2a) — and the user is never asked.
     func probe() {
         guard status == .idle else { return }
+        if rehearsing {
+            status = .active
+            return
+        }
         status = .probing
         let request = OSSystemExtensionRequest.propertiesRequest(
             forExtensionWithIdentifier: identifier, queue: .main)
@@ -82,6 +91,10 @@ final class ExtensionInstaller: NSObject {
     }
 
     func activate() {
+        if rehearsing {
+            status = .active
+            return
+        }
         guard InstallLocation.current.isCorrect else {
             status = .failed(.wrongLocation(path: Bundle.main.bundleURL.path))
             return
@@ -121,6 +134,10 @@ final class ExtensionInstaller: NSObject {
     /// switched-off extension dies in a tenth of a second with nothing said.
     /// Answers `false` at once when the installer already knows better.
     func confirmEnabled(_ completion: @escaping (Bool) -> Void) {
+        if rehearsing {
+            completion(true)
+            return
+        }
         guard status == .active else {
             completion(false)
             return

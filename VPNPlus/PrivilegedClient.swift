@@ -70,6 +70,9 @@ struct PrivilegedClient {
         pinning requirement: String,
         _ call: @escaping (any PrivilegedInterface, @escaping (Result<T, any Error>) -> Void) -> Void
     ) async throws -> T {
+        // Under UI testing there is no extension to ask (M8.4): a value cannot
+        // be made up, so the caller hears what it hears without one.
+        if Rehearsal.isActive { throw Failure.unavailable }
         let connection = NSXPCConnection(machServiceName: PrivilegedChannel.machServiceName, options: [])
         connection.remoteObjectInterface = NSXPCInterface(with: PrivilegedInterface.self)
         // This does not report failure: a requirement that is malformed, or
@@ -101,6 +104,9 @@ struct PrivilegedClient {
         pinning requirement: String,
         _ call: @escaping (any PrivilegedInterface, @escaping ((any Error)?) -> Void) -> Void
     ) async throws {
+        // A write with nobody to write to succeeds in rehearsal: the secrets
+        // it would have handed over live in the stand-in store instead.
+        if Rehearsal.isActive { return }
         try await invoke(pinning: requirement) {
             (proxy, done: @escaping (Result<Void, any Error>) -> Void) in
             call(proxy) { error in

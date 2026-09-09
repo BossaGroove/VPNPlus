@@ -35,13 +35,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// one. The status item is a peer of the window (D33), not something
     /// derived from it, and nothing derived from the other could be trusted to
     /// agree with it (D93).
-    private let tunnel = TunnelController()
-    private let catalogue = ProfileCatalogue()
+    private let tunnel: TunnelController
+    private let catalogue: ProfileCatalogue
+    /// Under UI testing (M8.4): the stand-in tunnel and the fixture watcher.
+    private let rehearsal: RehearsalTunnel?
+    private var fixtures: RehearsalFixtures?
     private var windowController: MainWindowController?
     private var statusItem: StatusItemController?
     private var notifier: FailureNotifier?
     private let updater = Updater()
     private lazy var settings = SettingsWindowController(updater: updater)
+
+    override init() {
+        rehearsal = Rehearsal.isActive ? RehearsalTunnel() : nil
+        tunnel = TunnelController(rehearsal: rehearsal)
+        catalogue = ProfileCatalogue(store: Rehearsal.isActive ? Rehearsal.store : StoredProfileStore.live)
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
@@ -49,7 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // before any window appears, so nothing flashes.
         AppSettings.applyDockPolicy()
         // Sparkle, in its own words for the update and ours for the check.
-        updater.start()
+        if !Rehearsal.isActive { updater.start() }
         // Which language the catalog is serving, and which it carries (M8).
         Logger(subsystem: "com.bossagroove.VPNPlus", category: "language").notice(
             "preferred \(Bundle.main.preferredLocalizations.joined(separator: ","), privacy: .public); bundle has \(Bundle.main.localizations.sorted().joined(separator: ","), privacy: .public)"
@@ -83,6 +93,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         controller.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
+
+        if let rehearsal {
+            // A fixture whose server is in the reserved `.invalid` domain is
+            // the one that fails; the others connect.
+            rehearsal.shouldFail = { [catalogue] id in
+                guard let profile = catalogue.profile(id),
+                    let descriptor = catalogue.descriptor(of: profile)
+                else { return false }
+                return descriptor.server.host.hasSuffix(".invalid")
+            }
+            if let directory = Rehearsal.fixtures {
+                let watcher = RehearsalFixtures(
+                    directory: directory,
+                    importFile: { [weak controller] in controller?.importProfile(at: $0) },
+                    afterImport: { [catalogue, weak controller] in
+                        // Every fixture counts as signed in already, so Connect
+                        // connects: the sign-in sheet is M4's surface, not this
+                        // suite's, and the stand-in tunnel never asks.
+                        for profile in catalogue.profiles where !profile.credentialsSaved {
+                            try? catalogue.store.setCredentialsSaved(true, for: profile.id)
+                        }
+                        controller?.storeDidChange()
+                    })
+                watcher.begin()
+                fixtures = watcher
+            }
+        }
     }
 
     @objc func showSettings(_ sender: Any?) {

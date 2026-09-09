@@ -47,7 +47,7 @@ final class FailureNotifier: NSObject, UNUserNotificationCenterDelegate {
     private var asked = false
     private var center: UNUserNotificationCenter? {
         // The framework needs a bundle to talk for; a test host has none.
-        Bundle.main.bundleIdentifier == nil ? nil : UNUserNotificationCenter.current()
+        (Bundle.main.bundleIdentifier == nil || Rehearsal.isActive) ? nil : UNUserNotificationCenter.current()
     }
 
     init(
