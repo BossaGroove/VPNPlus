@@ -199,6 +199,22 @@ final class MainWindowController: NSWindowController {
                 controller.importer.debugPresentReport(for: profile, over: controller.window)
             }
 
+            // **Development only: fold or unfold the open configuration sheet's
+            // transparency section**, as a click on its heading would.
+            //
+            //   notifyutil -p com.bossagroove.VPNPlus.debug.toggleContents
+            var foldToken: Int32 = NOTIFY_TOKEN_INVALID
+            notify_register_dispatch(
+                "com.bossagroove.VPNPlus.debug.toggleContents", &foldToken, DispatchQueue.main
+            ) { _ in
+                MainActor.assumeIsolated { [weak self] in
+                    guard let sheet = self?.window?.attachedSheet?.contentViewController
+                        as? ProfileConfigurationSheet
+                    else { return }
+                    sheet.debugToggleContents()
+                }
+            }
+
             // **Development only: the record, in the words the sheet will use.**
             //
             //   notifyutil -p com.bossagroove.VPNPlus.debug.dumpDiagnostics

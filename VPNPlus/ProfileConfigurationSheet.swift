@@ -128,10 +128,16 @@ final class ProfileConfigurationSheet: NSViewController {
     private static let revertWidth: CGFloat = 72
     private static let scrollerGutter: CGFloat = 16
 
-    /// How tall the rows may be before they scroll. Set from the window this
-    /// sheet belongs to, because a fixed cap is either too small on a large
-    /// window or too large on the smallest one this app allows.
-    private lazy var heightCap = scroll.heightAnchor.constraint(lessThanOrEqualToConstant: 520)
+    /// How tall the rows may be before they scroll. Set from the screen,
+    /// because a fixed cap is either too small on a large display or too
+    /// large on the smallest one this app allows (D249).
+    private var cap: CGFloat = 520
+    /// The scroll view's height — **a constant this sheet sets**, never a
+    /// relation it hopes will win. See `fitSheet()`.
+    private lazy var scrollHeight = scroll.heightAnchor.constraint(equalToConstant: 520)
+    /// Header, scroll view and footer, whose fitting size is the sheet's. See
+    /// `fitSheet()` for why the root view's own cannot be asked.
+    private var chrome: NSStackView?
     private let scroll = NSScrollView()
 
     init(
@@ -163,6 +169,11 @@ final class ProfileConfigurationSheet: NSViewController {
         rows.alignment = .leading
         rows.spacing = Space.s
         rows.translatesAutoresizingMaskIntoConstraints = false
+        // The rows are never taller than their content. Whatever is taller
+        // around them — a scroll view mid-resize, a clip view — leaves empty
+        // space below the last card rather than stretching the first one
+        // (measured: the Name card at 212 pt, 2026-09-09).
+        rows.setHuggingPriority(.defaultHigh, for: .vertical)
 
         build()
         refresh()
@@ -192,26 +203,24 @@ final class ProfileConfigurationSheet: NSViewController {
         stack.edgeInsets = NSEdgeInsets(
             top: Space.xl, left: Space.xl, bottom: Space.xl, right: Space.xl)
         stack.translatesAutoresizingMaskIntoConstraints = false
+        chrome = stack
 
         let container = NSView(
             frame: NSRect(x: 0, y: 0, width: Self.contentWidth + 2 * Space.xl, height: 600))
         container.addSubview(stack)
-        let height = scroll.heightAnchor.constraint(equalTo: rows.heightAnchor)
-        // **Below every label's compression resistance**, and that is the
-        // whole of it: at `defaultHigh` this tied the scroll view to the rows
-        // *and won*, so the stack squeezed 700 pt of content into 520 — text
-        // clipped top and bottom, two checkboxes overlapping, three section
-        // headings crushed to nothing. Lower, it only pulls the sheet down to
-        // its content when the content is short, and gives way to the cap
-        // when it is not.
-        height.priority = .defaultLow
+        // The scroll view's height was once a relation — equal to the rows at
+        // low priority, under a cap. At `defaultHigh` that relation *won* and
+        // crushed 700 pt of content into 520 (D247); at `defaultLow` it lost
+        // to something else: after the transparency section folded, the
+        // scroll view kept its old height, the rows were stretched to fill it
+        // and `fittingSize` read the stale height back. So it is a constant
+        // now, computed from the rows in `fitSheet()`.
         NSLayoutConstraint.activate([
             rows.widthAnchor.constraint(equalToConstant: Self.contentWidth),
             // Room for the scroller beside the rows rather than over them.
             scroll.widthAnchor.constraint(
                 equalTo: rows.widthAnchor, constant: Self.scrollerGutter),
-            height,
-            heightCap,
+            scrollHeight,
             stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             stack.topAnchor.constraint(equalTo: container.topAnchor),
@@ -235,14 +244,13 @@ final class ProfileConfigurationSheet: NSViewController {
             view.window?.screen?.visibleFrame.height
             ?? view.window?.sheetParent?.contentLayoutRect.height
             ?? 640
-        heightCap.constant = max(240, available - (2 * Space.xl + Space.l + 40))
+        cap = max(240, available - (2 * Space.xl + Space.l + 40))
 
         // **And then say how big that makes the sheet.** Without this AppKit
         // keeps the height the root view was constructed with, the stack is
         // stretched to fill it, and the footer floats above a band of empty
         // sheet while the last row is clipped behind it.
-        view.layoutSubtreeIfNeeded()
-        preferredContentSize = view.fittingSize
+        fitSheet()
         // A sheet whose rows do not all fit opens **at the top**. Re-laying it
         // out during presentation left the clip view part-way down, so the
         // sheet opened with its first section already scrolled away.
@@ -255,6 +263,21 @@ final class ProfileConfigurationSheet: NSViewController {
     }
 
     #if DEBUG
+        /// **Development only: fold the transparency section the way a click
+        /// would, then measure.** The owner's steps — open expanded, collapse
+        /// — left the Name card 400 pt tall (2026-09-09); this reproduces it
+        /// without a mouse and says which frame grew, which the dump of
+        /// *fitting* sizes alone cannot.
+        func debugToggleContents() {
+            headingClicked()
+            let log = Logger(subsystem: "com.bossagroove.VPNPlus", category: "sheet")
+            let card = rows.views.first { $0 is SettingsCard }
+            log.notice(
+                "after toggle: chrome fitting \(self.chrome?.fittingSize.height ?? -1, privacy: .public) view \(self.view.frame.height, privacy: .public) scroll \(self.scroll.frame.height, privacy: .public) rows \(self.rows.frame.height, privacy: .public) (fitting \(self.rows.fittingSize.height, privacy: .public)) first card frame \(card?.frame.height ?? -1, privacy: .public) (fitting \(card?.fittingSize.height ?? -1, privacy: .public)) expanded=\(Self.contentsExpanded, privacy: .public)"
+            )
+            dumpRows()
+        }
+
         /// **Development only.** Every row, with its height.
         ///
         /// A tall sheet does not fit in one screenshot, and "I could not see
@@ -674,8 +697,35 @@ final class ProfileConfigurationSheet: NSViewController {
         contents?.isHidden = sender.state == .off
         // The sheet is as tall as its rows until they reach the cap, so
         // folding the section away has to be followed by saying so.
+        fitSheet()
+    }
+
+    /// Makes the scroll view exactly as tall as its rows, up to the cap, and
+    /// tells the window.
+    ///
+    /// **A constant we set, not a relation we hope wins.** The first version
+    /// tied the scroll view's height to the rows' at low priority and read
+    /// `view.fittingSize`. After the transparency section folded, the scroll
+    /// view kept its old height, the rows were stretched to fill it, the Name
+    /// card absorbed 178 pt of the slack, and `fittingSize` reported the old
+    /// size back — measured on the owner's steps, 2026-09-09: rows 853 pt
+    /// against 675 of content, first card 212 against 34. The same mechanism
+    /// was behind the "Name card grew after clicking into it" report of
+    /// 2026-09-08 that could not be reproduced at the time.
+    private func fitSheet() {
+        guard isViewLoaded else { return }
+        rows.layoutSubtreeIfNeeded()
+        let wanted = min(rows.fittingSize.height, cap)
+        guard wanted != scrollHeight.constant || preferredContentSize.height == 0 else { return }
+        scrollHeight.constant = wanted
         view.layoutSubtreeIfNeeded()
-        preferredContentSize = view.fittingSize
+        // **The stack's fitting size, not the root view's.** Once this view is
+        // a window's content view its frame is a required constraint, so
+        // `view.fittingSize` answers with the window's current size — 999 pt
+        // after a fold that left 821 pt of content (measured 2026-09-09). The
+        // stack holds only the constraints between its own parts, and its
+        // answer is the sum of them.
+        preferredContentSize = chrome?.fittingSize ?? view.fittingSize
     }
 
     /// Whether the transparency section is open, remembered.
@@ -940,6 +990,8 @@ final class ProfileConfigurationSheet: NSViewController {
         reconnectSwitch.state = current.reconnectAutomatically ? .on : .off
         openAtLaunchSwitch.state = current.connectWhenAppOpens ? .on : .off
         refreshCertificate(current)
+        // A row that appeared or went changes the height the rows want.
+        fitSheet()
     }
 
     private func refreshCertificate(_ current: ProfileSettings) {
