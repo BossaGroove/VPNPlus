@@ -312,6 +312,16 @@ final class ProfileCardView: NSView {
 
     /// "2 hours ago", or "Never". Relative, because the number of hours is not
     /// the point — whether it worked recently is (D46's input).
+    /// The relative time, re-read. A card is built once and kept while its
+    /// profile is unchanged (the grid's signature), so the words on it age:
+    /// built the second the tunnel came up, it said *just now* eleven minutes
+    /// later (owner's screenshots, 2026-09-09). The grid calls this on every
+    /// render and on a clock (D286).
+    func refreshClock(now: Date = Date()) {
+        let text = Self.lastConnected(profile.lastConnected, now: now)
+        if lastField.stringValue != text { lastField.stringValue = text }
+    }
+
     static func lastConnected(_ date: Date?, now: Date = Date()) -> String {
         guard let date else { return String(localized: "Never") }
         // A session that began within the last minute — or, by a few

@@ -77,7 +77,24 @@ final class CardGridView: NSView {
     /// What the cards were built from, so an unchanged grid is left alone.
     private var signature: [String] = []
     private var cards: [ProfileCardView] = []
+    /// Keeps each card's *Connected 3 minutes ago* honest while nothing else
+    /// about the grid changes (D286). Half a minute, because the label's
+    /// finest unit is the minute and "just now" lasts one.
+    nonisolated(unsafe) private var clock: Timer?
     private(set) var selected: Profile?
+
+    deinit { clock?.invalidate() }
+
+    private func refreshClocks() { cards.forEach { $0.refreshClock() } }
+
+    private func startClock() {
+        guard clock == nil else { return }
+        let timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshClocks() }
+        }
+        timer.tolerance = 5
+        clock = timer
+    }
 
     /// Type-ahead's buffer. A13 answered "how many profiles" with *usually
     /// under ten* and removed search on the strength of this, so it is
@@ -117,9 +134,11 @@ final class CardGridView: NSView {
             self.titles = titles
             renderSelection()
             renderPresence(presence)
+            refreshClocks()
             return
         }
         self.signature = signature
+        startClock()
         self.profiles = profiles
         self.titles = titles
         #if DEBUG
