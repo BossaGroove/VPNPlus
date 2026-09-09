@@ -351,6 +351,12 @@ final class TunnelController {
         didSet { if connection != oldValue { announce() } }
     }
 
+    /// What the provider read about the network before this attempt touched
+    /// routing (D201). The window keeps it as the profile's last-good record
+    /// once the tunnel is up, and the failure copy asks it whether this Mac is
+    /// presenting a private address (feature-spec 4.11).
+    private(set) var facts: NetworkFacts?
+
     private nonisolated(unsafe) var reportToken: Int32 = NOTIFY_TOKEN_INVALID
     private var poll: DispatchWorkItem?
 
@@ -454,6 +460,7 @@ final class TunnelController {
             Self.log.notice("keeping the fuller failure record over the provider's report")
             return
         }
+        if let told = report.facts { facts = told }
         let before = connection.state
         connection = decorate(report.connection)
         if before != connection.state {

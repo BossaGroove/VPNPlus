@@ -81,6 +81,15 @@ public struct Profile: Sendable, Equatable, Identifiable, Codable {
     /// may have come back to read.
     public var lastFailure: FailureRecord?
 
+    /// What the network looked like the last time this profile connected —
+    /// the other half of *"what changed since it last worked"* (D46).
+    ///
+    /// **The last one only, never a history** (D82). A VPN client holding a
+    /// location trail is precisely the wrong thing to leak, and the diff only
+    /// ever needs one comparison point. Local, untransmitted, and removed
+    /// with the profile.
+    public var lastGood: NetworkFacts?
+
     public init(
         id: UUID = UUID(),
         origin: Origin,
@@ -91,7 +100,8 @@ public struct Profile: Sendable, Equatable, Identifiable, Codable {
         configurationHandedOver: Bool = false,
         credentialsSaved: Bool = false,
         lastConnected: Date? = nil,
-        lastFailure: FailureRecord? = nil
+        lastFailure: FailureRecord? = nil,
+        lastGood: NetworkFacts? = nil
     ) {
         self.id = id
         self.origin = origin
@@ -103,6 +113,7 @@ public struct Profile: Sendable, Equatable, Identifiable, Codable {
         self.credentialsSaved = credentialsSaved
         self.lastConnected = lastConnected
         self.lastFailure = lastFailure
+        self.lastGood = lastGood
     }
 
     /// Decoding a profile stored before these fields existed must not fail: a
@@ -119,6 +130,7 @@ public struct Profile: Sendable, Equatable, Identifiable, Codable {
         credentialsSaved = try values.decodeIfPresent(Bool.self, forKey: .credentialsSaved) ?? false
         lastConnected = try values.decodeIfPresent(Date.self, forKey: .lastConnected)
         lastFailure = try values.decodeIfPresent(FailureRecord.self, forKey: .lastFailure)
+        lastGood = try values.decodeIfPresent(NetworkFacts.self, forKey: .lastGood)
     }
 }
 
@@ -165,6 +177,10 @@ public protocol ProfileStore: Sendable {
 
     /// Records a successful connection's time.
     func setLastConnected(_ date: Date, for id: Profile.ID) throws
+
+    /// Records where this profile just connected from, replacing whatever was
+    /// there (D82).
+    func setLastGood(_ facts: NetworkFacts, for id: Profile.ID) throws
 
     /// Stores the order the user put their profiles in.
     ///

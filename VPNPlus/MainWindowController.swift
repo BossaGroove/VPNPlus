@@ -489,6 +489,12 @@ final class MainWindowController: NSWindowController {
                 profile.lastConnected != session.since
             else { return false }
             try? store.setLastConnected(session.since, for: session.profile)
+            // **Where it worked, replacing wherever it worked before** (D46,
+            // D82). Written on a connection rather than at failure time,
+            // because by then the answer describes the tunnel (D201).
+            if let facts = tunnel.facts {
+                try? store.setLastGood(facts, for: session.profile)
+            }
             return true
         case .failed(let record):
             guard let profile = stored.first(where: { $0.id == record.profile }),
@@ -604,6 +610,7 @@ final class MainWindowController: NSWindowController {
                 leaving = teardown.profile.flatMap { titles[$0] }
             }
             let name = subject.flatMap { titles[$0] } ?? String(localized: "this VPN")
+            promoted.facts = tunnel.facts
             promoted.show(tunnel.connection, name: name, switchingFrom: leaving)
         }
 
@@ -828,6 +835,35 @@ final class MainWindowController: NSWindowController {
                 }
                 Self.log.notice(
                     "debug: \(engineLines, privacy: .public) engine lines kept for the export")
+                // And the What changed table, which M6.5 puts beside the
+                // timeline (A14).
+                let comparison = NetworkComparison(
+                    lastGood: profile.lastGood, now: NetworkFactsReader.read(),
+                    profileReplaced: (profile.origin.replacedAt ?? .distantPast)
+                        > (profile.lastGood?.at ?? .distantFuture))
+                for row in DiagnosticsCopy.comparison(comparison) {
+                    Self.log.notice(
+                        "debug:   \(row.label, privacy: .public): \(row.lastGood, privacy: .public) → \(row.now, privacy: .public)\(row.changed ? "  (changed)" : "", privacy: .public)"
+                    )
+                }
+                if comparison.nothingChanged {
+                    Self.log.notice("debug:   nothing about this Mac has changed since it worked")
+                }
+                // **The address hint, on demand** (feature-spec 4.11). It shows
+                // only where macOS has randomised this Mac's address, which
+                // on this machine is off — the owner turned it off to satisfy
+                // an allowlist, which is the very failure the hint explains.
+                // So the sentence is rendered here against a reading that has
+                // the bit set, because a message nobody can make appear is a
+                // message nobody has read.
+                var randomised = NetworkFactsReader.read()
+                randomised.addressIsRandomised = true
+                let stall = FailureRecord(
+                    profile: profile.id, at: Date(), reason: .settingsNeverSent, phase: "config",
+                    waited: .seconds(20), attempts: 7)
+                Self.log.notice(
+                    "debug:   with a private address: \(FailureCopy.body(stall, name: name, facts: randomised), privacy: .public)"
+                )
             }
         }
 
@@ -1241,6 +1277,41 @@ final class MainWindowController: NSWindowController {
         }
     }
 
+    /// This Mac's network, read here and now.
+    ///
+    /// The provider's reading is the one that matters for a *failure* (D201);
+    /// this is for the question asked before anything has started, when there
+    /// is no provider and no reading to inherit.
+    private func currentNetwork() -> NetworkFacts? {
+        let facts = NetworkFactsReader.read()
+        return facts.hasNetwork ? facts : nil
+    }
+
+    /// A10 M13, as a sheet rather than an alert (M5.10's shape).
+    private func warnAboutTheLocalNetwork(
+        _ profile: Profile,
+        typed: (username: String, password: String, remember: Bool)?
+    ) {
+        let name = title(of: profile)
+        let sheet = MessageSheet(
+            icon: .warning,
+            title: String(localized: "You're already on this network"),
+            body: MessageSheet.prose(
+                String(
+                    localized:
+                        "\(name) connects to a network this Mac is already on. Connecting anyway can stop other things working until you disconnect."
+                ),
+                bold: [name]),
+            buttons: [
+                MessageSheet.Button(title: String(localized: "Cancel"), role: .cancel),
+                MessageSheet.Button(title: String(localized: "Connect Anyway"), role: .primary) {
+                    [weak self] in self?.connect(to: profile, typed: typed, confirmed: true)
+                },
+            ],
+            placement: .underTheText)
+        content.presentAsSheet(sheet)
+    }
+
     // MARK: - Connecting
 
     /// One click, and the configuration surface is never on the way here
@@ -1251,8 +1322,20 @@ final class MainWindowController: NSWindowController {
     /// which server — is decided from the stored model.
     private func connect(
         to profile: Profile,
-        typed: (username: String, password: String, remember: Bool)? = nil
+        typed: (username: String, password: String, remember: Bool)? = nil,
+        confirmed: Bool = false
     ) {
+        // **J12: already on this network** (A10 M13, D40). A profile whose
+        // server is inside this Mac's own subnet is the owner's "arrived
+        // home" case: connecting works and then quietly breaks everything
+        // else on the LAN until they disconnect. A warning *before*
+        // connecting, not a failure afterwards, and their decision either way.
+        if !confirmed, let server = catalogue.descriptor(of: profile)?.server.host,
+            let facts = tunnel.facts ?? currentNetwork(), facts.isOnThisNetwork(server)
+        {
+            warnAboutTheLocalNetwork(profile, typed: typed)
+            return
+        }
         // The configuration crosses only while the extension does not yet hold
         // it; after that the provider reads its own copy and the start options
         // carry no secret at all.

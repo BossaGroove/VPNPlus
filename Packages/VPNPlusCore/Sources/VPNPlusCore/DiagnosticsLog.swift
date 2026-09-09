@@ -59,9 +59,12 @@ public struct DiagnosticsLog: Codable, Sendable, Equatable {
     /// `recovery` is the model's count (D86): 0 for an attempt the user asked
     /// for, 1… for automatic recovery. The attempt's own number counts from 1
     /// within what is retained, because that is what the sheet's header shows.
-    public mutating func begin(recovery: Int, at when: Date) {
+    public mutating func begin(
+        recovery: Int, at when: Date, facts: NetworkFacts? = nil
+    ) {
         var attempt = DiagnosticsAttempt(
-            number: (attempts.last?.number ?? 0) + 1, recovery: recovery, startedAt: when)
+            number: (attempts.last?.number ?? 0) + 1, recovery: recovery, startedAt: when,
+            facts: facts)
         attempt.entries = [DiagnosticsEntry(at: when, kind: .attemptBegan)]
         attempts.append(attempt)
         if attempts.count > DiagnosticsRetention.attempts {
@@ -139,10 +142,14 @@ public struct DiagnosticsAttempt: Codable, Sendable, Equatable {
     /// Nil while it is still running.
     public var outcome: Outcome?
     public var entries: [DiagnosticsEntry] = []
+    /// What the network looked like when this attempt started, read **before**
+    /// the tunnel changed any routing (D201) — which is the only moment the
+    /// answer describes the physical network. A9's capture requirement 2.
+    public var facts: NetworkFacts?
 
     public init(
         number: Int, recovery: Int, startedAt: Date, endedAt: Date? = nil,
-        outcome: Outcome? = nil, entries: [DiagnosticsEntry] = []
+        outcome: Outcome? = nil, entries: [DiagnosticsEntry] = [], facts: NetworkFacts? = nil
     ) {
         self.number = number
         self.recovery = recovery
@@ -150,6 +157,7 @@ public struct DiagnosticsAttempt: Codable, Sendable, Equatable {
         self.endedAt = endedAt
         self.outcome = outcome
         self.entries = entries
+        self.facts = facts
     }
 
     /// How long it ran, when it is over.

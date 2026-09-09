@@ -94,6 +94,15 @@ public enum TunnelFailure: Int, Sendable, Codable, CaseIterable {
     /// invents a cause (D85, M20).
     case unknown = 99
 
+    /// Failures a wrong clock can cause. Every one of them looks like the
+    /// server's fault and can be the Mac's (D101).
+    public var isAboutACertificate: Bool {
+        switch self {
+        case .certificateRejected, .certificateExpired: true
+        default: false
+        }
+    }
+
     /// Failures that are about reaching the server at all, which two local
     /// facts can explain better than the engine can: no network, or another
     /// tunnel holding the default route.

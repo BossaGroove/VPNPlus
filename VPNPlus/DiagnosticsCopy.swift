@@ -91,6 +91,111 @@ enum DiagnosticsCopy {
         return text
     }
 
+    // MARK: - What changed
+
+    /// One row of the artboard's LAST GOOD / NOW table.
+    struct ComparisonRow {
+        let label: String
+        let lastGood: String
+        let now: String
+        /// Shown in bold, as the artboard has it.
+        let changed: Bool
+    }
+
+    /// The five rows, always all five: an unchanged environment is a fact
+    /// worth seeing, and *"nothing has changed since this last worked"* is the
+    /// sentence that points at the server rather than at the Mac (A7).
+    static func comparison(_ comparison: NetworkComparison) -> [ComparisonRow] {
+        NetworkComparison.Row.allCases.map { row in
+            ComparisonRow(
+                label: label(row),
+                lastGood: cell(row, comparison.lastGood, in: comparison, isNow: false),
+                now: cell(row, comparison.now, in: comparison, isNow: true),
+                changed: comparison.changed(row))
+        }
+    }
+
+    private static func label(_ row: NetworkComparison.Row) -> String {
+        switch row {
+        case .when: String(localized: "When")
+        case .interface: String(localized: "Interface")
+        case .network: String(localized: "Network")
+        case .addressRandomised: String(localized: "Address randomised by macOS")
+        case .profile: String(localized: "Profile")
+        }
+    }
+
+    private static let missing = "—"
+
+    private static func cell(
+        _ row: NetworkComparison.Row, _ facts: NetworkFacts?, in comparison: NetworkComparison,
+        isNow: Bool
+    ) -> String {
+        guard let facts else {
+            // Never connected, so there is nothing on the left to compare —
+            // said rather than left blank.
+            return isNow ? missing : String(localized: "Never connected")
+        }
+        switch row {
+        case .when:
+            // The right-hand column is *now*; a timestamp there would be
+            // noise, and the artboard leaves it empty.
+            guard !isNow else { return missing }
+            let formatter = RelativeDateTimeFormatter()
+            formatter.unitsStyle = .full
+            return formatter.localizedString(for: facts.at, relativeTo: Date())
+        case .interface:
+            return words(facts.interfaceKind)
+        case .network:
+            // The left-hand column identifies the network by its router; the
+            // right-hand one is **relational**, because without Location
+            // Services we cannot name a network and would not ask to (D90).
+            if isNow {
+                switch comparison.isSameNetwork {
+                case true: return String(localized: "the same network")
+                case false: return String(localized: "a different network")
+                case nil: return router(facts)
+                }
+            }
+            return router(facts)
+        case .addressRandomised:
+            switch facts.addressIsRandomised {
+            case true: return String(localized: "Yes")
+            case false: return String(localized: "No")
+            case nil: return String(localized: "Not recorded")
+            }
+        case .profile:
+            guard comparison.profileReplaced else { return String(localized: "unchanged") }
+            return isNow ? String(localized: "replaced since then") : String(localized: "unchanged")
+        }
+    }
+
+    private static func words(_ kind: NetworkFacts.InterfaceKind) -> String {
+        switch kind {
+        // The kind, never `en0` (D3).
+        case .wiFi: String(localized: "Wi-Fi")
+        case .ethernet: String(localized: "Ethernet")
+        case .other: String(localized: "Another connection")
+        case .none: String(localized: "No network")
+        }
+    }
+
+    /// *"gateway a8:…:fd"* — the artboard's own shape. Shortened on purpose:
+    /// it is enough to tell two networks apart, and a screenshot of it
+    /// identifies the router less than the whole address would. The export
+    /// carries the full value.
+    private static func router(_ facts: NetworkFacts) -> String {
+        if let mac = facts.gatewayHardwareAddress {
+            let parts = mac.split(separator: ":")
+            if let first = parts.first, let last = parts.last, parts.count > 2 {
+                return String(localized: "gateway \(first)…\(last)")
+            }
+            return String(localized: "gateway \(mac)")
+        }
+        if let gateway = facts.gateway { return String(localized: "gateway \(gateway)") }
+        return missing
+    }
+
     /// A reason in a handful of words, for a timeline rather than a message.
     /// The message itself is `FailureCopy`'s, and says what to do about it.
     private static func shortReason(_ reason: TunnelFailure) -> String {

@@ -51,6 +51,14 @@ struct TunnelReport: Codable, Sendable, Equatable {
     /// this attempt started, if one did (D204). Another VPN's tunnel is
     /// invisible to `NEVPNStatus` and plain in the routing table.
     var foreignTunnel: String?
+    /// What the network looked like when this attempt started, read before the
+    /// tunnel changed any routing (D201). The app keeps it as the profile's
+    /// last-good record once the tunnel is up (D46, D82).
+    ///
+    /// Local signals only, and none of them a secret (D89, D90): a gateway
+    /// address, an interface kind, and whether macOS randomised this Mac's
+    /// address. No name, no public address, nothing that costs a prompt.
+    var facts: NetworkFacts?
 
     /// The model, rebuilt on the app's side. The phase's deadline comes from
     /// the phase list rather than crossing the wire: a deadline is policy, and
@@ -77,10 +85,11 @@ struct TunnelReport: Codable, Sendable, Equatable {
         }
     }
 
-    init(connection: Connection, foreignTunnel: String? = nil) {
+    init(connection: Connection, foreignTunnel: String? = nil, facts: NetworkFacts? = nil) {
         state = connection.state
         profile = connection.profile
         self.foreignTunnel = foreignTunnel
+        self.facts = facts
         switch connection {
         case .disconnected:
             break

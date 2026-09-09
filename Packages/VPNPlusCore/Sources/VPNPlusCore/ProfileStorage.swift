@@ -196,6 +196,15 @@ public struct StoredProfileStore: ProfileStore {
         try write(index)
     }
 
+    public func setLastGood(_ facts: NetworkFacts, for id: Profile.ID) throws {
+        var index = try profiles()
+        guard let position = index.firstIndex(where: { $0.id == id }) else {
+            throw ProfileStoreError.noSuchProfile
+        }
+        index[position].lastGood = facts
+        try write(index)
+    }
+
     public func setOrder(_ order: [Profile.ID]) throws {
         let index = try profiles()
         var byId = Dictionary(uniqueKeysWithValues: index.map { ($0.id, $0) })

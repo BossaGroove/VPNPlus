@@ -171,6 +171,11 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     /// The interface that already owned the default route when this attempt
     /// started, if one did (D204).
     private var foreignTunnel: String?
+    /// The physical network as it was when this attempt began — read **before**
+    /// the engine touches routing (D201), because once a tunnel is up the
+    /// default route is ours and the answer would describe us rather than the
+    /// network. The app turns it into the profile's last-good record.
+    private var facts: NetworkFacts?
     /// Kept only so the log can say what was last reported.
     private var lastReport: TunnelReport?
 
@@ -508,7 +513,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     /// The current report, and the doorbell.
     private func report() {
         let report = state.withLock {
-            TunnelReport(connection: $0.connection, foreignTunnel: self.foreignTunnel)
+            TunnelReport(
+                connection: $0.connection, foreignTunnel: self.foreignTunnel, facts: self.facts)
         }
         lastReport = report
         notify_post(TunnelReportChannel.notification)
@@ -520,7 +526,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         switch ProviderRequest.decode(messageData) {
         case .report:
             let report = state.withLock {
-                TunnelReport(connection: $0.connection, foreignTunnel: self.foreignTunnel)
+                TunnelReport(
+                    connection: $0.connection, foreignTunnel: self.foreignTunnel,
+                    facts: self.facts)
             }
             log.notice(
                 "answering with \(report.state.rawValue, privacy: .public) (pid \(getpid(), privacy: .public))"
@@ -553,9 +561,17 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     /// the record and the failure message cannot disagree about it.
     private func beginRecording() {
         let recovery = state.withLock { $0.connection.attempt?.recovery ?? 0 }
+        // D201's moment, and the only one there is: a recovery attempt gets a
+        // fresh reading because `restartFresh` has already handed the default
+        // route back to the physical network.
+        let facts = NetworkFactsReader.read()
+        self.facts = facts
+        log.notice(
+            "network: \(facts.interfaceKind.rawValue, privacy: .public) gateway=\(facts.gateway ?? "none", privacy: .public) randomised=\(facts.addressIsRandomised.map(String.init) ?? "unknown", privacy: .public)"
+        )
         recording.withLock {
             if $0.log.profile == nil { $0.log.profile = self.identifier }
-            $0.log.begin(recovery: recovery, at: Date())
+            $0.log.begin(recovery: recovery, at: Date(), facts: facts)
         }
     }
 
@@ -599,6 +615,27 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         let now = Date()
         recording.withLock { $0.log.finish(outcome, at: now) }
         persistRecord()
+    }
+
+    /// How far this Mac's clock is behind something it has already written
+    /// down, or nil when it is not behind anything.
+    ///
+    /// **No trusted reference, and none invented** (D85). There is no network
+    /// time to ask and the engine hands us no certificate dates, so the only
+    /// honest evidence is the record's own timestamps: a clock that reads
+    /// earlier than an attempt this Mac has already made has gone backwards.
+    /// It catches the case that actually happens — a clock reset to 1970 or
+    /// 2001, which fails every certificate on earth — and says nothing when
+    /// there is nothing to compare with.
+    private func clockLooksBackwards() -> Int? {
+        let newest = recording.withLock { recording in
+            recording.log.attempts.dropLast().map(\.startedAt).max()
+        }
+        guard let newest else { return nil }
+        let behind = newest.timeIntervalSince(Date())
+        // A minute of ordinary clock drift is not a diagnosis.
+        guard behind > 60 else { return nil }
+        return Int(behind)
     }
 
     /// Puts the record on disk as it stands.
@@ -676,6 +713,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         // explain a server it could not reach better than the engine can
         // (A9 source 3): no network at all, and another tunnel holding the
         // default route when the attempt began (D204).
+        // **The case nobody thinks of** (D101, A10 M7): a certificate that
+        // will not verify because this Mac thinks it is 2001. The remedy is
+        // local and nothing else in the stack suspects it.
+        if detail.reason.isAboutACertificate, let backwards = clockLooksBackwards() {
+            detail.reason = .clockWrong
+            detail.detail = "\(detail.detail ?? "") (the clock is \(backwards) s behind a time this Mac already recorded)"
+        }
         if detail.reason.isAboutReachingTheServer {
             if lastPathDescription.hasPrefix("unsatisfied") {
                 detail.reason = .noNetwork

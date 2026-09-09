@@ -267,6 +267,12 @@ final class PromotedRegionView: NSView {
     /// `name` is what to call the profile this region is about — for a switch,
     /// the one being connected *to*. `switchingFrom` names the one coming
     /// down, which the artboard puts on the third line.
+    /// What this Mac's network looks like, when the app has been told. Set
+    /// rather than passed, because it belongs to none of the four `show`
+    /// signatures and changes on its own schedule: exactly one failure
+    /// message asks it anything (feature-spec 4.11).
+    var facts: NetworkFacts?
+
     func show(
         _ connection: Connection, name: String, switchingFrom: String? = nil,
         at now: Date = Date()
@@ -336,7 +342,7 @@ final class PromotedRegionView: NSView {
             shortForm.isHidden = true
             proseForm.isHidden = false
             proseTitle.stringValue = FailureCopy.title(record, name: name)
-            proseBody.stringValue = FailureCopy.body(record, name: name)
+            proseBody.stringValue = FailureCopy.body(record, name: name, facts: facts)
             proseBody.isHidden = false
             // Try again is the default button, so it is the blue one the
             // artboard draws. **Show details is deliberately absent until

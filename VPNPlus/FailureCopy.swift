@@ -75,7 +75,39 @@ enum FailureCopy {
         }
     }
 
-    static func body(_ record: FailureRecord, name: String) -> String {
+    /// `facts` is what this Mac's network looks like now, when it is known:
+    /// one sentence of it can explain a refusal the server will never explain
+    /// (feature-spec 4.11).
+    static func body(_ record: FailureRecord, name: String, facts: NetworkFacts? = nil) -> String {
+        joined(reason(record, name: name), addressHint(record, facts: facts))
+    }
+
+    /// **The address hint** (D178, D203, feature-spec 4.11).
+    ///
+    /// openvpn3 sends this Mac's hardware address to the server as
+    /// `IV_HWADDR`, macOS's Private Wi-Fi Address makes that a random one,
+    /// and a server that filters by address will not recognise it. That is
+    /// the owner's own failure, and the sentence is buildable from one bit
+    /// that nobody needs permission to read.
+    ///
+    /// Only where it could be the cause: a server that refused *after*
+    /// accepting the sign-in, or one that never answered at all. Never
+    /// attached to a wrong password, which it cannot explain (D85).
+    private static func addressHint(_ record: FailureRecord, facts: NetworkFacts?) -> String? {
+        guard let facts, facts.addressIsRandomised == true else { return nil }
+        switch record.reason {
+        case .settingsNeverSent, .serverUnreachable, .timedOut, .unknown: break
+        default: return nil
+        }
+        let wiFi = facts.interfaceKind == .wiFi
+        return wiFi
+            ? String(
+                localized: "One thing worth knowing: macOS is using a private Wi-Fi address on this network, so a VPN that checks hardware addresses won't recognise this Mac. You can turn that off for this network in System Settings, under Wi-Fi.")
+            : String(
+                localized: "One thing worth knowing: this Mac is presenting a private hardware address on this network, so a VPN that checks hardware addresses won't recognise it.")
+    }
+
+    private static func reason(_ record: FailureRecord, name: String) -> String {
         switch record.reason {
         case .authenticationFailed:
             // A10 M1, both remedies named (D99).

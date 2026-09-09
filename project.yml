@@ -218,6 +218,9 @@ targets:
     dependencies:
       - package: VPNPlusCore
         product: VPNPlusCore
+      # The network fingerprint asks SystemConfiguration for an interface's
+      # kind, because the BSD link type calls Wi-Fi Ethernet (D200).
+      - sdk: SystemConfiguration.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bossagroove.VPNPlus.SharedTests
