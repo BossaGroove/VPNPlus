@@ -114,7 +114,7 @@ struct FailureCopyTests {
         // than the profile, and A10 wrote them without the name on purpose.
         let nameless: Set<TunnelFailure> = [
             .certificateExpired, .clockWrong, .setupFailed, .noNetwork, .unsupportedRequirement,
-            .anotherTunnelActive,
+            .anotherTunnelActive, .componentDidNotStart,
         ]
         for reason in TunnelFailure.allCases where !nameless.contains(reason) {
             let title = FailureCopy.title(FailureRecord(profile: profile, at: start, reason: reason), name: name)

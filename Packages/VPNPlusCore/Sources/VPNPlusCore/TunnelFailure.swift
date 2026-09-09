@@ -88,6 +88,10 @@ public enum TunnelFailure: Int, Sendable, Codable, CaseIterable {
     /// Another tunnel owned the default route when the attempt started
     /// (D204). Its name is in `FailureRecord.foreignTunnel`.
     case anotherTunnelActive = 20
+    /// The system reported the tunnel down before our provider ever spoke: the
+    /// extension did not start (D310). Seen right after an in-place
+    /// replacement, and with the extension switched off in System Settings.
+    case componentDidNotStart = 21
 
     /// Ended for a reason we have not mapped. Never shown as this: the app
     /// says what it does know — the phase, the elapsed time — and never

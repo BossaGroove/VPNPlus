@@ -54,6 +54,20 @@ final class SetupFlow {
 
     var isReady: Bool { installer.status == .active }
 
+    /// Before a connect (D309): confirm the extension is enabled right now,
+    /// then either proceed or hold the intent and explain.
+    func confirm(for profile: Profile, then proceed: @escaping () -> Void) {
+        installer.confirmEnabled { [weak self] enabled in
+            guard let self else { return }
+            if enabled {
+                proceed()
+            } else {
+                Self.log.notice("setup: the extension is not enabled; explaining instead of connecting")
+                self.begin(for: profile)
+            }
+        }
+    }
+
     var approvedOnce: Bool {
         get { UserDefaults.standard.bool(forKey: Self.approvedOnceKey) }
         set { UserDefaults.standard.set(newValue, forKey: Self.approvedOnceKey) }

@@ -66,6 +66,9 @@ final class GuidanceView: NSView {
         buttons.orientation = .horizontal
         buttons.spacing = Space.s
         buttons.alignment = .centerY
+        // Hug the buttons: stretched to the column's width, the row sat its
+        // buttons at its left edge under centred prose (owner, 2026-09-09).
+        buttons.setHuggingPriority(.required, for: .horizontal)
 
         let stack = NSStackView(views: [titleLabel, bodyLabel, buttons, hintLabel])
         stack.orientation = .vertical

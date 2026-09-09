@@ -112,6 +112,7 @@ enum FailureCopy {
         case .unsupportedRequirement:
             String(localized: "This profile needs something VPN Plus doesn't support")
         case .anotherTunnelActive: String(localized: "Another VPN is already connected")
+        case .componentDidNotStart: String(localized: "VPN Plus's network component didn't start")
         case .configurationMissing, .credentialsUnavailable, .timedOut, .unknown:
             String(localized: "Couldn't connect to \(name)")
         }
@@ -249,6 +250,12 @@ enum FailureCopy {
                     \(name) asks for a feature that isn't available. It's worth reporting — we'd like \
                     to know which profiles need it.
                     """)
+        case .componentDidNotStart:
+            // D310. Not the server's fault and not the profile's: the part of
+            // VPN Plus that carries traffic never came up. A retry usually
+            // works — the app has already tried once — and a restart is the
+            // honest next step after that.
+            return String(localized: "The connection couldn't begin because the part of VPN Plus that carries traffic didn't start on this Mac. VPN Plus tried twice. Try again, and if it keeps happening, restart your Mac.")
         case .anotherTunnelActive:
             // D204's owed copy.
             if let other = record.foreignTunnel, !other.isEmpty {

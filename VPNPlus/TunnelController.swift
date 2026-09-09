@@ -170,7 +170,50 @@ final class TunnelController {
         if !server.host.isEmpty { options["serverHost"] = server.host as NSString }
         if !server.port.isEmpty { options["serverPort"] = server.port as NSString }
         if !server.transport.isEmpty { options["serverTransport"] = server.transport as NSString }
+        start = Start(at: Date(), options: options)
         try session.startVPNTunnel(options: options)
+    }
+
+    /// The start in flight, until the provider speaks or the tunnel is up.
+    /// What a death before the first report needs: the options to try again
+    /// with, and whether we already have (D310).
+    private struct Start {
+        var at: Date
+        var options: [String: NSObject]
+        var retried = false
+        var providerSpoke = false
+    }
+    private var start: Start?
+
+    /// A tunnel the system reports down before our provider ever spoke did
+    /// not start at all — seen in the second after an in-place replacement
+    /// and with the extension switched off. Once, it is tried again a second
+    /// later, because the first case cures itself; twice, it is a failure with
+    /// a name, because a region that flashes and goes quiet is the silence
+    /// commitment 3 forbids. Returns true when it handled the observation.
+    private func handleDeathBeforeTheProviderSpoke() -> Bool {
+        guard connection.state == .connecting, let inFlight = start, !inFlight.providerSpoke,
+            Date().timeIntervalSince(inFlight.at) < 8
+        else { return false }
+        if !inFlight.retried {
+            start?.retried = true
+            Self.log.notice("the start died before the provider spoke; trying once more in a second (D310)")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                guard let self, let session = manager?.connection as? NETunnelProviderSession,
+                    connection.state == .connecting, self.start?.retried == true
+                else { return }
+                self.start?.at = Date()
+                do { try session.startVPNTunnel(options: inFlight.options) } catch {
+                    Self.log.error("retry could not start: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+            return true
+        }
+        Self.log.error("the start died twice before the provider spoke; failing with a name (D310)")
+        start = nil
+        connection = decorate(
+            ConnectionMachine.next(connection, on: .ended(FailureDetail(.componentDidNotStart))))
+        return true
     }
 
     /// Brings the current session down and starts the next one — **as one
@@ -240,6 +283,7 @@ final class TunnelController {
     }
 
     func disconnect() {
+        start = nil
         stoppedByUser = true
         (manager?.connection as? NETunnelProviderSession)?.stopVPNTunnel()
     }
@@ -345,6 +389,8 @@ final class TunnelController {
         // The system says *whether*; the provider says *what*. Both, in that
         // order, and never what we last asked for (D75).
         if let observed = Self.tunnelState(for: status) {
+            if observed == .disconnected, handleDeathBeforeTheProviderSpoke() { return }
+            if observed == .connected || observed == .disconnected { start = nil }
             connection = decorate(
                 ConnectionMachine.next(
                     connection, on: .observed(observed, profile: configuredProfile)))
@@ -439,6 +485,8 @@ final class TunnelController {
             Self.log.error("ignoring a report from a different version of the extension")
             return
         }
+        // The provider is alive: whatever happens now, it did start.
+        start?.providerSpoke = true
         let observed = (manager?.connection.status).flatMap(TunnelController.tunnelState(for:))
         // Failed is the exception: it *is* a disconnected tunnel, plus the
         // reason the system has no opinion about.

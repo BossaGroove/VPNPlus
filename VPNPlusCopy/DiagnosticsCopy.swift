@@ -223,6 +223,7 @@ enum DiagnosticsCopy {
         case .certificateUnusable: String(localized: "The certificate couldn't be used")
         case .unsupportedRequirement: String(localized: "Needs something unsupported")
         case .anotherTunnelActive: String(localized: "Another VPN had the network")
+        case .componentDidNotStart: String(localized: "The network component didn't start")
         case .timedOut: String(localized: "Ran out of time")
         case .unknown: String(localized: "Stopped, with no reason given")
         }

@@ -51,6 +51,18 @@ final class ExtensionInstaller: NSObject {
     /// The probe's request, so its completion is told apart from an
     /// activation's.
     private nonisolated(unsafe) var probeRequest: OSSystemExtensionRequest?
+    /// A properties request made to confirm that an activation that
+    /// *completed* also left the extension **enabled** — the two are not the
+    /// same thing (D308).
+    private nonisolated(unsafe) var verifyRequest: OSSystemExtensionRequest?
+    /// Who asked for the current verify, and whether a *disabled* answer
+    /// should start the wait (activation just completed) or only be reported
+    /// (a connect checking before it starts, D309).
+    private var verifyCompletion: ((Bool) -> Void)?
+    private var verifyWaits = true
+    /// While the user's own toggle is off there is no callback to wait for,
+    /// so the installer asks again every two seconds until it is on.
+    private var poll: Timer?
 
     init(identifier: String) {
         self.identifier = identifier
@@ -86,7 +98,49 @@ final class ExtensionInstaller: NSObject {
 
     /// The user said *Not now*, or the OS prompt went unanswered.
     func decline() {
+        stopPolling()
         status = .failed(.declined)
+    }
+
+    /// Is the extension *enabled*, not merely activated? A user who switched
+    /// it off in System Settings leaves it "activated disabled", and an
+    /// activation request for it completes at once without re-enabling it
+    /// (measured 2026-09-09). Only the properties say.
+    private func verifyEnabled(waits: Bool = true, completion: ((Bool) -> Void)? = nil) {
+        verifyWaits = waits
+        verifyCompletion = completion
+        let request = OSSystemExtensionRequest.propertiesRequest(
+            forExtensionWithIdentifier: identifier, queue: .main)
+        request.delegate = self
+        verifyRequest = request
+        OSSystemExtensionManager.shared.submitRequest(request)
+    }
+
+    /// **Before a connect** (D309): is the extension still enabled? The
+    /// user's toggle can move while the app runs, and a start against a
+    /// switched-off extension dies in a tenth of a second with nothing said.
+    /// Answers `false` at once when the installer already knows better.
+    func confirmEnabled(_ completion: @escaping (Bool) -> Void) {
+        guard status == .active else {
+            completion(false)
+            return
+        }
+        verifyEnabled(waits: false) { [weak self] enabled in
+            if !enabled { self?.status = .idle }
+            completion(enabled)
+        }
+    }
+
+    private func startPolling() {
+        guard poll == nil else { return }
+        poll = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.verifyEnabled() }
+        }
+    }
+
+    private func stopPolling() {
+        poll?.invalidate()
+        poll = nil
     }
 
     /// The system's codes, mapped once (4.1). Nothing else about them travels.
@@ -126,10 +180,28 @@ extension ExtensionInstaller: OSSystemExtensionRequestDelegate {
     nonisolated func request(_ request: OSSystemExtensionRequest, foundProperties properties: [OSSystemExtensionProperties]) {
         let enabled = properties.contains { $0.isEnabled && !$0.isUninstalling }
         let awaiting = properties.contains { $0.isAwaitingUserApproval }
+        let isVerify = request === verifyRequest
         Self.log.notice(
-            "probe: \(properties.count, privacy: .public) installed, enabled=\(enabled, privacy: .public), awaiting=\(awaiting, privacy: .public)"
+            "\(isVerify ? "verify" : "probe", privacy: .public): \(properties.count, privacy: .public) installed, enabled=\(enabled, privacy: .public), awaiting=\(awaiting, privacy: .public)"
         )
         MainActor.assumeIsolated {
+            if isVerify {
+                self.verifyRequest = nil
+                let completion = self.verifyCompletion
+                self.verifyCompletion = nil
+                if enabled {
+                    self.stopPolling()
+                    self.status = .active
+                } else if self.verifyWaits {
+                    // Activated, but switched off by the user: the same wait
+                    // as a first approval, on the same pane — and polled,
+                    // because nothing will call us when the toggle moves.
+                    self.status = .needsApproval
+                    self.startPolling()
+                }
+                completion?(enabled)
+                return
+            }
             self.probeRequest = nil
             if enabled {
                 // Approved on this Mac: bring it up, and let an update replace
@@ -153,7 +225,15 @@ extension ExtensionInstaller: OSSystemExtensionRequestDelegate {
         let isProbe = request === probeRequest
         MainActor.assumeIsolated {
             guard !isProbe else { return }
-            self.status = result == .completed ? .active : .failed(.needsRestart)
+            switch result {
+            case .completed:
+                // Completed is not enabled (D308): ask before believing it.
+                self.verifyEnabled()
+            case .willCompleteAfterReboot:
+                self.status = .failed(.needsRestart)
+            @unknown default:
+                self.verifyEnabled()
+            }
         }
     }
 
@@ -162,6 +242,7 @@ extension ExtensionInstaller: OSSystemExtensionRequestDelegate {
         Self.log.error("request failed domain=\(ns.domain, privacy: .public) code=\(ns.code, privacy: .public) info=\(String(describing: ns.userInfo), privacy: .public)")
         let failure = Self.failure(for: error)
         let isProbe = request === probeRequest
+        let isVerify = request === verifyRequest
         MainActor.assumeIsolated {
             if isProbe {
                 // Nothing installed is not a failure; it is the first run.
@@ -169,6 +250,17 @@ extension ExtensionInstaller: OSSystemExtensionRequestDelegate {
                 self.status = .idle
                 return
             }
+            if isVerify {
+                // Cannot read the properties: keep waiting rather than
+                // declaring either outcome — and let a connect proceed on
+                // what the installer last knew.
+                self.verifyRequest = nil
+                let completion = self.verifyCompletion
+                self.verifyCompletion = nil
+                completion?(self.status == .active)
+                return
+            }
+            self.stopPolling()
             self.status = .failed(failure)
         }
     }

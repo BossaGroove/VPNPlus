@@ -1495,11 +1495,19 @@ final class MainWindowController: NSWindowController {
     ) {
         // **Setup is deferred to this moment** (D59). Approval missing: hold
         // the intent, explain first (D65), and come back here when it lands
-        // (D60) — the user never clicks Connect twice.
-        guard setup.isReady else {
-            setup.begin(for: profile)
-            return
+        // (D60) — the user never clicks Connect twice. And **confirm before
+        // trusting** (D309): the extension's toggle can move while the app
+        // runs, so the last answer is asked again before the tunnel starts.
+        setup.confirm(for: profile) { [weak self] in
+            self?.startConnecting(to: profile, typed: typed, confirmed: confirmed)
         }
+    }
+
+    private func startConnecting(
+        to profile: Profile,
+        typed: (username: String, password: String, remember: Bool)?,
+        confirmed: Bool
+    ) {
         // **J12: already on this network** (A10 M13, D40). A profile whose
         // server is inside this Mac's own subnet is the owner's "arrived
         // home" case: connecting works and then quietly breaks everything
