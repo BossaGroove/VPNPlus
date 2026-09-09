@@ -710,8 +710,9 @@ final class MainWindowController: NSWindowController {
             }
         case .failed(let record):
             // Marked, so the card that failed is findable when you look back
-            // at the grid; the prose and Try Again are in the region.
-            marks[record.profile] = .inUse(.failed, word: String(localized: "Failed"))
+            // at the grid — and with its Connect (D292): the prose and Try
+            // Again are in the region, but the card is a way back too.
+            marks[record.profile] = .failed
         }
         return marks
     }

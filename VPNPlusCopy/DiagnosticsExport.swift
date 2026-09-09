@@ -109,14 +109,20 @@ enum DiagnosticsExport {
     /// 20260909T034110Z.txt` (owner, 2026-09-09; no colons, which macOS
     /// shows as `/`). The profile's name goes in **as the user wrote it** —
     /// the owner's call: a name in 日本語 stays legible in the Finder rather
-    /// than becoming underscores. Only `/`, which no filename can hold, is
-    /// replaced.
+    /// than becoming underscores. What a filename cannot hold becomes `_`:
+    /// `/` and `:` (the two path separators macOS has had), the characters
+    /// Windows refuses (`\ * ? " < > |`, since the file is made to be sent
+    /// on), and control characters.
     static func filename(profileName: String, at now: Date = Date()) -> String {
         let stamp = DateFormatter()
         stamp.locale = Locale(identifier: "en_US_POSIX")
         stamp.timeZone = TimeZone(identifier: "UTC")
         stamp.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
-        let name = profileName.replacingOccurrences(of: "/", with: "-")
+        let name = String(
+            profileName.unicodeScalars.map { scalar -> Character in
+                Self.notInFilenames.contains(scalar) || scalar.properties.generalCategory == .control
+                    ? "_" : Character(scalar)
+            })
         return "VPN Plus diagnostics - \(name) - \(stamp.string(from: now)).txt"
     }
 
@@ -139,6 +145,8 @@ enum DiagnosticsExport {
         }
         return out
     }
+
+    private static let notInFilenames: Set<Unicode.Scalar> = ["/", ":", "\\", "*", "?", "\"", "<", ">", "|"]
 
     private static let plain: [Unicode.Scalar: String] = [
         "\u{2014}": "-",  // em dash

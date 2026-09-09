@@ -71,8 +71,17 @@ final class ProfileCardView: NSView {
     enum Presence: Equatable {
         case idle
         case inUse(Indicator, word: String)
+        /// The profile that failed: **marked, with Connect back** (D292). The
+        /// first version showed the word *Failed* in the button's place, and
+        /// the owner asked for the button — a failed tunnel is gone, so there
+        /// is something to connect, and the region's Try Again is one route,
+        /// not the only one.
+        case failed
 
         enum Indicator: Equatable { case busy, connected, failed }
+
+        /// Whether Connect — button, double-click, menu — does anything.
+        var canConnect: Bool { self == .idle || self == .failed }
     }
 
     var presence: Presence = .idle {
@@ -276,6 +285,13 @@ final class ProfileCardView: NSView {
         switch presence {
         case .idle:
             inUse = false
+            dot.isHidden = true
+            warning.isHidden = true
+            spinner.stopAnimation(nil)
+        case .failed:
+            inUse = false
+            dot.isHidden = true
+            warning.isHidden = false
             spinner.stopAnimation(nil)
         case .inUse(let indicator, let word):
             inUse = true
@@ -283,10 +299,6 @@ final class ProfileCardView: NSView {
             dot.isHidden = indicator != .connected
             warning.isHidden = indicator != .failed
             if indicator == .busy { spinner.startAnimation(nil) } else { spinner.stopAnimation(nil) }
-        }
-        if !inUse {
-            dot.isHidden = true
-            warning.isHidden = true
         }
         // Not a control while in use: the action lives in the promoted region.
         connectButton.isEnabled = !inUse
@@ -363,7 +375,7 @@ final class ProfileCardView: NSView {
         onSelect?(profile)
         // Double-click connects an idle card and does nothing to the one in
         // use: it is already what it would become.
-        if event.clickCount == 2, presence == .idle { onConnect?(profile) }
+        if event.clickCount == 2, presence.canConnect { onConnect?(profile) }
     }
 
     override func rightMouseDown(with event: NSEvent) {
@@ -374,7 +386,7 @@ final class ProfileCardView: NSView {
     /// Refuses while in use: the menu's Connect item and Return both route
     /// here, and the button being disabled covers only the button.
     @objc private func connect() {
-        guard presence == .idle else { return }
+        guard presence.canConnect else { return }
         #if DEBUG
             Logger(subsystem: "com.bossagroove.VPNPlus", category: "window")
                 .notice("Connect pressed on \(self.profile.id.uuidString, privacy: .public)")

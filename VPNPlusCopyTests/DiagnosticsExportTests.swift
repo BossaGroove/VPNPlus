@@ -124,9 +124,9 @@ struct DiagnosticsExportTests {
     @Test func theFilenameCarriesTheProfileAsWrittenAndAUTCStamp() throws {
         // 2026-09-09 03:41:10 UTC.
         let when = Date(timeIntervalSince1970: 1_788_925_270)
-        let name = DiagnosticsExport.filename(profileName: "Work — 東京/2", at: when)
-        // The name as the user wrote it, bar the path separator.
-        #expect(name == "VPN Plus diagnostics - Work — 東京-2 - 20260909T034110Z.txt")
+        let name = DiagnosticsExport.filename(profileName: "Work — 東京/2: a*b?\tc", at: when)
+        // The name as the user wrote it, bar what a filename cannot hold.
+        #expect(name == "VPN Plus diagnostics - Work — 東京_2_ a_b__c - 20260909T034110Z.txt")
         let pattern = try Regex(#"^VPN Plus diagnostics - .+ - \d{8}T\d{6}Z\.txt$"#)
         #expect(name.contains(pattern))
     }
