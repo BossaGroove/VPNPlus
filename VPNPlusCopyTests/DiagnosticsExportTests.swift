@@ -78,6 +78,27 @@ struct DiagnosticsExportTests {
         #expect(text.contains("You're on Ethernet now"))
     }
 
+    /// D290: what the owner's export got wrong, read as a stranger.
+    @Test func theExportSpeaksInWordsNotCodes() {
+        var log = DiagnosticsLog(profile: profile)
+        log.begin(
+            recovery: 0, at: start,
+            facts: NetworkFacts(
+                at: start, interfaceKind: .wiFi, gateway: "192.0.2.1",
+                gatewayHardwareAddress: "00:00:5e:00:53:01", subnetMask: "255.255.255.0",
+                addressIsRandomised: false))
+        log.add(.connected, at: start + 5)
+        log.add(.dropped, at: start + 40)
+        log.add(.tryingAgain(attempt: 1, of: 5, seconds: 4), at: start + 40)
+        log.finish(.retried, at: start + 40)
+        let text = DiagnosticsExport.text(
+            profileName: "Work", record: log, comparison: nil, message: nil, at: start)
+        #expect(text.contains("Network: Wi-Fi, gateway 192.0.2.1, address randomised: no"))
+        #expect(!text.contains("wiFi"))
+        #expect(text.contains("The connection dropped"))
+        #expect(text.contains("· retried"))
+    }
+
     @Test func anEmptyRecordSaysSo() {
         let text = DiagnosticsExport.text(
             profileName: "Work", record: DiagnosticsLog(profile: profile), comparison: nil,

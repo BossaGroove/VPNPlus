@@ -788,6 +788,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             .tryingAgain(
                 attempt: attempt.recovery, of: Recovery.maxAttempts,
                 seconds: Int(wait.components.seconds)))
+        // This attempt is over; the next begins when the wait does (D290).
+        finishRecording(.retried)
         deadline?.cancel()
         phaseDeadline?.cancel()
         transportPoll?.cancel()
@@ -821,6 +823,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             // attempt, and incrementing it for every fresh engine would
             // exhaust the bound without anything having failed.
             apply(.dropped)
+            record(.dropped)
         }
         let old = engine
         let done = runFinished
@@ -942,6 +945,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
                 // the user from being told a lie. A guard catching our
                 // dishonesty is not the same as not being dishonest.
                 apply(.dropped)
+                record(.dropped)
                 engine?.pause(reason: "network gone")
                 pausedForNetwork = true
             }
@@ -1010,7 +1014,11 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         } else if event.name != "CONNECTED" {
             // Everything else, for the export: the identifier travels with the
             // entry and the screen never shows it (D138).
-            recordNote("\(event.name): \(event.info)", identifier: event.name)
+            // `RECONNECTING: ` with nothing after the colon is the engine's
+            // shape, not ours.
+            recordNote(
+                event.info.isEmpty ? event.name : "\(event.name): \(event.info)",
+                identifier: event.name)
         }
 
         switch event.name {

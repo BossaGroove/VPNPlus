@@ -37,6 +37,8 @@ enum DiagnosticsCopy {
             return TunnelPhase(id: id, deadline: .zero).label
         case .connected:
             return String(localized: "Connected")
+        case .dropped:
+            return String(localized: "The connection dropped")
         case .gaveUp(let id, let seconds):
             // The artboard's own sentence: "Gave up waiting for connection
             // settings after 20 seconds".
@@ -85,6 +87,8 @@ enum DiagnosticsCopy {
             text += " · " + String(localized: "failed")
         case .cancelled:
             text += " · " + String(localized: "stopped")
+        case .retried:
+            text += " · " + String(localized: "retried")
         case nil:
             text += " · " + String(localized: "running")
         }
@@ -170,7 +174,7 @@ enum DiagnosticsCopy {
         }
     }
 
-    private static func words(_ kind: NetworkFacts.InterfaceKind) -> String {
+    static func words(_ kind: NetworkFacts.InterfaceKind) -> String {
         switch kind {
         // The kind, never `en0` (D3).
         case .wiFi: String(localized: "Wi-Fi")

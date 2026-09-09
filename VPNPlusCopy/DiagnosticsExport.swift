@@ -72,8 +72,14 @@ enum DiagnosticsExport {
         for attempt in record.attempts {
             lines.append(DiagnosticsCopy.header(attempt))
             if let facts = attempt.facts {
+                let randomised: String =
+                    switch facts.addressIsRandomised {
+                    case true?: String(localized: "yes")
+                    case false?: String(localized: "no")
+                    case nil: String(localized: "unknown")
+                    }
                 lines.append(
-                    "  " + String(localized: "network: \(facts.interfaceKind.rawValue), gateway \(facts.gateway ?? "none"), randomised address: \(facts.addressIsRandomised.map(String.init) ?? "unknown")")
+                    "  " + String(localized: "Network: \(DiagnosticsCopy.words(facts.interfaceKind)), gateway \(facts.gateway ?? String(localized: "none")), address randomised: \(randomised)")
                 )
             }
             for entry in attempt.entries {

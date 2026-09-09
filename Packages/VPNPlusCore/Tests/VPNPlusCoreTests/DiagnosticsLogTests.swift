@@ -69,6 +69,20 @@ struct DiagnosticsLogTests {
         #expect(notProblems.isEmpty)
     }
 
+    /// D290: a drop is on screen and a problem; a retried attempt is closed.
+    @Test func aDropIsAProblemAndARetriedAttemptIsOver() {
+        var log = DiagnosticsLog(profile: profile)
+        log.begin(recovery: 0, at: start)
+        log.add(.connected, at: start + 5)
+        log.add(.dropped, at: start + 40)
+        log.add(.tryingAgain(attempt: 1, of: 5, seconds: 4), at: start + 40)
+        log.finish(.retried, at: start + 40)
+        #expect(DiagnosticsEntry.Kind.dropped.isForScreen)
+        #expect(DiagnosticsEntry.Kind.dropped.isProblem)
+        #expect(log.latest?.outcome == .retried)
+        #expect(!log.isAttemptOpen)
+    }
+
     @Test func attemptsAreNumberedAndTheOldestIsDropped() {
         var log = DiagnosticsLog(profile: profile)
         for index in 0..<(DiagnosticsRetention.attempts + 3) {

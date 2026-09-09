@@ -131,6 +131,10 @@ public struct DiagnosticsAttempt: Codable, Sendable, Equatable {
         case failed(TunnelFailure)
         /// The user stopped it, or a switch replaced it.
         case cancelled
+        /// Recovery gave up on this attempt and moved on to the next one
+        /// (D86). Without it the export showed four finished attempts as
+        /// *running* (D290).
+        case retried
     }
 
     /// 1-based, within what is retained — the number the sheet shows.
@@ -174,6 +178,10 @@ public struct DiagnosticsEntry: Codable, Sendable, Equatable {
         /// A phase, by id. The app has the words (`PhaseLabels`).
         case phase(String)
         case connected
+        /// A tunnel that was up lost its transport, or the network under it
+        /// (D290): the moment recovery begins, in words rather than as the
+        /// engine's `TRANSPORT_ERROR` line the screen never shows.
+        case dropped
         /// A phase deadline fired: the artboard's *"Gave up waiting for
         /// connection settings after 20 seconds"*.
         case gaveUp(phase: String, seconds: Int)
@@ -207,7 +215,7 @@ public struct DiagnosticsEntry: Codable, Sendable, Equatable {
         /// The artboard's *Problems only* filter.
         public var isProblem: Bool {
             switch self {
-            case .gaveUp, .failed, .networkLost: true
+            case .gaveUp, .failed, .networkLost, .dropped: true
             default: false
             }
         }
