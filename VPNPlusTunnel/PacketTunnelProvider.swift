@@ -582,14 +582,20 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     /// written**, so an attempt's outcome and its persistence cannot diverge —
     /// and outside the lock, because writing a file under one is how a hang
     /// starts.
+    ///
+    /// It saves whether or not there was an attempt to close. The first
+    /// version returned early when the outcome was already settled, and the
+    /// entries that arrive **after** it — the teardown's *"Restored DNS and
+    /// routes"*, the disconnect itself — reached memory and never the disk:
+    /// they were missing from the record the next provider process read
+    /// (measured on the owner's connect, 2026-09-09 10:01).
     private func finishRecording(_ outcome: DiagnosticsAttempt.Outcome) {
         let now = Date()
-        let (record, changed) = recording.withLock { recording -> (DiagnosticsLog, Bool) in
-            guard recording.log.isAttemptOpen else { return (recording.log, false) }
+        let record = recording.withLock { recording -> DiagnosticsLog in
             recording.log.finish(outcome, at: now)
-            return (recording.log, true)
+            return recording.log
         }
-        guard changed else { return }
+        guard !record.attempts.isEmpty else { return }
         records.save(record, for: record.profile ?? identifier)
     }
 

@@ -791,7 +791,14 @@ final class MainWindowController: NSWindowController {
         /// The record for the last profile, as the sheet will show it, plus
         /// what the export would carry. Two layers, one stream (D138).
         private func dumpDiagnostics() {
-            guard let profile = catalogue.profiles.last else { return }
+            // **Every profile**, not the last one: the first version dumped
+            // `profiles.last` and reported an empty record for a profile
+            // nobody had connected, which looked exactly like the feature not
+            // working (2026-09-09).
+            for profile in catalogue.profiles { dumpDiagnostics(for: profile) }
+        }
+
+        private func dumpDiagnostics(for profile: Profile) {
             let name = title(of: profile)
             Task { @MainActor [weak self] in
                 guard let self else { return }
