@@ -444,8 +444,14 @@ enum FailureCopy {
         return String(localized: "VPN Plus waited \(seconds) seconds.")
     }
 
+    /// Two sentences, joined the way the script joins them: a space in Latin
+    /// text, nothing after a full-width stop — Japanese and Chinese put no
+    /// space between sentences, and one after 。 read as a flaw in the
+    /// Japanese Failed state (2026-09-09, D316).
     private static func joined(_ first: String, _ second: String?) -> String {
         guard let second else { return first }
+        let fullWidthStops: Set<Character> = ["。", "！", "？", "）", "」"]
+        if let last = first.last, fullWidthStops.contains(last) { return first + second }
         return first + " " + second
     }
 }
