@@ -49,6 +49,15 @@ final class SettingsWindowController: NSWindowController {
             case .softwareUpdate: "arrow.triangle.2.circlepath"
             }
         }
+
+        /// The UI tests' name for the section, the same in every language.
+        var key: String {
+            switch self {
+            case .general: "general"
+            case .menuBar: "menuBar"
+            case .softwareUpdate: "softwareUpdate"
+            }
+        }
     }
 
     private let root: SettingsViewController
@@ -66,6 +75,7 @@ final class SettingsWindowController: NSWindowController {
         super.init(window: window)
         root.onSectionChange = { [weak self] section in self?.window?.title = section.title }
         window.title = root.section.title
+        window.setAccessibilityIdentifier(AccessibilityID.settingsWindow)
     }
 
     @available(*, unavailable)
@@ -268,6 +278,7 @@ final class SettingsViewController: NSViewController {
         button.translatesAutoresizingMaskIntoConstraints = false
         button.heightAnchor.constraint(equalToConstant: 32).isActive = true
         button.setAccessibilityLabel(section.title)
+        button.setAccessibilityIdentifier(AccessibilityID.settingsSidebarPrefix + section.key)
 
         let icon = NSImageView(
             image: NSImage(systemSymbolName: section.symbol, accessibilityDescription: nil)?
@@ -313,6 +324,10 @@ final class SettingsViewController: NSViewController {
 
     private func renderSection() {
         content.views.forEach { $0.removeFromSuperview() }
+        content.setAccessibilityElement(true)
+        content.setAccessibilityRole(.group)
+        content.setAccessibilityIdentifier(AccessibilityID.settingsSection)
+        content.setAccessibilityValue(section.key)
         switch section {
         case .general: renderGeneral()
         case .menuBar: renderMenuBar()

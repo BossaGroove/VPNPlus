@@ -80,12 +80,26 @@ final class ProfileCardView: NSView {
 
         enum Indicator: Equatable { case busy, connected, failed }
 
+        /// For the UI tests (M8.4): the presence as a word no language changes.
+        var name: String {
+            switch self {
+            case .idle: "idle"
+            case .inUse(.busy, _): "busy"
+            case .inUse(.connected, _): "connected"
+            case .inUse(.failed, _): "failing"
+            case .failed: "failed"
+            }
+        }
+
         /// Whether Connect — button, double-click, menu — does anything.
         var canConnect: Bool { self == .idle || self == .failed }
     }
 
     var presence: Presence = .idle {
-        didSet { if presence != oldValue { renderPresence(animated: window != nil) } }
+        didSet {
+            setAccessibilityValue(presence.name)
+            if presence != oldValue { renderPresence(animated: window != nil) }
+        }
     }
 
     private let stateLabel: NSTextField = {
@@ -192,6 +206,7 @@ final class ProfileCardView: NSView {
         connectButton.action = #selector(connect)
         connectButton.translatesAutoresizingMaskIntoConstraints = false
         connectButton.setAccessibilityLabel(String(localized: "Connect to \(title)"))
+        connectButton.setAccessibilityIdentifier(AccessibilityID.profileConnect)
 
         moreButton.title = "···"
         // Bare, as the artboard draws it: a bezel gave the menu the same
@@ -204,6 +219,7 @@ final class ProfileCardView: NSView {
         moreButton.action = #selector(showMenu)
         moreButton.translatesAutoresizingMaskIntoConstraints = false
         moreButton.setAccessibilityLabel(String(localized: "More options for \(title)"))
+        moreButton.setAccessibilityIdentifier(AccessibilityID.profileMore)
 
         // The artboard puts the `⋯` in the card's **top-right corner**, level
         // with the name, and gives **Connect the full width** at the bottom.
@@ -241,6 +257,7 @@ final class ProfileCardView: NSView {
         // can cross-fade and the card's height never changes.
         stateLabel.alignment = .center
         stateLabel.alphaValue = 0
+        stateLabel.setAccessibilityIdentifier(AccessibilityID.profileState)
         stateLabel.translatesAutoresizingMaskIntoConstraints = false
 
         let text = NSStackView(views: [heading, hostField, lastField])
@@ -274,8 +291,13 @@ final class ProfileCardView: NSView {
 
         // A card is one thing to VoiceOver, with the name as its identity and
         // its controls reachable inside it. A18 owns the full sweep (M8).
+        // An element in its own right, or the tree shows its children loose
+        // in the scroll view and there is no card to find (M8.4).
+        setAccessibilityElement(true)
         setAccessibilityRole(.group)
         setAccessibilityLabel(title)
+        setAccessibilityIdentifier(AccessibilityID.profileCard)
+        setAccessibilityValue(presence.name)
     }
 
     /// Puts the presence on the card. A cross-fade rather than a swap, because
@@ -402,24 +424,25 @@ final class ProfileCardView: NSView {
     /// A13's list, and deliberately short: everything on it is rare.
     private func menu() -> NSMenu {
         let menu = NSMenu()
-        add(to: menu, String(localized: "Connect"), #selector(connect))
+        add(to: menu, String(localized: "Connect"), #selector(connect), "connect")
         menu.addItem(.separator())
-        add(to: menu, String(localized: "Rename…"), #selector(beginRename))
-        add(to: menu, String(localized: "Edit…"), #selector(configure))
-        add(to: menu, String(localized: "Reveal Configuration File in Finder"), #selector(reveal))
+        add(to: menu, String(localized: "Rename…"), #selector(beginRename), "rename")
+        add(to: menu, String(localized: "Edit…"), #selector(configure), "edit")
+        add(to: menu, String(localized: "Reveal Configuration File in Finder"), #selector(reveal), "reveal")
         menu.addItem(.separator())
         // Keyboard- and VoiceOver-reachable reordering: dragging is invisible
         // to VoiceOver (A18 finding 5), so it cannot be the only way.
-        add(to: menu, String(localized: "Move Left"), #selector(moveCardLeft))
-        add(to: menu, String(localized: "Move Right"), #selector(moveCardRight))
+        add(to: menu, String(localized: "Move Left"), #selector(moveCardLeft), "moveLeft")
+        add(to: menu, String(localized: "Move Right"), #selector(moveCardRight), "moveRight")
         menu.addItem(.separator())
-        add(to: menu, String(localized: "Remove…"), #selector(remove))
+        add(to: menu, String(localized: "Remove…"), #selector(remove), "remove")
         return menu
     }
 
-    private func add(to menu: NSMenu, _ title: String, _ action: Selector) {
+    private func add(to menu: NSMenu, _ title: String, _ action: Selector, _ key: String) {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
         item.target = self
+        item.setAccessibilityIdentifier(AccessibilityID.cardMenuPrefix + key)
         menu.addItem(item)
     }
 

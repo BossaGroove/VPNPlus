@@ -97,6 +97,9 @@ final class DiagnosticsSheet: NSViewController {
             column.topAnchor.constraint(equalTo: container.topAnchor),
             column.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
+        container.setAccessibilityElement(true)
+        container.setAccessibilityRole(.group)
+        container.setAccessibilityIdentifier(AccessibilityID.diagnosticsSheet)
         view = container
         render()
     }
@@ -273,6 +276,7 @@ final class DiagnosticsSheet: NSViewController {
         spacer.translatesAutoresizingMaskIntoConstraints = false
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
         let done = NSButton(title: String(localized: "Done"), target: self, action: #selector(finish))
+        done.setAccessibilityIdentifier(AccessibilityID.diagnosticsDone)
         done.bezelStyle = .rounded
         done.keyEquivalent = "\r"
         let row = NSStackView(views: [copy, export, promise, spacer, done])

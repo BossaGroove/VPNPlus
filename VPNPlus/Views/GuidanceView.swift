@@ -52,6 +52,7 @@ final class GuidanceView: NSView {
         actionButton.action = #selector(act)
         actionButton.translatesAutoresizingMaskIntoConstraints = false
         actionButton.keyEquivalent = "\r"
+        actionButton.setAccessibilityIdentifier(AccessibilityID.guidanceAction)
 
         // The way out sits beside the way forward (the SetupExplain
         // artboard's *Continue · Not now*), and is hidden everywhere else.

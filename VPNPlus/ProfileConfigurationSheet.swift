@@ -226,6 +226,9 @@ final class ProfileConfigurationSheet: NSViewController {
             stack.topAnchor.constraint(equalTo: container.topAnchor),
             stack.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
+        container.setAccessibilityElement(true)
+        container.setAccessibilityRole(.group)
+        container.setAccessibilityIdentifier(AccessibilityID.configurationSheet)
         view = container
     }
 
@@ -390,6 +393,7 @@ final class ProfileConfigurationSheet: NSViewController {
             title: String(localized: "Cancel"), target: self, action: #selector(self.cancel))
         cancel.keyEquivalent = "\u{1b}"
         let done = NSButton(title: String(localized: "Done"), target: self, action: #selector(done))
+        done.setAccessibilityIdentifier(AccessibilityID.configurationDone)
         done.keyEquivalent = "\r"
 
         let spacer = NSView()
@@ -527,6 +531,7 @@ final class ProfileConfigurationSheet: NSViewController {
             addSwitch(
                 String(localized: "Remember in Keychain"), savePasswordSwitch,
                 action: #selector(savePasswordChanged))
+            savePasswordSwitch.setAccessibilityIdentifier(AccessibilityID.configurationRemember)
         case .forbiddenByProfile:
             // 2.15: absent, not shown and disabled — A13a's own anti-pattern.
             // A caption says why, because an unexplained absence is its own
@@ -618,6 +623,7 @@ final class ProfileConfigurationSheet: NSViewController {
         triangle.setButtonType(.onOff)
         triangle.state = Self.contentsExpanded ? .on : .off
         triangle.setAccessibilityLabel(String(localized: "What this profile contains"))
+        triangle.setAccessibilityIdentifier(AccessibilityID.configurationContents)
         disclosure = triangle
 
         let heading = NSTextField(labelWithString: String(localized: "What this profile contains"))
@@ -758,8 +764,8 @@ final class ProfileConfigurationSheet: NSViewController {
     /// remembers, and remembering it is the difference between a section you
     /// folded away and one you have to fold away again every time.
     private static var contentsExpanded: Bool {
-        get { UserDefaults.standard.bool(forKey: "sheet.contents.expanded") }
-        set { UserDefaults.standard.set(newValue, forKey: "sheet.contents.expanded") }
+        get { Preferences.defaults.bool(forKey: "sheet.contents.expanded") }
+        set { Preferences.defaults.set(newValue, forKey: "sheet.contents.expanded") }
     }
 
     // MARK: - Rows
@@ -892,6 +898,12 @@ final class ProfileConfigurationSheet: NSViewController {
             }
         }
         let group = openCard()
+        if field == .title {
+            // The card whose height D278 is about, reachable by the UI tests.
+            group.setAccessibilityElement(true)
+            group.setAccessibilityRole(.group)
+            group.setAccessibilityIdentifier(AccessibilityID.configurationNameCard)
+        }
         guard let field else {
             group.addRow(name, control, fillsWidth: control is NSTextField)
             return

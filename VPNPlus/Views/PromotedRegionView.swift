@@ -142,6 +142,11 @@ final class PromotedRegionView: NSView {
             control.translatesAutoresizingMaskIntoConstraints = false
             control.heightAnchor.constraint(equalToConstant: Metric.buttonHeight).isActive = true
         }
+        primary.setAccessibilityIdentifier(AccessibilityID.promotedPrimary)
+        proseButton.setAccessibilityIdentifier(AccessibilityID.promotedProseAction)
+        secondaryButton.setAccessibilityIdentifier(AccessibilityID.promotedSecondary)
+        tertiaryButton.setAccessibilityIdentifier(AccessibilityID.promotedTertiary)
+        proseTitle.setAccessibilityIdentifier(AccessibilityID.promotedTitle)
 
         // Short states: the button sits at the trailing edge, vertically
         // centred against the three lines — not underneath them.

@@ -138,6 +138,7 @@ final class ReplaceReportSheet: NSViewController {
 
         // Done, at the trailing edge.
         let done = NSButton(title: String(localized: "Done"), target: self, action: #selector(finish))
+        done.setAccessibilityIdentifier(AccessibilityID.replaceReportDone)
         done.bezelStyle = .rounded
         done.keyEquivalent = "\r"
         let spacer = NSView()
@@ -159,6 +160,9 @@ final class ReplaceReportSheet: NSViewController {
             column.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -Self.inset),
             column.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -Self.inset),
         ])
+        container.setAccessibilityElement(true)
+        container.setAccessibilityRole(.group)
+        container.setAccessibilityIdentifier(AccessibilityID.replaceReport)
         view = container
     }
 

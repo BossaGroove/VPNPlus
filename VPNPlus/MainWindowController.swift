@@ -61,10 +61,11 @@ final class MainWindowController: NSWindowController {
     private static let minimumSize = NSSize(width: 640, height: 640)
 
     /// Where the app is, read once (D62): a bundle does not move while it runs.
-    private let location = InstallLocation.current
+    private let location: InstallLocation = Rehearsal.isActive ? .correct : InstallLocation.current
     /// A5's setup sequence, holding the connect intent across it (D60).
     private let setup = SetupFlow(
-        installer: ExtensionInstaller(identifier: "com.bossagroove.VPNPlus.tunnel"))
+        installer: ExtensionInstaller(
+            identifier: "com.bossagroove.VPNPlus.tunnel", rehearsing: Rehearsal.isActive))
     /// **Injected, not owned.** The status item reads the same one, which is
     /// what makes commitment 6 structural rather than a promise (D93).
     private let tunnel: TunnelController
@@ -115,12 +116,15 @@ final class MainWindowController: NSWindowController {
         window.contentViewController = content
 
         window.title = "VPN Plus"
+        window.setAccessibilityIdentifier(AccessibilityID.mainWindow)
         window.center()
         // Bumped whenever the designed size changes, because a frame saved
         // from the previous one is not a size the user chose. M5.8 is the
         // second bump: 760 × 560 comes from the artboards, and a restored
         // 716 pt window was quietly costing the grid its third column.
-        window.setFrameAutosaveName("MainWindow.M5.8")
+        // A rehearsal starts at the default size every time and leaves the
+        // owner's saved frame alone (M8.4).
+        if !Rehearsal.isActive { window.setFrameAutosaveName("MainWindow.M5.8") }
         window.minSize = Self.minimumSize
         // Resizable *and* zoomable, against A1's finding that OpenVPN Connect
         // disables zoom and fixes itself at about 400 × 685.
@@ -133,6 +137,13 @@ final class MainWindowController: NSWindowController {
         buildToolbar()
         buildLayout()
         acceptDrops()
+        for (view, identifier) in [(promoted, AccessibilityID.promotedRegion), (empty, AccessibilityID.guidance)]
+            as [(NSView, String)]
+        {
+            view.setAccessibilityElement(true)
+            view.setAccessibilityRole(.group)
+            view.setAccessibilityIdentifier(identifier)
+        }
 
         importer.onChange = { [weak self] in self?.render() }
         setup.onChange = { [weak self] in self?.render() }
@@ -616,6 +627,10 @@ final class MainWindowController: NSWindowController {
         // The explanation and the wrong-location screen take the Empty
         // screen's place: centred prose, the grid put away, nothing else
         // competing for the moment (D65, D62).
+        // The state, by name, for the UI tests to wait on (M8.4): a word no
+        // translation touches, on the region that shows it.
+        promoted.setAccessibilityValue(Self.name(of: state, connection: tunnel.connection))
+
         let fullWindow: Bool =
             switch state {
             case .empty, .wrongLocation, .setupExplain: true
@@ -1098,6 +1113,28 @@ final class MainWindowController: NSWindowController {
     /// A profile double-clicked in the Finder or dropped on the app icon (2.1).
     func importProfile(at url: URL) {
         importer.importProfile(at: url, over: window)
+    }
+
+    /// The store changed behind the window's back — the rehearsal's seeding
+    /// (M8.4) — so every card is rebuilt from what it now says.
+    func storeDidChange() { render() }
+
+    /// `idle`, `active:connecting`, `active:connected`, `failed`, … — the
+    /// window state and, while a tunnel is involved, the connection's own.
+    private static func name(of state: WindowState, connection: Connection) -> String {
+        let base =
+            switch state {
+            case .empty: "empty"
+            case .wrongLocation: "wrongLocation"
+            case .setupExplain: "setupExplain"
+            case .setup: "setup"
+            case .blocked: "blocked"
+            case .idle: "idle"
+            case .active: "active"
+            case .failed: "failed"
+            }
+        if case .active = state { return base + ":" + connection.state.rawValue }
+        return base
     }
 
     private func configure(_ profile: Profile) {

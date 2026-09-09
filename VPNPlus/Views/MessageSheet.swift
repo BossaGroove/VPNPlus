@@ -258,6 +258,9 @@ final class MessageSheet: NSViewController {
                 equalTo: container.trailingAnchor, constant: -Self.inset),
             content.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -Self.inset),
         ])
+        container.setAccessibilityElement(true)
+        container.setAccessibilityRole(.group)
+        container.setAccessibilityIdentifier(AccessibilityID.messageSheet)
         view = container
     }
 

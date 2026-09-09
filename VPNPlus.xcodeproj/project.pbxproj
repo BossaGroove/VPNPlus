@@ -22,6 +22,7 @@
 		20A72A340ACB7C5286938572 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 13133B04CBB3D94810E7E1E6 /* CoreFoundation.framework */; };
 		22A48AEB674D8C550ACD14FD /* GuidanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D909B6E7CA25FA69DB86615 /* GuidanceView.swift */; };
 		2903FFE66AF2035C206A32EE /* StatusItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FEE9E343B5527DF69A7C22D /* StatusItem.swift */; };
+		2C45A689AB3F524EC9811B10 /* Rehearsal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59815D05337FE5458380DE49 /* Rehearsal.swift */; };
 		32FA7E6C072EBD7B4B79A43E /* PhaseLabels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 647C8572875DE2E4455B46E1 /* PhaseLabels.swift */; };
 		3495A69B1F13A4E26949921E /* OpenVPNFailures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A00673A62DFD2E34E00EC01 /* OpenVPNFailures.swift */; };
 		350C71B1B88CD72D355C3527 /* OpenVPNFailures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A00673A62DFD2E34E00EC01 /* OpenVPNFailures.swift */; };
@@ -121,6 +122,7 @@
 		E9524772DAE74D18F8FA22D3 /* ExternalPKIProvider.c in Sources */ = {isa = PBXBuildFile; fileRef = 7D9F25F622C28F83185D923E /* ExternalPKIProvider.c */; };
 		EA742C4B3EFF74AA5E55DBF5 /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFF5ECC43D8D8506CFE89AE3 /* Tokens.swift */; };
 		ED9586F2D97B6D1978875D4F /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48D72C8040E7EB9A068E6CAB /* SettingsWindowController.swift */; };
+		F04A1FC378DEF985AD56FBCA /* AccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0D131FA481054644CB4F1F7 /* AccessibilityID.swift */; };
 		F382E1E2F891FA84870B4CAD /* PrivilegedService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC5C29758341AED992D06D2D /* PrivilegedService.swift */; };
 		F386742D4DE0B18D3546E05E /* NetworkFactsReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9B2A016A257BF9339FBFA19 /* NetworkFactsReader.swift */; };
 		F3BB3E71A32F37960150D401 /* TunnelReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5278224C6E252321C6BC566 /* TunnelReport.swift */; };
@@ -227,6 +229,7 @@
 		53DBF7460C16F2830ACA47DA /* SettingsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsCard.swift; sourceTree = "<group>"; };
 		58B8862F0FA21CF7DC071671 /* DropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropView.swift; sourceTree = "<group>"; };
 		597146994213AB10C2858937 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		59815D05337FE5458380DE49 /* Rehearsal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Rehearsal.swift; sourceTree = "<group>"; };
 		5C891AFB48AF4ED86888CD08 /* VPNPlusTunnel.systemextension */ = {isa = PBXFileReference; explicitFileType = "wrapper.system-extension"; includeInIndex = 0; path = VPNPlusTunnel.systemextension; sourceTree = BUILT_PRODUCTS_DIR; };
 		5E855E821FD66EF1537305B0 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
 		5FBDBC35E7CE4C4696A7A964 /* libVPNPlusEngine.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libVPNPlusEngine.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -271,6 +274,7 @@
 		CA61D2EF684BB0FB0BF12A64 /* ServiceManagement.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ServiceManagement.framework; path = System/Library/Frameworks/ServiceManagement.framework; sourceTree = SDKROOT; };
 		CC7D701DCB81C31777EE7880 /* CardGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardGridView.swift; sourceTree = "<group>"; };
 		CEBFF959B90678044D60D0AA /* ProfileCatalogue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileCatalogue.swift; sourceTree = "<group>"; };
+		D0D131FA481054644CB4F1F7 /* AccessibilityID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityID.swift; sourceTree = "<group>"; };
 		D5278224C6E252321C6BC566 /* TunnelReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelReport.swift; sourceTree = "<group>"; };
 		DB24DE94E2E4956D50D38ACE /* PromotedRegionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromotedRegionView.swift; sourceTree = "<group>"; };
 		DFB57BBBCF629E49A6B82483 /* libc++.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libc++.tbd"; path = "usr/lib/libc++.tbd"; sourceTree = SDKROOT; };
@@ -429,6 +433,7 @@
 		A29F2DC8AFC6D99F16D50E4F /* VPNPlus */ = {
 			isa = PBXGroup;
 			children = (
+				D0D131FA481054644CB4F1F7 /* AccessibilityID.swift */,
 				EFEC2F7E4380EC79C2474F2F /* App.swift */,
 				BB8F03B21DA449466725EAD6 /* AppSettings.swift */,
 				134740794902FEB890D469CE /* DiagnosticsSheet.swift */,
@@ -445,6 +450,7 @@
 				AD459008A5079558FEE30141 /* ProfileImport.swift */,
 				78598EE5564F61AE94D4B153 /* ProfileImporter.swift */,
 				4B4A4F17AAADBDA419BA9006 /* ProfileStorage.swift */,
+				59815D05337FE5458380DE49 /* Rehearsal.swift */,
 				87036C32513D26DEDC05FC4D /* Relaunch.swift */,
 				376EA33312BE31C560F89273 /* ReplaceCopy.swift */,
 				48D72C8040E7EB9A068E6CAB /* SettingsWindowController.swift */,
@@ -719,7 +725,12 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				Base,
+				de,
 				en,
+				fr,
+				ja,
+				"zh-Hans",
+				"zh-Hant",
 			);
 			mainGroup = 912D0AABCD05A58BFC721495;
 			minimizedProjectReferenceProxies = 1;
@@ -848,6 +859,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F04A1FC378DEF985AD56FBCA /* AccessibilityID.swift in Sources */,
 				017407B0623EE77D6A116F9F /* App.swift in Sources */,
 				F3D8537875A2078671EC2399 /* AppSettings.swift in Sources */,
 				D6233C9C2F5338664608BA4C /* AutoLayout.swift in Sources */,
@@ -880,6 +892,7 @@
 				CCF814AD83E789107066C510 /* ProfileStorage.swift in Sources */,
 				613CF72E53C9596BA08A027D /* PromotedRegionView.swift in Sources */,
 				AD4441E7CB90528D9E3D4B21 /* Redaction.swift in Sources */,
+				2C45A689AB3F524EC9811B10 /* Rehearsal.swift in Sources */,
 				F87C7542792D4E115557BF22 /* Relaunch.swift in Sources */,
 				412483FF6640922BA1319165 /* ReplaceCopy.swift in Sources */,
 				3B3396910AF411F656E42A22 /* ReplaceReportSheet.swift in Sources */,
