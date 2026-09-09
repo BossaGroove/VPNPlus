@@ -51,9 +51,10 @@ final class SettingsWindowController: NSWindowController {
         }
     }
 
-    private let root = SettingsViewController()
+    private let root: SettingsViewController
 
-    init() {
+    init(updater: Updater) {
+        root = SettingsViewController(updater: updater)
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: Self.size),
             styleMask: [.titled, .closable],
@@ -108,6 +109,23 @@ final class SettingsViewController: NSViewController {
 
     private var items: [Section: NSButton] = [:]
     private let content = NSStackView()
+    private let updater: Updater
+
+    init(updater: Updater) {
+        self.updater = updater
+        super.init(nibName: nil, bundle: nil)
+        updater.onChange = { [weak self] in self?.renderUpdateStatus() }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("not supported") }
+
+    // Software Update
+    private let autoCheckSwitch = NSSwitch()
+    private let autoDownloadSwitch = NSSwitch()
+    private let betaSwitch = NSSwitch()
+    private let updateStatus = NSTextField(labelWithString: "")
+    private let checkButton = NSButton()
 
     // General
     private let languagePicker = NSPopUpButton()
@@ -124,6 +142,12 @@ final class SettingsViewController: NSViewController {
             super.viewDidChangeEffectiveAppearance()
             onAppearanceChange?()
         }
+    }
+
+    /// A scroll view's document view is unflipped, which would pin the
+    /// column to the bottom of a short section; flipped, it hangs from the top.
+    private final class FlippedView: NSView {
+        override var isFlipped: Bool { true }
     }
 
     /// Debug and tests: the section, set from outside.
@@ -158,9 +182,30 @@ final class SettingsViewController: NSViewController {
         content.spacing = 0
         content.translatesAutoresizingMaskIntoConstraints = false
 
+        // A section taller than the window scrolls — What's New can be long —
+        // rather than running off the bottom (A2's clipped credits).
+        let scroll = NSScrollView()
+        scroll.drawsBackground = false
+        scroll.hasVerticalScroller = true
+        scroll.hasHorizontalScroller = false
+        scroll.autohidesScrollers = true
+        scroll.borderType = .noBorder
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        let document = FlippedView()
+        document.translatesAutoresizingMaskIntoConstraints = false
+        document.addSubview(content)
+        scroll.documentView = document
+
         root.addSubview(sidebar)
-        root.addSubview(content)
+        root.addSubview(scroll)
         NSLayoutConstraint.activate([
+            content.topAnchor.constraint(equalTo: document.topAnchor),
+            content.leadingAnchor.constraint(equalTo: document.leadingAnchor),
+            content.trailingAnchor.constraint(equalTo: document.trailingAnchor),
+            content.bottomAnchor.constraint(equalTo: document.bottomAnchor, constant: -Self.sidebarInset),
+            document.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor),
+            document.leadingAnchor.constraint(equalTo: scroll.contentView.leadingAnchor),
+            document.topAnchor.constraint(equalTo: scroll.contentView.topAnchor),
             sidebar.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: Self.sidebarInset),
             sidebar.topAnchor.constraint(equalTo: root.topAnchor, constant: Self.sidebarInset),
             sidebar.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -Self.sidebarInset),
@@ -169,9 +214,10 @@ final class SettingsViewController: NSViewController {
             list.topAnchor.constraint(equalTo: sidebar.topAnchor, constant: Self.sidebarInset),
             list.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: Self.sidebarInset),
             list.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -Self.sidebarInset),
-            content.leadingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: Self.contentInset),
-            content.topAnchor.constraint(equalTo: root.topAnchor, constant: Self.sidebarInset),
-            content.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -Self.contentInset),
+            scroll.leadingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: Self.contentInset),
+            scroll.topAnchor.constraint(equalTo: root.topAnchor, constant: Self.sidebarInset),
+            scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -Self.contentInset),
+            scroll.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
         self.sidebar = sidebar
         view = root
@@ -199,6 +245,10 @@ final class SettingsViewController: NSViewController {
         loginSwitch.state = AppSettings.launchesAtLogin ? .on : .off
         dockSwitch.state = AppSettings.showsDockIcon ? .on : .off
         profileNameSwitch.state = AppSettings.showsProfileNameInMenuBar ? .on : .off
+        autoCheckSwitch.state = updater.automaticallyChecks ? .on : .off
+        autoDownloadSwitch.state = updater.automaticallyDownloads ? .on : .off
+        betaSwitch.state = updater.includesBetas ? .on : .off
+        renderUpdateStatus()
     }
 
     // MARK: - Sidebar
@@ -305,14 +355,122 @@ final class SettingsViewController: NSViewController {
                 """))
     }
 
+    /// The SettingsUpdate artboard: the three toggles with the beta warning
+    /// beneath, the check with its status, the version, and What's New last
+    /// (read, not set — nothing that matters is below it).
     private func renderSoftwareUpdate() {
-        // The update controls arrive with the updater (M7.4); the version is
-        // a fact the app has now.
+        let toggles = card()
+        for (title, control, action) in [
+            (String(localized: "Automatically check for updates"), autoCheckSwitch, #selector(autoCheckChanged)),
+            (String(localized: "Automatically download and install updates"), autoDownloadSwitch, #selector(autoDownloadChanged)),
+            (String(localized: "Include beta versions"), betaSwitch, #selector(betaChanged)),
+        ] {
+            control.target = self
+            control.action = action
+            control.isEnabled = updater.isAvailable
+            toggles.addRow(title, control)
+        }
+        footnote(UpdateCopy.betaWarning)
+
+        let check = card()
+        updateStatus.font = Type.control
+        updateStatus.textColor = Palette.textSecondary
+        updateStatus.lineBreakMode = .byTruncatingTail
+        checkButton.bezelStyle = .rounded
+        checkButton.font = Type.control
+        checkButton.target = self
+        checkButton.action = #selector(checkNow)
+        checkButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        updateStatus.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        // The status is the row's label: what the last check left behind.
+        let row = NSView()
+        row.translatesAutoresizingMaskIntoConstraints = false
+        updateStatus.translatesAutoresizingMaskIntoConstraints = false
+        checkButton.translatesAutoresizingMaskIntoConstraints = false
+        row.addSubview(updateStatus)
+        row.addSubview(checkButton)
+        NSLayoutConstraint.activate([
+            updateStatus.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: SettingsCard.Metric.inset),
+            updateStatus.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            updateStatus.trailingAnchor.constraint(lessThanOrEqualTo: checkButton.leadingAnchor, constant: -Space.m),
+            checkButton.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -SettingsCard.Metric.inset),
+            checkButton.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+        ])
+        check.addFullWidthRow(row, height: Self.rowHeight)
+
         let version = card()
         let line = NSTextField(labelWithString: AppSettings.versionLine)
         line.font = Type.control
         line.textColor = Palette.textSecondary
         version.addRow(String(localized: "Version"), line)
+
+        if let notes = whatsNew() {
+            let box = card()
+            let title = NSTextField(labelWithString: notes.title)
+            title.font = Type.cardTitle
+            title.textColor = Palette.textPrimary
+            let body = NSTextField(wrappingLabelWithString: notes.bullets.map { "•  " + $0 }.joined(separator: "\n"))
+            body.font = Type.detail
+            body.textColor = Palette.textSecondary
+            body.preferredMaxLayoutWidth = Self.contentWidth - 2 * SettingsCard.Metric.inset
+            let column = NSStackView(views: [title, body])
+            column.orientation = .vertical
+            column.alignment = .leading
+            column.spacing = Space.s
+            column.edgeInsets = NSEdgeInsets(
+                top: Space.m, left: SettingsCard.Metric.inset, bottom: Space.m, right: SettingsCard.Metric.inset)
+            column.translatesAutoresizingMaskIntoConstraints = false
+            box.addFullWidthRow(column)
+        }
+        renderUpdateStatus()
+    }
+
+    /// The bundled changelog's section for this version, else *Unreleased*.
+    private func whatsNew() -> (title: String, bullets: [String])? {
+        guard let url = Bundle.main.url(forResource: "CHANGELOG", withExtension: "md"),
+            let text = try? String(contentsOf: url, encoding: .utf8)
+        else { return nil }
+        let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        guard let section = Changelog.section(for: short, in: text), !section.bullets.isEmpty else { return nil }
+        let title = section.version.map { String(localized: "What's New in \($0)") } ?? String(localized: "What's New")
+        return (title, section.bullets)
+    }
+
+    private func renderUpdateStatus() {
+        guard section == .softwareUpdate else { return }
+        switch updater.state {
+        case .unavailable:
+            updateStatus.stringValue = UpdateCopy.unavailable
+            checkButton.title = String(localized: "Check for Updates Now")
+            checkButton.isEnabled = false
+        case .idle:
+            updateStatus.stringValue = UpdateCopy.lastChecked(updater.lastChecked)
+            checkButton.title = String(localized: "Check for Updates Now")
+            checkButton.isEnabled = true
+        case .checking:
+            updateStatus.stringValue = UpdateCopy.checking
+            checkButton.title = String(localized: "Check for Updates Now")
+            checkButton.isEnabled = false
+        case .upToDate(let version):
+            updateStatus.stringValue = UpdateCopy.upToDate(version: version)
+            checkButton.title = String(localized: "Check for Updates Now")
+            checkButton.isEnabled = true
+        case .available(let version):
+            updateStatus.stringValue = UpdateCopy.available(version: version)
+            checkButton.title = String(localized: "Install…")
+            checkButton.isEnabled = true
+        case .failed:
+            updateStatus.stringValue = UpdateCopy.noServer
+            checkButton.title = String(localized: "Check for Updates Now")
+            checkButton.isEnabled = true
+        }
+    }
+
+    @objc private func autoCheckChanged() { updater.automaticallyChecks = autoCheckSwitch.state == .on }
+    @objc private func autoDownloadChanged() { updater.automaticallyDownloads = autoDownloadSwitch.state == .on }
+    @objc private func betaChanged() { updater.includesBetas = betaSwitch.state == .on }
+    @objc private func checkNow() {
+        if case .available = updater.state { updater.install() } else { updater.checkNow() }
     }
 
     private func card() -> SettingsCard {

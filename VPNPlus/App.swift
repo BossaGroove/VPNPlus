@@ -39,13 +39,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowController: MainWindowController?
     private var statusItem: StatusItemController?
     private var notifier: FailureNotifier?
-    private lazy var settings = SettingsWindowController()
+    private let updater = Updater()
+    private lazy var settings = SettingsWindowController(updater: updater)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
         // Someone who lives in the menu bar asked for no Dock tile; honoured
         // before any window appears, so nothing flashes.
         AppSettings.applyDockPolicy()
+        // Sparkle, in its own words for the update and ours for the check.
+        updater.start()
         let controller = MainWindowController(tunnel: tunnel, catalogue: catalogue)
         windowController = controller
 
@@ -102,6 +105,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 settings.close()
             }
         }
+
+        /// **Development only.** A silent update check, reported on the card:
+        ///
+        ///   notifyutil -p com.bossagroove.VPNPlus.debug.checkForUpdates
+        func debugCheckForUpdates() { updater.checkNow() }
 
         /// **Development only.** Posts the notification for a synthetic M14
         /// failure of the first profile, whether or not anyone is looking:

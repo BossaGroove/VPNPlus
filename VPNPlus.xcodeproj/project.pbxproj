@@ -15,6 +15,7 @@
 		0D638FEAF5C869187DDA8AD6 /* MessageSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04CAFB64BEF242A0C35DF78D /* MessageSheet.swift */; };
 		0D8358E4AB9B02338F7070BB /* ValidateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7902FE342F46EC63BBD69985 /* ValidateTests.swift */; };
 		0E04F2C597286220660B161C /* VPNPlusCore in Frameworks */ = {isa = PBXBuildFile; productRef = B4EEE11DD89DF281EE6A7291 /* VPNPlusCore */; };
+		1416F69FDA7E299A883F0701 /* Changelog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E738659C9B4C1C016C2F606B /* Changelog.swift */; };
 		14C783E99F2201AB42BB1F88 /* NetworkFactsReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9B2A016A257BF9339FBFA19 /* NetworkFactsReader.swift */; };
 		1664C02BE39BF5C3FC4E527A /* libVPNPlusEngine.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FBDBC35E7CE4C4696A7A964 /* libVPNPlusEngine.a */; };
 		1C770054289F7146D4559641 /* libVPNPlusEngine.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FBDBC35E7CE4C4696A7A964 /* libVPNPlusEngine.a */; };
@@ -68,14 +69,17 @@
 		95BBBA9AD07BC3A23914D6D5 /* ServiceManagement.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CA61D2EF684BB0FB0BF12A64 /* ServiceManagement.framework */; };
 		9AE19D99788D00C9F3D93275 /* Redaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78465DC02DD9E2EF9A28C78E /* Redaction.swift */; };
 		9B437588A0CD6D989C601D25 /* PrivilegedInterface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C8C37F94F76028963C3E687 /* PrivilegedInterface.swift */; };
+		9B8036D11DDF75D6F5D9D716 /* CHANGELOG.md in Resources */ = {isa = PBXBuildFile; fileRef = 69DCF622FBBFDF66F64BFA69 /* CHANGELOG.md */; };
 		9C0203F098216AE9CFAEC3A2 /* SetupFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C76D22463B70D1161646FC8E /* SetupFlow.swift */; };
 		9E2E4AAA7C9C5DC288275424 /* VPNPlusCore in Frameworks */ = {isa = PBXBuildFile; productRef = 3D2D5714DD1249014A1B7218 /* VPNPlusCore */; };
 		9EA526DD14193C5BD8B02281 /* DiagnosticsExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9C0D8B239DD61BBE192732 /* DiagnosticsExportTests.swift */; };
 		9FB9278F96A9D8B4D6944321 /* TunnelReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5278224C6E252321C6BC566 /* TunnelReport.swift */; };
 		A0CD636AC8C8E623ACAA29B3 /* TunnelReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5278224C6E252321C6BC566 /* TunnelReport.swift */; };
 		A86A7F0E44843C0CD7875969 /* VPNPlusEngine.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 208361D78664FDC72939DDB7 /* VPNPlusEngine.h */; };
+		ABA5051965CC42ED02B9A243 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 17FDEEEBA7AFEA2265FD7E8B /* Sparkle */; };
 		AD4441E7CB90528D9E3D4B21 /* Redaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78465DC02DD9E2EF9A28C78E /* Redaction.swift */; };
 		ADE17859AF1ADC4A3AD45A2C /* ExternalPKIHelper.c in Sources */ = {isa = PBXBuildFile; fileRef = 92FA759A42A5B4F74D866FC1 /* ExternalPKIHelper.c */; };
+		AE0CEAB3F9761DEA753E0464 /* Updater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32D4BDD65926A9573DA4BC40 /* Updater.swift */; };
 		AFC9D77610261CD7EE9D3BD7 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7ED01D1888C03F68BC162FA3 /* CoreServices.framework */; };
 		B024190D8EAE53657644AA66 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 13133B04CBB3D94810E7E1E6 /* CoreFoundation.framework */; };
 		B0A5484AF7330166A0FD3D60 /* libc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = DFB57BBBCF629E49A6B82483 /* libc++.tbd */; };
@@ -89,10 +93,12 @@
 		BDA32AE7813F341251CE2C37 /* DiagnosticsCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2153A4C5055651DD69243B27 /* DiagnosticsCopy.swift */; };
 		BDB5CA7CF6E6A0F2F6162B6A /* ProfileCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70E018DD83B0C52B110C2B16 /* ProfileCardView.swift */; };
 		BF7C07B4C234E62260797A99 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E855E821FD66EF1537305B0 /* SystemConfiguration.framework */; };
+		BFCAA475A578BCD7896AB3C0 /* Changelog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E738659C9B4C1C016C2F606B /* Changelog.swift */; };
 		C0D83B28313952C35DEA40B0 /* ProfileImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD459008A5079558FEE30141 /* ProfileImport.swift */; };
 		C1226F0EFBDF100E3743DDAB /* PrivilegedInterface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C8C37F94F76028963C3E687 /* PrivilegedInterface.swift */; };
 		C343D74C3EFCEE7623AA2BC0 /* VPNPlusCore in Frameworks */ = {isa = PBXBuildFile; productRef = 8851D5D8871024EEBE79BE1D /* VPNPlusCore */; };
 		C401EF4DB9265005338A59C5 /* ProfileImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78598EE5564F61AE94D4B153 /* ProfileImporter.swift */; };
+		C527C40702DAFCFEBA258BC5 /* UpdateCopyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B0528008B2451F02A43B719 /* UpdateCopyTests.swift */; };
 		C6716E14E5C3A172D2A0C975 /* DiagnosticsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 134740794902FEB890D469CE /* DiagnosticsSheet.swift */; };
 		C799B621B422ACB497FC0FDF /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7ED01D1888C03F68BC162FA3 /* CoreServices.framework */; };
 		C79DCB232F97FE60A0C61EE1 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0249DBE000CCC1904590F222 /* main.swift */; };
@@ -110,6 +116,7 @@
 		E3A3779B05540B21EA5EEDD4 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 10BC1655F49A221682EA0E4A /* IOKit.framework */; };
 		E49A90E618461145DD478766 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E855E821FD66EF1537305B0 /* SystemConfiguration.framework */; };
 		E58868C8BBA2EBBC1966B0D5 /* OpenVPNFailures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A00673A62DFD2E34E00EC01 /* OpenVPNFailures.swift */; };
+		E7EFABAFC5AD2970076D5A5D /* UpdateCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07CF1A66CB33E50A224DEE82 /* UpdateCopy.swift */; };
 		E9524772DAE74D18F8FA22D3 /* ExternalPKIProvider.c in Sources */ = {isa = PBXBuildFile; fileRef = 7D9F25F622C28F83185D923E /* ExternalPKIProvider.c */; };
 		EA742C4B3EFF74AA5E55DBF5 /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFF5ECC43D8D8506CFE89AE3 /* Tokens.swift */; };
 		ED9586F2D97B6D1978875D4F /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48D72C8040E7EB9A068E6CAB /* SettingsWindowController.swift */; };
@@ -120,6 +127,7 @@
 		F46038638D5D288A3A345A24 /* FailureCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 749C613E0DE74BE7DE505D14 /* FailureCopy.swift */; };
 		F4808618DD2930504319912A /* OpenVPNPhases.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C272E4AD0B0F8E346C08845 /* OpenVPNPhases.swift */; };
 		F5EEC0BAB4BD07488521CB11 /* SetupCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D5B80E157B8033FE601F567 /* SetupCopy.swift */; };
+		F623E92317EDD5151F1B9CCF /* UpdateCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07CF1A66CB33E50A224DEE82 /* UpdateCopy.swift */; };
 		F87C7542792D4E115557BF22 /* Relaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87036C32513D26DEDC05FC4D /* Relaunch.swift */; };
 		FB556FCAF7D5B786F0EE4F22 /* ExtensionInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = C535D99BB8588E6A6E0F467E /* ExtensionInstaller.swift */; };
 		FDC5E5B2F51D9BACD256037D /* ProfileCatalogue.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEBFF959B90678044D60D0AA /* ProfileCatalogue.swift */; };
@@ -186,6 +194,7 @@
 		0249DBE000CCC1904590F222 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		04CAFB64BEF242A0C35DF78D /* MessageSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageSheet.swift; sourceTree = "<group>"; };
 		05D57C00265B12AEF250D992 /* EngineShim.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = EngineShim.cpp; sourceTree = "<group>"; };
+		07CF1A66CB33E50A224DEE82 /* UpdateCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCopy.swift; sourceTree = "<group>"; };
 		098726CF87659388D4A4CFD0 /* VPNPlusSharedTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VPNPlusSharedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0B9C0D8B239DD61BBE192732 /* DiagnosticsExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsExportTests.swift; sourceTree = "<group>"; };
 		0C8C37F94F76028963C3E687 /* PrivilegedInterface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivilegedInterface.swift; sourceTree = "<group>"; };
@@ -201,6 +210,7 @@
 		2AF44C54C60E6F5CDD8ECAD0 /* DiagnosticsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsStore.swift; sourceTree = "<group>"; };
 		2D5B80E157B8033FE601F567 /* SetupCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupCopy.swift; sourceTree = "<group>"; };
 		302A71E65FD01AA5BEEFE23E /* SetupCopyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupCopyTests.swift; sourceTree = "<group>"; };
+		32D4BDD65926A9573DA4BC40 /* Updater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updater.swift; sourceTree = "<group>"; };
 		376EA33312BE31C560F89273 /* ReplaceCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplaceCopy.swift; sourceTree = "<group>"; };
 		3C272E4AD0B0F8E346C08845 /* OpenVPNPhases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenVPNPhases.swift; sourceTree = "<group>"; };
 		3CBF178DBF0AF1CAED795117 /* TestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFixtures.swift; sourceTree = "<group>"; };
@@ -210,6 +220,7 @@
 		4674E7479E5A804E7D093603 /* NetworkFactsReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkFactsReaderTests.swift; sourceTree = "<group>"; };
 		48D72C8040E7EB9A068E6CAB /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		4A00673A62DFD2E34E00EC01 /* OpenVPNFailures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenVPNFailures.swift; sourceTree = "<group>"; };
+		4B0528008B2451F02A43B719 /* UpdateCopyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCopyTests.swift; sourceTree = "<group>"; };
 		4B4A4F17AAADBDA419BA9006 /* ProfileStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileStorage.swift; sourceTree = "<group>"; };
 		53B8DADE87564AFDA3C8B3CC /* AutoLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoLayout.swift; sourceTree = "<group>"; };
 		53DBF7460C16F2830ACA47DA /* SettingsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsCard.swift; sourceTree = "<group>"; };
@@ -219,6 +230,7 @@
 		5FBDBC35E7CE4C4696A7A964 /* libVPNPlusEngine.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libVPNPlusEngine.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		647C8572875DE2E4455B46E1 /* PhaseLabels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhaseLabels.swift; sourceTree = "<group>"; };
 		67880B91DCB8D05E7C902D9B /* VPNPlusEngineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VPNPlusEngineTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		69DCF622FBBFDF66F64BFA69 /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
 		70E018DD83B0C52B110C2B16 /* ProfileCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileCardView.swift; sourceTree = "<group>"; };
 		749C613E0DE74BE7DE505D14 /* FailureCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FailureCopy.swift; sourceTree = "<group>"; };
 		75E9B549A3A4D818B3183CD6 /* FailureNotice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FailureNotice.swift; sourceTree = "<group>"; };
@@ -260,6 +272,7 @@
 		D5278224C6E252321C6BC566 /* TunnelReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelReport.swift; sourceTree = "<group>"; };
 		DB24DE94E2E4956D50D38ACE /* PromotedRegionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromotedRegionView.swift; sourceTree = "<group>"; };
 		DFB57BBBCF629E49A6B82483 /* libc++.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libc++.tbd"; path = "usr/lib/libc++.tbd"; sourceTree = SDKROOT; };
+		E738659C9B4C1C016C2F606B /* Changelog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Changelog.swift; sourceTree = "<group>"; };
 		EFEC2F7E4380EC79C2474F2F /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
 		FA1E04DC0D4A5A19A907C8A0 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
 		FD215D4E502C05C555F67321 /* UTunDescriptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UTunDescriptor.swift; sourceTree = "<group>"; };
@@ -282,6 +295,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D547BAF5DF36F7768CC0271E /* VPNPlusCore in Frameworks */,
+				ABA5051965CC42ED02B9A243 /* Sparkle in Frameworks */,
 				1C770054289F7146D4559641 /* libVPNPlusEngine.a in Frameworks */,
 				B0A5484AF7330166A0FD3D60 /* libc++.tbd in Frameworks */,
 				3FF21C450F306C5FF7BEE330 /* SystemConfiguration.framework in Frameworks */,
@@ -372,12 +386,14 @@
 		3BB85868654F9D5D600BA84F /* VPNPlusCopy */ = {
 			isa = PBXGroup;
 			children = (
+				E738659C9B4C1C016C2F606B /* Changelog.swift */,
 				2153A4C5055651DD69243B27 /* DiagnosticsCopy.swift */,
 				A1FF8173104FC29D9BD0AE52 /* DiagnosticsExport.swift */,
 				749C613E0DE74BE7DE505D14 /* FailureCopy.swift */,
 				75E9B549A3A4D818B3183CD6 /* FailureNotice.swift */,
 				647C8572875DE2E4455B46E1 /* PhaseLabels.swift */,
 				2D5B80E157B8033FE601F567 /* SetupCopy.swift */,
+				07CF1A66CB33E50A224DEE82 /* UpdateCopy.swift */,
 			);
 			path = VPNPlusCopy;
 			sourceTree = "<group>";
@@ -393,6 +409,7 @@
 		912D0AABCD05A58BFC721495 = {
 			isa = PBXGroup;
 			children = (
+				69DCF622FBBFDF66F64BFA69 /* CHANGELOG.md */,
 				895210ADD3FCF73E89347274 /* Packages */,
 				A29F2DC8AFC6D99F16D50E4F /* VPNPlus */,
 				3BB85868654F9D5D600BA84F /* VPNPlusCopy */,
@@ -431,6 +448,7 @@
 				C76D22463B70D1161646FC8E /* SetupFlow.swift */,
 				8FEE9E343B5527DF69A7C22D /* StatusItem.swift */,
 				A0C0DB62A25CADB2DFD5CB5F /* TunnelController.swift */,
+				32D4BDD65926A9573DA4BC40 /* Updater.swift */,
 				9CDD25E6602DBB2C35764F2B /* VPNPlus-Bridging-Header.h */,
 				166066C7CF6FC8C625A6D271 /* Design */,
 				3516ED816F17F8B26BE94FB2 /* Views */,
@@ -502,6 +520,7 @@
 				B662ACFBFBA20C9F7EFCA673 /* FailureCopyTests.swift */,
 				962FFB35529700DA512C13A4 /* FailureNoticeTests.swift */,
 				302A71E65FD01AA5BEEFE23E /* SetupCopyTests.swift */,
+				4B0528008B2451F02A43B719 /* UpdateCopyTests.swift */,
 			);
 			path = VPNPlusCopyTests;
 			sourceTree = "<group>";
@@ -541,7 +560,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = B6695766774D14272B728860 /* Build configuration list for PBXNativeTarget "VPNPlus" */;
 			buildPhases = (
+				FC2700D2D0F5B2C425B85C68 /* Release builds carry the Sparkle key */,
 				930AB0B242C24273A5B585C4 /* Sources */,
+				1BC278929FC397CB8CEF3731 /* Resources */,
 				1269687FADF30950D00F38BD /* Frameworks */,
 				EF3E76D93EA08B95A13CBDB2 /* Embed System Extensions */,
 			);
@@ -554,6 +575,7 @@
 			name = VPNPlus;
 			packageProductDependencies = (
 				E5AD49E779DF062A87D93C4D /* VPNPlusCore */,
+				17FDEEEBA7AFEA2265FD7E8B /* Sparkle */,
 			);
 			productName = VPNPlus;
 			productReference = 8D29B2DFA2D5B14954AFC31F /* VPNPlus.app */;
@@ -699,6 +721,7 @@
 			mainGroup = 912D0AABCD05A58BFC721495;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				98C1DE6D913D534D9B7DD5A4 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				B789B500495D5167A9ADE30C /* XCLocalSwiftPackageReference "Packages/VPNPlusCore" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -715,6 +738,39 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		1BC278929FC397CB8CEF3731 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9B8036D11DDF75D6F5D9D716 /* CHANGELOG.md in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		FC2700D2D0F5B2C425B85C68 /* Release builds carry the Sparkle key */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Release builds carry the Sparkle key";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"$CONFIGURATION\" = \"Release\" ] && [ -z \"$SPARKLE_ED_PUBLIC_KEY\" ]; then\n  echo \"error: SPARKLE_ED_PUBLIC_KEY is empty — a Release build cannot verify updates. M9 supplies the key.\"\n  exit 1\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		36C800AAD05D96A90B4280D3 /* Sources */ = {
@@ -751,6 +807,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1416F69FDA7E299A883F0701 /* Changelog.swift in Sources */,
 				6F55BC42BCD8788D1FEAF1EF /* DiagnosticsCopy.swift in Sources */,
 				077573B0F616E37B840AAAEB /* DiagnosticsExport.swift in Sources */,
 				9EA526DD14193C5BD8B02281 /* DiagnosticsExportTests.swift in Sources */,
@@ -767,6 +824,8 @@
 				DEC7730B30484F284E6EBBE6 /* SetupCopy.swift in Sources */,
 				8C562D94087FF132862E5B84 /* SetupCopyTests.swift in Sources */,
 				9FB9278F96A9D8B4D6944321 /* TunnelReport.swift in Sources */,
+				E7EFABAFC5AD2970076D5A5D /* UpdateCopy.swift in Sources */,
+				C527C40702DAFCFEBA258BC5 /* UpdateCopyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -789,6 +848,7 @@
 				F3D8537875A2078671EC2399 /* AppSettings.swift in Sources */,
 				D6233C9C2F5338664608BA4C /* AutoLayout.swift in Sources */,
 				FE3381B49CD9666D98F63824 /* CardGridView.swift in Sources */,
+				BFCAA475A578BCD7896AB3C0 /* Changelog.swift in Sources */,
 				BDA32AE7813F341251CE2C37 /* DiagnosticsCopy.swift in Sources */,
 				532CDBC5E7E3EE3443915A60 /* DiagnosticsExport.swift in Sources */,
 				C6716E14E5C3A172D2A0C975 /* DiagnosticsSheet.swift in Sources */,
@@ -828,6 +888,8 @@
 				EA742C4B3EFF74AA5E55DBF5 /* Tokens.swift in Sources */,
 				E331C45DCD7FC398D5538B6F /* TunnelController.swift in Sources */,
 				A0CD636AC8C8E623ACAA29B3 /* TunnelReport.swift in Sources */,
+				F623E92317EDD5151F1B9CCF /* UpdateCopy.swift in Sources */,
+				AE0CEAB3F9761DEA753E0464 /* Updater.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1041,6 +1103,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.bossagroove.VPNPlus;
 				PRODUCT_NAME = "VPN Plus";
 				SDKROOT = macosx;
+				SPARKLE_ED_PUBLIC_KEY = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "VPNPlus/VPNPlus-Bridging-Header.h";
 				SYSTEM_EXTENSION_FOLDER_PATH = Contents/Library/SystemExtensions;
 			};
@@ -1202,6 +1265,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.bossagroove.VPNPlus;
 				PRODUCT_NAME = "VPN Plus";
 				SDKROOT = macosx;
+				SPARKLE_ED_PUBLIC_KEY = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "VPNPlus/VPNPlus-Bridging-Header.h";
 				SYSTEM_EXTENSION_FOLDER_PATH = Contents/Library/SystemExtensions;
 			};
@@ -1413,7 +1477,23 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		98C1DE6D913D534D9B7DD5A4 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.9.6;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
+		17FDEEEBA7AFEA2265FD7E8B /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 98C1DE6D913D534D9B7DD5A4 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
 		3D2D5714DD1249014A1B7218 /* VPNPlusCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = VPNPlusCore;

@@ -13,6 +13,10 @@ options:
 packages:
   VPNPlusCore:
     path: Packages/VPNPlusCore
+  # MIT. Keep the version in step with release.yml's generate_appcast.
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.9.6
 
 settings:
   base:
@@ -47,9 +51,13 @@ targets:
       # The words: failure messages, phase labels, the record's phrases. Their
       # own folder so a test bundle can render every one of them (M6.4).
       - path: VPNPlusCopy
+      # What's New reads the same changelog the release notes come from.
+      - path: CHANGELOG.md
+        buildPhase: resources
     dependencies:
       - package: VPNPlusCore
         product: VPNPlusCore
+      - package: Sparkle
       - target: VPNPlusTunnel
         embed: true
         codeSign: false
@@ -63,6 +71,14 @@ targets:
       - sdk: CoreFoundation.framework
       - sdk: UserNotifications.framework
       - sdk: ServiceManagement.framework
+    preBuildScripts:
+      - name: Release builds carry the Sparkle key
+        basedOnDependencyAnalysis: false
+        script: |
+          if [ "$CONFIGURATION" = "Release" ] && [ -z "$SPARKLE_ED_PUBLIC_KEY" ]; then
+            echo "error: SPARKLE_ED_PUBLIC_KEY is empty — a Release build cannot verify updates. M9 supplies the key."
+            exit 1
+          fi
     # XcodeGen GENERATES this file from the properties below — it does not
     # merge with whatever is on disk. Anything hand-written at this path is
     # silently overwritten, so every key the bundle needs must be here.
@@ -72,6 +88,15 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundlePackageType: APPL
+        # Sparkle. The appcast is a release asset, so "latest" always points
+        # at the newest release's copy. The public key is a build setting that
+        # M9 fills in; a Release build with it empty fails (see the script).
+        SUFeedURL: https://github.com/BossaGroove/VPNPlus/releases/latest/download/appcast.xml
+        SUPublicEDKey: $(SPARKLE_ED_PUBLIC_KEY)
+        SUEnableInstallerLauncherService: false
+        # A15's default: on. Set here, Sparkle never shows its own "check
+        # automatically?" prompt on the second launch (D143: one answer).
+        SUEnableAutomaticChecks: true
         LSMinimumSystemVersion: "14.0"
         LSApplicationCategoryType: public.app-category.utilities
         NSPrincipalClass: NSApplication
@@ -96,6 +121,9 @@ targets:
         PRODUCT_NAME: VPN Plus
         PRODUCT_BUNDLE_IDENTIFIER: com.bossagroove.VPNPlus
         MARKETING_VERSION: "0.0.1"
+        # Sparkle's EdDSA public key. Empty until M9; Release refuses to build
+        # without it, so an unverifiable update can never ship by accident.
+        SPARKLE_ED_PUBLIC_KEY: ""
         CURRENT_PROJECT_VERSION: "1"
         # The extension is embedded here, which is what makes a Sparkle update
         # carry it and keeps every update free of an installer (D169).

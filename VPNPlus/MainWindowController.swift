@@ -225,6 +225,16 @@ final class MainWindowController: NSWindowController {
                 MainActor.assumeIsolated { (NSApp.delegate as? AppDelegate)?.debugToggleSettings() }
             }
 
+            // **Development only: an update check, without a click.**
+            //
+            //   notifyutil -p com.bossagroove.VPNPlus.debug.checkForUpdates
+            var updateToken: Int32 = NOTIFY_TOKEN_INVALID
+            notify_register_dispatch(
+                "com.bossagroove.VPNPlus.debug.checkForUpdates", &updateToken, DispatchQueue.main
+            ) { _ in
+                MainActor.assumeIsolated { (NSApp.delegate as? AppDelegate)?.debugCheckForUpdates() }
+            }
+
             // **Development only: the move, without a click.**
             //
             //   notifyutil -p com.bossagroove.VPNPlus.debug.moveToApplications
