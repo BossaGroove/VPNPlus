@@ -530,10 +530,16 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             // This process's record when it is the profile's, else whatever is
             // on disk — the app may be asking about a profile that has not
             // connected since this provider started.
+            // **A blank provider object is not an answer** (D228): NE hands a
+            // message to whatever provider exists, including one it created
+            // fresh after the session ended, whose record is empty. Measured
+            // again here — the session answered 0 for a profile whose two
+            // attempts were on disk. So the in-memory record answers only
+            // when it has something, and the store answers otherwise.
             let mine = recording.withLock { $0.log }
+            let isMine = profile == nil || profile == mine.profile
             let record =
-                (profile == nil || profile == mine.profile || mine.profile == nil)
-                ? mine : records.load(for: profile)
+                (isMine && !mine.attempts.isEmpty) ? mine : records.load(for: profile)
             log.notice(
                 "answering with \(record.attempts.count, privacy: .public) recorded attempts"
             )
@@ -591,10 +597,18 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     /// (measured on the owner's connect, 2026-09-09 10:01).
     private func finishRecording(_ outcome: DiagnosticsAttempt.Outcome) {
         let now = Date()
-        let record = recording.withLock { recording -> DiagnosticsLog in
-            recording.log.finish(outcome, at: now)
-            return recording.log
-        }
+        recording.withLock { $0.log.finish(outcome, at: now) }
+        persistRecord()
+    }
+
+    /// Puts the record on disk as it stands.
+    ///
+    /// Called at the **end** of a teardown as well as at an attempt's
+    /// outcome, because the engine's own teardown — the artboard's *"Restored
+    /// DNS and routes"* — happens after the outcome is settled and after the
+    /// save that settled it. It reached memory and stayed there.
+    private func persistRecord() {
+        let record = recording.withLock { $0.log }
         guard !record.attempts.isEmpty else { return }
         records.save(record, for: record.profile ?? identifier)
     }
@@ -927,6 +941,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         _ = runFinished?.wait(timeout: .now() + 5)
         self.engine = nil
         apply(.tornDown)
+        // The engine's teardown has fired by now; the record it wrote goes
+        // with everything else.
+        persistRecord()
         completionHandler()
     }
 
