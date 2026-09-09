@@ -80,14 +80,25 @@ final class ProfileImporter {
         let outcome = inspector.inspect(url, waiving: waiving)
 
         switch outcome {
-        case let .ready(configuration, descriptor, _):
+        case let .ready(configuration, descriptor, setAside):
             do {
-                try store(configuration, descriptor, from: url, waivers: waiving)
+                let stored = try store(configuration, descriptor, from: url, waivers: waiving)
                 onChange?()
-                if let message = ImportMessage.forOutcome(outcome, filename: filename) {
-                    // Imported, and what was set aside disclosed as a count
-                    // with the list behind it (2.8, D187).
-                    present(message, over: window, url: url)
+                switch stored {
+                case .added:
+                    if let message = ImportMessage.forOutcome(outcome, filename: filename) {
+                        // Imported, and what was set aside disclosed as a count
+                        // with the list behind it (2.8, D187).
+                        present(message, over: window, url: url)
+                    }
+                case .replaced(let previous, let conflicts):
+                    // The same report *Replace file…* gives (D132): an import
+                    // that replaced a profile in place used to say nothing at
+                    // all, and the owner read that as the import having done
+                    // nothing (D289). The report covers the set-aside count.
+                    report(
+                        previous, replacedBy: descriptor, conflicts: conflicts,
+                        setAside: setAside.directives.count, over: window)
                 }
             } catch {
                 log.error("could not store \(filename, privacy: .public): \(error.localizedDescription, privacy: .public)")
@@ -216,12 +227,19 @@ final class ProfileImporter {
         }
     }
 
+    /// What storing an import did: a new card, or an existing profile's text
+    /// replaced — with the record from before, for the report to compare with.
+    private enum Stored {
+        case added
+        case replaced(previous: Profile, conflicts: [OverrideConflict])
+    }
+
     private func store(
         _ configuration: Data,
         _ descriptor: ProfileDescriptor,
         from url: URL,
         waivers: [String]
-    ) throws {
+    ) throws -> Stored {
         let filename = url.lastPathComponent
         let title = descriptor.preferredTitle(filename: filename)
 
@@ -233,7 +251,7 @@ final class ProfileImporter {
             try store.setDescriptor(descriptor, for: existing.id)
             log.notice("replaced \(filename, privacy: .public); \(conflicts.count, privacy: .public) overrides now contradicted")
             handOver(configuration, for: existing.id)
-            return
+            return .replaced(previous: existing, conflicts: conflicts)
         }
 
         let profile = Profile(
@@ -245,6 +263,7 @@ final class ProfileImporter {
         try store.add(profile, configuration: configuration)
         log.notice("imported \(filename, privacy: .public)")
         handOver(configuration, for: profile.id)
+        return .added
     }
 
     /// Gives the configuration to the extension, which owns it from then on,
