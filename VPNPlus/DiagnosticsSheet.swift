@@ -39,13 +39,18 @@ import VPNPlusCore
 /// each of them.
 @MainActor
 final class DiagnosticsSheet: NSViewController {
-    static let width: CGFloat = 660
+    /// The artboard's 660, or the window's width when the window is narrower
+    /// (D314): a sheet wider than its window overhangs it.
+    static let designWidth: CGFloat = 660
+    let width: CGFloat
     private static let height: CGFloat = 700
     private static let inset: CGFloat = 22
-    private static var contentWidth: CGFloat { width - 2 * inset }
+    private var contentWidth: CGFloat { width - 2 * Self.inset }
     /// The artboard's two fixed columns.
-    private static let labelColumn: CGFloat = 190
-    private static let lastGoodColumn: CGFloat = 150
+    /// The artboard's 190 and 150 of 660, kept as proportions so a narrower
+    /// sheet keeps the table's shape (D314).
+    private var labelColumn: CGFloat { (190 / 616) * contentWidth }
+    private var lastGoodColumn: CGFloat { (150 / 616) * contentWidth }
     /// The artboard's time column, and where the phrase starts.
     private static let timeColumn: CGFloat = 76
 
@@ -62,8 +67,9 @@ final class DiagnosticsSheet: NSViewController {
 
     init(
         profileName: String, record: DiagnosticsLog, comparison: NetworkComparison,
-        message: FailureMessage?
+        message: FailureMessage?, width: CGFloat = DiagnosticsSheet.designWidth
     ) {
+        self.width = min(DiagnosticsSheet.designWidth, max(480, width))
         self.profileName = profileName
         self.record = record
         self.comparison = comparison
@@ -83,7 +89,7 @@ final class DiagnosticsSheet: NSViewController {
         column.spacing = 0
         column.translatesAutoresizingMaskIntoConstraints = false
 
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: Self.width, height: Self.height))
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: width, height: Self.height))
         container.addSubview(column)
         NSLayoutConstraint.activate([
             column.leadingAnchor.constraint(equalTo: container.leadingAnchor),
@@ -119,7 +125,7 @@ final class DiagnosticsSheet: NSViewController {
         let fixed = view.fittingSize.height - (logHeight?.constant ?? 0)
         logHeight?.constant = max(120, height - fixed)
         view.layoutSubtreeIfNeeded()
-        preferredContentSize = NSSize(width: Self.width, height: height)
+        preferredContentSize = NSSize(width: width, height: height)
     }
 
     /// The artboard's 56 pt header: the sentence this is about, and when.
@@ -153,8 +159,8 @@ final class DiagnosticsSheet: NSViewController {
     private func whatChanged() -> NSView {
         let heading = label(String(localized: "What changed"), font: Type.sectionLabel, color: Palette.textPrimary)
         let columns = NSStackView(views: [
-            spacer(width: Self.labelColumn),
-            label(String(localized: "LAST GOOD").uppercased(), font: Type.hint, color: Palette.textSecondary, width: Self.lastGoodColumn),
+            spacer(width: labelColumn),
+            label(String(localized: "LAST GOOD").uppercased(), font: Type.hint, color: Palette.textSecondary, width: lastGoodColumn),
             label(String(localized: "NOW").uppercased(), font: Type.hint, color: Palette.textSecondary),
         ])
         columns.orientation = .horizontal
@@ -171,10 +177,10 @@ final class DiagnosticsSheet: NSViewController {
             rule.layer?.backgroundColor = Palette.border.cgColor
             rule.translatesAutoresizingMaskIntoConstraints = false
             rule.heightAnchor.constraint(equalToConstant: 1).isActive = true
-            rule.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
+            rule.widthAnchor.constraint(equalToConstant: contentWidth).isActive = true
             let cells = NSStackView(views: [
-                label(row.label, font: Type.detail, color: Palette.textSecondary, width: Self.labelColumn),
-                label(row.lastGood, font: Type.detail, color: Palette.textSecondary, width: Self.lastGoodColumn),
+                label(row.label, font: Type.detail, color: Palette.textSecondary, width: labelColumn, lines: 2),
+                label(row.lastGood, font: Type.detail, color: Palette.textSecondary, width: lastGoodColumn),
                 label(
                     row.now,
                     // Changed rows are the point, so they are the ones in
@@ -246,7 +252,7 @@ final class DiagnosticsSheet: NSViewController {
         let height = box.heightAnchor.constraint(equalToConstant: 300)
         logHeight = height
         NSLayoutConstraint.activate([
-            box.widthAnchor.constraint(equalToConstant: Self.contentWidth),
+            box.widthAnchor.constraint(equalToConstant: contentWidth),
             height,
             logScroll.leadingAnchor.constraint(equalTo: box.leadingAnchor),
             logScroll.trailingAnchor.constraint(equalTo: box.trailingAnchor),
@@ -395,7 +401,7 @@ final class DiagnosticsSheet: NSViewController {
         content.translatesAutoresizingMaskIntoConstraints = false
         band.addSubview(content)
         var constraints = [
-            band.widthAnchor.constraint(equalToConstant: Self.width),
+            band.widthAnchor.constraint(equalToConstant: width),
             content.leadingAnchor.constraint(equalTo: band.leadingAnchor, constant: Self.inset),
             content.trailingAnchor.constraint(equalTo: band.trailingAnchor, constant: -Self.inset),
             content.centerYAnchor.constraint(equalTo: band.centerYAnchor),
@@ -425,13 +431,17 @@ final class DiagnosticsSheet: NSViewController {
         return band
     }
 
-    private func label(_ text: String, font: NSFont, color: NSColor, width: CGFloat? = nil) -> NSTextField {
+    private func label(_ text: String, font: NSFont, color: NSColor, width: CGFloat? = nil, lines: Int = 1) -> NSTextField {
         let field = NSTextField(labelWithString: text)
         field.font = font
         field.textColor = color
-        field.lineBreakMode = .byTruncatingTail
+        field.lineBreakMode = lines > 1 ? .byWordWrapping : .byTruncatingTail
+        field.maximumNumberOfLines = lines
         field.translatesAutoresizingMaskIntoConstraints = false
-        if let width { field.widthAnchor.constraint(equalToConstant: width).isActive = true }
+        if let width {
+            field.widthAnchor.constraint(equalToConstant: width).isActive = true
+            if lines > 1 { field.preferredMaxLayoutWidth = width }
+        }
         return field
     }
 

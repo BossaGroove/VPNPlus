@@ -53,7 +53,12 @@ final class MainWindowController: NSWindowController {
     /// size, and the 640 this used to be was a guess at the Failed message's
     /// height rather than a measurement of it.
     private static let defaultSize = NSSize(width: 760, height: 560)
-    private static let minimumSize = NSSize(width: 620, height: 440)
+    /// **Derived from the German Failed state, not the English one** (D157,
+    /// A18's amendment to D115). Measured 2026-09-09 with the real German:
+    /// at 620 pt wide the region is 332 pt tall and the window's own floor
+    /// is 460; at 640 × 640 the whole state fits with a full row of cards
+    /// below it. M5.4's provisional 620 × 440 had never been re-derived.
+    private static let minimumSize = NSSize(width: 640, height: 640)
 
     /// Where the app is, read once (D62): a bundle does not move while it runs.
     private let location = InstallLocation.current
@@ -1062,7 +1067,8 @@ final class MainWindowController: NSWindowController {
                 FailureCopy.message($0, name: name, facts: now, comparison: comparison)
             }
             let sheet = DiagnosticsSheet(
-                profileName: name, record: record, comparison: comparison, message: message)
+                profileName: name, record: record, comparison: comparison, message: message,
+                width: (window?.contentLayoutRect.width ?? DiagnosticsSheet.designWidth) - 2 * Space.gutter)
             content.presentAsSheet(sheet)
         }
     }

@@ -338,8 +338,6 @@ final class PromotedRegionView: NSView {
         nameLabel.stringValue = name
         clockLabel.isHidden = false
         primary.isHidden = false
-        proseBody.preferredMaxLayoutWidth = 560
-        changedBody.preferredMaxLayoutWidth = 560
         causesHeading.isHidden = true
         causesList.isHidden = true
         changedHeading.isHidden = true
@@ -471,8 +469,6 @@ final class PromotedRegionView: NSView {
             proseBody.stringValue = content.body
         }
         proseBody.isHidden = false
-        proseBody.preferredMaxLayoutWidth = 560
-        changedBody.preferredMaxLayoutWidth = 560
         causesHeading.isHidden = true
         causesList.isHidden = true
         changedHeading.isHidden = true
@@ -488,6 +484,26 @@ final class PromotedRegionView: NSView {
         } else {
             proseButton.isHidden = true
         }
+    }
+
+    /// **Prose wraps to the width it has, never to a constant** (D157, D314).
+    /// A fixed `preferredMaxLayoutWidth` of 560 made every wrapping label
+    /// claim 560 pt, and with the paddings that became a 666 pt floor under
+    /// the window — in every language, because the constant was the same in
+    /// all of them. The width is read after layout and fed back, and the
+    /// labels yield horizontally so the window, not the text, decides.
+    override func layout() {
+        super.layout()
+        let width = content.bounds.width
+        guard width > 0 else { return }
+        var changed = false
+        let labels = [proseTitle, proseBody, changedBody] + causesList.views.compactMap { $0 as? NSTextField }
+        for label in labels where label.preferredMaxLayoutWidth != width {
+            label.preferredMaxLayoutWidth = width
+            label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            changed = true
+        }
+        if changed { super.layout() }
     }
 
     private func width(_ button: NSButton, _ value: CGFloat) {
