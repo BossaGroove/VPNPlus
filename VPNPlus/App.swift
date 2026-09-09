@@ -15,6 +15,7 @@
 // with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import AppKit
+import OSLog
 import VPNPlusCore
 
 @main
@@ -49,6 +50,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppSettings.applyDockPolicy()
         // Sparkle, in its own words for the update and ours for the check.
         updater.start()
+        // Which language the catalog is serving, and which it carries (M8).
+        Logger(subsystem: "com.bossagroove.VPNPlus", category: "language").notice(
+            "preferred \(Bundle.main.preferredLocalizations.joined(separator: ","), privacy: .public); bundle has \(Bundle.main.localizations.sorted().joined(separator: ","), privacy: .public)"
+        )
         let controller = MainWindowController(tunnel: tunnel, catalogue: catalogue)
         windowController = controller
 

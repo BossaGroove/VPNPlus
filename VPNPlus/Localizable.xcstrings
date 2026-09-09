@@ -1,0 +1,4572 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "(after %lld seconds)": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "(after %lld second)"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "(after %lld seconds)"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "(asked %lld times over %lld seconds)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(asked %#@times@ over %#@seconds@)"
+          },
+          "substitutions": {
+            "times": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg time"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg times"
+                    }
+                  }
+                }
+              }
+            },
+            "seconds": {
+              "argNum": 2,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg second"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg seconds"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%@ — %llds": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ — %2$llds"
+          }
+        }
+      }
+    },
+    "%@ — attempt %lld of %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ — attempt %2$lld of %3$lld"
+          }
+        }
+      }
+    },
+    "%@ — attempt %lld of %lld, %llds": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ — attempt %2$lld of %3$lld, %4$llds"
+          }
+        }
+      }
+    },
+    "%@ · attempt %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ · attempt %2$lld"
+          }
+        }
+      }
+    },
+    "%@ asks for a feature that isn't available. It's worth reporting — we'd like to know which profiles need it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ asks for a feature that isn't available. It's worth reporting — we'd like to know which profiles need it."
+          }
+        }
+      }
+    },
+    "%@ connected, but the network settings couldn't be applied on this Mac.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ connected, but the network settings couldn't be applied on this Mac."
+          }
+        }
+      }
+    },
+    "%@ connects to a network this Mac is already on. Connecting anyway can stop other things working until you disconnect.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ connects to a network this Mac is already on. Connecting anyway can stop other things working until you disconnect."
+          }
+        }
+      }
+    },
+    "%@ couldn't be read as a VPN profile. If it came in an archive or an email, check that it arrived complete.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ couldn't be read as a VPN profile. If it came in an archive or an email, check that it arrived complete."
+          }
+        }
+      }
+    },
+    "%@ expects its certificate and key in a separate file that VPN Plus doesn't open yet.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ expects its certificate and key in a separate file that VPN Plus doesn't open yet."
+          }
+        }
+      }
+    },
+    "%@ expects to be given the rest of its settings by your server after you sign in, which VPN Plus doesn't do yet.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ expects to be given the rest of its settings by your server after you sign in, which VPN Plus doesn't do yet."
+          }
+        }
+      }
+    },
+    "%@ has a certificate but no private key. VPN Plus needs both, in the one file.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ has a certificate but no private key. VPN Plus needs both, in the one file."
+          }
+        }
+      }
+    },
+    "%@ has no certificate in it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ has no certificate in it."
+          }
+        }
+      }
+    },
+    "%@ is a keystore, which VPN Plus can't open. Ask for the certificate and key as a PEM file.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is a keystore, which VPN Plus can't open. Ask for the certificate and key as a PEM file."
+          }
+        }
+      }
+    },
+    "%@ isn't a PEM file. A certificate VPN Plus can use begins with BEGIN CERTIFICATE.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ isn't a PEM file. A certificate VPN Plus can use begins with BEGIN CERTIFICATE."
+          }
+        }
+      }
+    },
+    "%@ refers to %@, which wasn't alongside it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ refers to %2$@, which wasn't alongside it."
+          }
+        }
+      }
+    },
+    "%@ uses %lld settings VPN Plus doesn't know about. You can import it with those set aside, and it will connect without them.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ uses %#@count@ VPN Plus doesn't know about. You can import it with those set aside, and it will connect without them."
+          },
+          "substitutions": {
+            "count": {
+              "argNum": 2,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg setting"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg settings"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%@ was updated from the new file.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ was updated from the new file."
+          }
+        }
+      }
+    },
+    "%@ was updated from the new file. Your settings were kept.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ was updated from the new file. Your settings were kept."
+          }
+        }
+      }
+    },
+    "%@'s security certificate is out of date. Only the people who run the server can renew it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'s security certificate is out of date. Only the people who run the server can renew it."
+          }
+        }
+      }
+    },
+    "%lld:%@ elapsed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lld:%2$@ elapsed"
+          }
+        }
+      }
+    },
+    "a code": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "a code"
+          }
+        }
+      }
+    },
+    "a different network": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "a different network"
+          }
+        }
+      }
+    },
+    "A management policy on this Mac blocks VPN Plus's network component, so it can't connect. Ask whoever manages this Mac.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A management policy on this Mac blocks VPN Plus's network component, so it can't connect. Ask whoever manages this Mac."
+          }
+        }
+      }
+    },
+    "About VPN Plus": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About VPN Plus"
+          }
+        }
+      }
+    },
+    "Adaptive": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adaptive"
+          }
+        }
+      }
+    },
+    "Address randomised by macOS": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Address randomised by macOS"
+          }
+        }
+      }
+    },
+    "All": {
+      "comment": "Diagnostics filter: every log entry, as opposed to problems only.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        }
+      }
+    },
+    "Allowed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allowed"
+          }
+        }
+      }
+    },
+    "Also asks for": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Also asks for"
+          }
+        }
+      }
+    },
+    "Another connection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Another connection"
+          }
+        }
+      }
+    },
+    "another kind of connection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "another kind of connection"
+          }
+        }
+      }
+    },
+    "Another VPN (%@) was already carrying this Mac's traffic when %@ tried to connect, so %@ couldn't take over. Disconnect the other one first.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Another VPN (%1$@) was already carrying this Mac's traffic when %2$@ tried to connect, so %3$@ couldn't take over. Disconnect the other one first."
+          }
+        }
+      }
+    },
+    "Another VPN had the network": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Another VPN had the network"
+          }
+        }
+      }
+    },
+    "Another VPN is already connected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Another VPN is already connected"
+          }
+        }
+      }
+    },
+    "Another VPN was already carrying this Mac's traffic when %@ tried to connect, so %@ couldn't take over. Disconnect the other one first.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Another VPN was already carrying this Mac's traffic when %1$@ tried to connect, so %2$@ couldn't take over. Disconnect the other one first."
+          }
+        }
+      }
+    },
+    "Ask whoever gave it to you for a profile that already includes the server's settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask whoever gave it to you for a profile that already includes the server's settings."
+          }
+        }
+      }
+    },
+    "Ask whoever gave you this profile for a version with the certificate included.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask whoever gave you this profile for a version with the certificate included."
+          }
+        }
+      }
+    },
+    "Asked at connect if left empty": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Asked at connect if left empty"
+          }
+        }
+      }
+    },
+    "Asked at connect, and never stored.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Asked at connect, and never stored."
+          }
+        }
+      }
+    },
+    "Attempt %lld · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Attempt %1$lld · %2$@"
+          }
+        }
+      }
+    },
+    "Automatically check for updates": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatically check for updates"
+          }
+        }
+      }
+    },
+    "Automatically download and install updates": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatically download and install updates"
+          }
+        }
+      }
+    },
+    "Beta versions may be less stable than regular releases.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beta versions may be less stable than regular releases."
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "comment": "Button that abandons a sheet without doing anything.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "certificate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "certificate"
+          }
+        }
+      }
+    },
+    "Certificate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certificate"
+          }
+        }
+      }
+    },
+    "Certificate authority": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certificate authority"
+          }
+        }
+      }
+    },
+    "Certificate kept outside the file": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certificate kept outside the file"
+          }
+        }
+      }
+    },
+    "Changing this restarts VPN Plus.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changing this restarts VPN Plus."
+          }
+        }
+      }
+    },
+    "Check for Updates Now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check for Updates Now"
+          }
+        }
+      }
+    },
+    "Check the date and time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the date and time"
+          }
+        }
+      }
+    },
+    "Checking for updates…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking for updates…"
+          }
+        }
+      }
+    },
+    "Choose a certificate for this profile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a certificate for this profile"
+          }
+        }
+      }
+    },
+    "Choose a PEM file holding this profile's certificate and its private key.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a PEM file holding this profile's certificate and its private key."
+          }
+        }
+      }
+    },
+    "Choose a VPN profile to import.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a VPN profile to import."
+          }
+        }
+      }
+    },
+    "Choose the file…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose the file…"
+          }
+        }
+      }
+    },
+    "Choose the profile file to use from now on.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose the profile file to use from now on."
+          }
+        }
+      }
+    },
+    "Choose…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose…"
+          }
+        }
+      }
+    },
+    "Common causes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Common causes"
+          }
+        }
+      }
+    },
+    "Connect": {
+      "comment": "Button on a profile card: the verb, connect this profile now.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect"
+          }
+        }
+      }
+    },
+    "Connect Anyway": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect Anyway"
+          }
+        }
+      }
+    },
+    "Connect to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect to %@"
+          }
+        }
+      }
+    },
+    "Connect when VPN Plus opens": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect when VPN Plus opens"
+          }
+        }
+      }
+    },
+    "Connect when VPN Plus opens: off": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect when VPN Plus opens: off"
+          }
+        }
+      }
+    },
+    "Connected": {
+      "comment": "State word: the tunnel is up. Shown on the card in the button's place and in the status menu.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected"
+          }
+        }
+      }
+    },
+    "Connected — %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected — %@"
+          }
+        }
+      }
+    },
+    "Connected · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected · %@"
+          }
+        }
+      }
+    },
+    "Connected %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected %@"
+          }
+        }
+      }
+    },
+    "Connected just now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected just now"
+          }
+        }
+      }
+    },
+    "Connecting": {
+      "comment": "State word: an attempt is in progress.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting"
+          }
+        }
+      }
+    },
+    "Connecting to %@ failed while checking the server's certificate, and this Mac's clock is behind a time it has already recorded. That alone can cause this.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting to %@ failed while checking the server's certificate, and this Mac's clock is behind a time it has already recorded. That alone can cause this."
+          }
+        }
+      }
+    },
+    "Contacting the server": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contacting the server"
+          }
+        }
+      }
+    },
+    "Continue": {
+      "comment": "Setup explanation: proceed to the macOS prompt.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue"
+          }
+        }
+      }
+    },
+    "Continue setup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue setup"
+          }
+        }
+      }
+    },
+    "Copy": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy"
+          }
+        }
+      }
+    },
+    "Copy diagnostics": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy diagnostics"
+          }
+        }
+      }
+    },
+    "Couldn't agree on a secure connection with %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't agree on a secure connection with %@"
+          }
+        }
+      }
+    },
+    "Couldn't change the login item": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't change the login item"
+          }
+        }
+      }
+    },
+    "Couldn't connect": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't connect"
+          }
+        }
+      }
+    },
+    "Couldn't connect to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't connect to %@"
+          }
+        }
+      }
+    },
+    "Couldn't find the server for %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't find the server for %@"
+          }
+        }
+      }
+    },
+    "Couldn't finish connecting to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't finish connecting to %@"
+          }
+        }
+      }
+    },
+    "Couldn't move VPN Plus": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't move VPN Plus"
+          }
+        }
+      }
+    },
+    "Couldn't reach the server": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't reach the server"
+          }
+        }
+      }
+    },
+    "Couldn't reach the server for %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't reach the server for %@"
+          }
+        }
+      }
+    },
+    "Couldn't read %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't read %@"
+          }
+        }
+      }
+    },
+    "Couldn't read your saved password for %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't read your saved password for %@"
+          }
+        }
+      }
+    },
+    "Couldn't replace %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't replace %@"
+          }
+        }
+      }
+    },
+    "Couldn't save %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't save %@"
+          }
+        }
+      }
+    },
+    "Couldn't set up the connection on this Mac": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't set up the connection on this Mac"
+          }
+        }
+      }
+    },
+    "Couldn't sign in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't sign in"
+          }
+        }
+      }
+    },
+    "Couldn't sign in to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't sign in to %@"
+          }
+        }
+      }
+    },
+    "Couldn't use the certificate for %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't use the certificate for %@"
+          }
+        }
+      }
+    },
+    "Couldn't verify the server for %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't verify the server for %@"
+          }
+        }
+      }
+    },
+    "Cut": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cut"
+          }
+        }
+      }
+    },
+    "Diagnostics for %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnostics for %@"
+          }
+        }
+      }
+    },
+    "Disconnect": {
+      "comment": "Button in the promoted region: the verb.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnect"
+          }
+        }
+      }
+    },
+    "Disconnect and Quit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnect and Quit"
+          }
+        }
+      }
+    },
+    "Disconnected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnected"
+          }
+        }
+      }
+    },
+    "Disconnecting": {
+      "comment": "State word on the card while the tunnel comes down.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnecting"
+          }
+        }
+      }
+    },
+    "Disconnecting from %@ first": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnecting from %@ first"
+          }
+        }
+      }
+    },
+    "Done": {
+      "comment": "Button that closes a sheet or window; nothing is saved by it.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
+    "Drag VPN Plus into your Applications folder, then open it from there.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag VPN Plus into your Applications folder, then open it from there."
+          }
+        }
+      }
+    },
+    "Edit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit"
+          }
+        }
+      }
+    },
+    "Edit…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit…"
+          }
+        }
+      }
+    },
+    "Ethernet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ethernet"
+          }
+        }
+      }
+    },
+    "Everything else still works — you can add, rename and remove profiles.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everything else still works — you can add, rename and remove profiles."
+          }
+        }
+      }
+    },
+    "Export…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export…"
+          }
+        }
+      }
+    },
+    "failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "failed"
+          }
+        }
+      }
+    },
+    "File": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File"
+          }
+        }
+      }
+    },
+    "Find %@, the file this profile refers to.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find %@, the file this profile refers to."
+          }
+        }
+      }
+    },
+    "Finding the server": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finding the server"
+          }
+        }
+      }
+    },
+    "Further lines aren't kept": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Further lines aren't kept"
+          }
+        }
+      }
+    },
+    "gateway %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "gateway %@"
+          }
+        }
+      }
+    },
+    "gateway %@…%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "gateway %1$@…%2$@"
+          }
+        }
+      }
+    },
+    "Gave up %@ after %lld seconds": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Gave up %1$@ after %2$lld second"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Gave up %1$@ after %2$lld seconds"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Gave up reconnecting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gave up reconnecting"
+          }
+        }
+      }
+    },
+    "General": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "General"
+          }
+        }
+      }
+    },
+    "host": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "host"
+          }
+        }
+      }
+    },
+    "Host": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Host"
+          }
+        }
+      }
+    },
+    "Host %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Host %@"
+          }
+        }
+      }
+    },
+    "Idle too long": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idle too long"
+          }
+        }
+      }
+    },
+    "Import": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import"
+          }
+        }
+      }
+    },
+    "Import a .ovpn profile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import a .ovpn profile"
+          }
+        }
+      }
+    },
+    "Import a profile…": {
+      "comment": "Button on the empty screen; opens the file picker.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import a profile…"
+          }
+        }
+      }
+    },
+    "Import Anyway": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import Anyway"
+          }
+        }
+      }
+    },
+    "Import Profile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import Profile"
+          }
+        }
+      }
+    },
+    "Import Profile…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import Profile…"
+          }
+        }
+      }
+    },
+    "Imported %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imported %@"
+          }
+        }
+      }
+    },
+    "Include beta versions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Include beta versions"
+          }
+        }
+      }
+    },
+    "Included": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Included"
+          }
+        }
+      }
+    },
+    "Included in the profile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Included in the profile"
+          }
+        }
+      }
+    },
+    "Install…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install…"
+          }
+        }
+      }
+    },
+    "Interface": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interface"
+          }
+        }
+      }
+    },
+    "It didn't finish in time.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It didn't finish in time."
+          }
+        }
+      }
+    },
+    "It last connected %@ from a different network. Some servers only accept this Mac from the network they know it on.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It last connected %@ from a different network. Some servers only accept this Mac from the network they know it on."
+          }
+        }
+      }
+    },
+    "It last connected %@ on %@. You're on %@ now — a different network interface, which some servers treat as a different device.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "It last connected %1$@ on %2$@. You're on %3$@ now — a different network interface, which some servers treat as a different device."
+          }
+        }
+      }
+    },
+    "It last connected %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It last connected %@."
+          }
+        }
+      }
+    },
+    "It needs your password, and VPN Plus wasn't running to ask for it. Connect once from VPN Plus and let it remember your password — after that, starting %@ from System Settings or the menu bar will work on its own.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It needs your password, and VPN Plus wasn't running to ask for it. Connect once from VPN Plus and let it remember your password — after that, starting %@ from System Settings or the menu bar will work on its own."
+          }
+        }
+      }
+    },
+    "It stopped while %@, and didn't finish in time.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It stopped while %@, and didn't finish in time."
+          }
+        }
+      }
+    },
+    "its certificate and key": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "its certificate and key"
+          }
+        }
+      }
+    },
+    "its saved password in your Keychain": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "its saved password in your Keychain"
+          }
+        }
+      }
+    },
+    "Keep mine": {
+      "comment": "Replace report: keep the user's own setting over the new file's.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep mine"
+          }
+        }
+      }
+    },
+    "Keeping yours.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keeping yours."
+          }
+        }
+      }
+    },
+    "key passphrase": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "key passphrase"
+          }
+        }
+      }
+    },
+    "Language": {
+      "comment": "Settings row label.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language"
+          }
+        }
+      }
+    },
+    "Last checked %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last checked %@"
+          }
+        }
+      }
+    },
+    "LAST GOOD": {
+      "comment": "Column header: the network as it was when this profile last connected.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LAST GOOD"
+          }
+        }
+      }
+    },
+    "Later": {
+      "comment": "Language change: do not restart now.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Later"
+          }
+        }
+      }
+    },
+    "Launch VPN Plus at login": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Launch VPN Plus at login"
+          }
+        }
+      }
+    },
+    "Lost the connection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lost the connection"
+          }
+        }
+      }
+    },
+    "Lost the connection to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lost the connection to %@"
+          }
+        }
+      }
+    },
+    "macOS didn't allow access to the saved password. You can enter it again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS didn't allow access to the saved password. You can enter it again."
+          }
+        }
+      }
+    },
+    "macOS didn't allow it. You can add or remove VPN Plus under Login Items in System Settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS didn't allow it. You can add or remove VPN Plus under Login Items in System Settings."
+          }
+        }
+      }
+    },
+    "macOS didn't allow the copy into your Applications folder. Drag VPN Plus there yourself, then open it from there.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS didn't allow the copy into your Applications folder. Drag VPN Plus there yourself, then open it from there."
+          }
+        }
+      }
+    },
+    "macOS installed VPN Plus's network component but needs a restart before it can run.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS installed VPN Plus's network component but needs a restart before it can run."
+          }
+        }
+      }
+    },
+    "macOS needs your permission before VPN Plus can create a VPN connection. This happens once on this Mac.\n\nYou'll be asked to turn VPN Plus on in System Settings, to enter your Mac's password, and then to allow VPN Plus to add a VPN configuration.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS needs your permission before VPN Plus can create a VPN connection. This happens once on this Mac.\n\nYou'll be asked to turn VPN Plus on in System Settings, to enter your Mac's password, and then to allow VPN Plus to add a VPN configuration."
+          }
+        }
+      }
+    },
+    "macOS refused its network component. Download VPN Plus again and replace this copy.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS refused its network component. Download VPN Plus again and replace this copy."
+          }
+        }
+      }
+    },
+    "Menu Bar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menu Bar"
+          }
+        }
+      }
+    },
+    "More options for %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More options for %@"
+          }
+        }
+      }
+    },
+    "Move Left": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move Left"
+          }
+        }
+      }
+    },
+    "Move Right": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move Right"
+          }
+        }
+      }
+    },
+    "Move to Applications": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move to Applications"
+          }
+        }
+      }
+    },
+    "Move VPN Plus to your Applications folder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move VPN Plus to your Applications folder"
+          }
+        }
+      }
+    },
+    "name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "name"
+          }
+        }
+      }
+    },
+    "Name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        }
+      }
+    },
+    "Needs something unsupported": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs something unsupported"
+          }
+        }
+      }
+    },
+    "Network": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Network"
+          }
+        }
+      }
+    },
+    "Network: %@, gateway %@, address randomised: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Network: %1$@, gateway %2$@, address randomised: %3$@"
+          }
+        }
+      }
+    },
+    "Never": {
+      "comment": "Card: this profile has never connected.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Never"
+          }
+        }
+      }
+    },
+    "Never checked for updates": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Never checked for updates"
+          }
+        }
+      }
+    },
+    "Never connected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Never connected"
+          }
+        }
+      }
+    },
+    "no": {
+      "comment": "Export text: the value of a yes/no fact, lower case inside a sentence.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no"
+          }
+        }
+      }
+    },
+    "No": {
+      "comment": "Diagnostics comparison cell: the address is not randomised.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No"
+          }
+        }
+      }
+    },
+    "No agreed secure connection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No agreed secure connection"
+          }
+        }
+      }
+    },
+    "No connection attempts recorded yet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No connection attempts recorded yet"
+          }
+        }
+      }
+    },
+    "No connection attempts recorded yet.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No connection attempts recorded yet."
+          }
+        }
+      }
+    },
+    "no network": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no network"
+          }
+        }
+      }
+    },
+    "No network": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No network"
+          }
+        }
+      }
+    },
+    "No network connection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No network connection"
+          }
+        }
+      }
+    },
+    "No problems in what is recorded.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No problems in what is recorded."
+          }
+        }
+      }
+    },
+    "No profiles yet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No profiles yet"
+          }
+        }
+      }
+    },
+    "No settings for this profile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No settings for this profile"
+          }
+        }
+      }
+    },
+    "No update server answered. Try again later.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No update server answered. Try again later."
+          }
+        }
+      }
+    },
+    "none": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "none"
+          }
+        }
+      }
+    },
+    "None": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None"
+          }
+        }
+      }
+    },
+    "None — signs in by itself": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None — signs in by itself"
+          }
+        }
+      }
+    },
+    "None — the server is checked another way": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None — the server is checked another way"
+          }
+        }
+      }
+    },
+    "Not allowed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not allowed"
+          }
+        }
+      }
+    },
+    "Not connected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not connected"
+          }
+        }
+      }
+    },
+    "not in this profile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "not in this profile"
+          }
+        }
+      }
+    },
+    "Not included": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not included"
+          }
+        }
+      }
+    },
+    "Not now": {
+      "comment": "Setup explanation: decline for now; the setup can be resumed later.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not now"
+          }
+        }
+      }
+    },
+    "Not recorded": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not recorded"
+          }
+        }
+      }
+    },
+    "Not recorded at import": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not recorded at import"
+          }
+        }
+      }
+    },
+    "Not required": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not required"
+          }
+        }
+      }
+    },
+    "Not set": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not set"
+          }
+        }
+      }
+    },
+    "Nothing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing"
+          }
+        }
+      }
+    },
+    "Nothing about this Mac has changed since it last connected, %@ — the same network, the same connection, the same address. That points at the server rather than at this Mac.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing about this Mac has changed since it last connected, %@ — the same network, the same connection, the same address. That points at the server rather than at this Mac."
+          }
+        }
+      }
+    },
+    "Nothing has been recorded for this profile yet. Connect once and the attempt appears here.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing has been recorded for this profile yet. Connect once and the attempt appears here."
+          }
+        }
+      }
+    },
+    "Nothing matches “%@”.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing matches “%@”."
+          }
+        }
+      }
+    },
+    "Nothing to sign in with": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing to sign in with"
+          }
+        }
+      }
+    },
+    "NOW": {
+      "comment": "Column header in the Diagnostics comparison table, capitalised like a table header.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOW"
+          }
+        }
+      }
+    },
+    "OK": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
+    "One PEM file holding a certificate and its private key.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One PEM file holding a certificate and its private key."
+          }
+        }
+      }
+    },
+    "One thing worth knowing: macOS is using a private Wi-Fi address on this network, so a VPN that checks hardware addresses won't recognise this Mac. You can turn that off for this network in System Settings, under Wi-Fi.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One thing worth knowing: macOS is using a private Wi-Fi address on this network, so a VPN that checks hardware addresses won't recognise this Mac. You can turn that off for this network in System Settings, under Wi-Fi."
+          }
+        }
+      }
+    },
+    "One thing worth knowing: this Mac is presenting a private hardware address on this network, so a VPN that checks hardware addresses won't recognise it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One thing worth knowing: this Mac is presenting a private hardware address on this network, so a VPN that checks hardware addresses won't recognise it."
+          }
+        }
+      }
+    },
+    "One-time setup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One-time setup"
+          }
+        }
+      }
+    },
+    "Open Date & Time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Date & Time"
+          }
+        }
+      }
+    },
+    "Open System Settings again": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open System Settings again"
+          }
+        }
+      }
+    },
+    "Open VPN Plus": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open VPN Plus"
+          }
+        }
+      }
+    },
+    "Or ask whoever gave it to you whether they matter.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Or ask whoever gave it to you whether they matter."
+          }
+        }
+      }
+    },
+    "Or ask whoever gave you this profile for a version with the certificate included.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Or ask whoever gave you this profile for a version with the certificate included."
+          }
+        }
+      }
+    },
+    "or drag a .ovpn file anywhere in this window": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "or drag a .ovpn file anywhere in this window"
+          }
+        }
+      }
+    },
+    "Password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Password"
+          }
+        }
+      }
+    },
+    "Passwords and keys are removed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passwords and keys are removed"
+          }
+        }
+      }
+    },
+    "Passwords and keys are removed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passwords and keys are removed."
+          }
+        }
+      }
+    },
+    "Paste": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste"
+          }
+        }
+      }
+    },
+    "port": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "port"
+          }
+        }
+      }
+    },
+    "Port": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Port"
+          }
+        }
+      }
+    },
+    "Port %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Port %@"
+          }
+        }
+      }
+    },
+    "Private key passphrase": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private key passphrase"
+          }
+        }
+      }
+    },
+    "Problems only": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Problems only"
+          }
+        }
+      }
+    },
+    "Profile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile"
+          }
+        }
+      }
+    },
+    "Profile file replaced": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile file replaced"
+          }
+        }
+      }
+    },
+    "protocol": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "protocol"
+          }
+        }
+      }
+    },
+    "Protocol": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protocol"
+          }
+        }
+      }
+    },
+    "Protocol %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protocol %@"
+          }
+        }
+      }
+    },
+    "Quit VPN Plus": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit VPN Plus"
+          }
+        }
+      }
+    },
+    "Ran out of time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ran out of time"
+          }
+        }
+      }
+    },
+    "Reconnect automatically": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnect automatically"
+          }
+        }
+      }
+    },
+    "Reconnect automatically if the connection drops": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnect automatically if the connection drops"
+          }
+        }
+      }
+    },
+    "Reconnect automatically: off": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnect automatically: off"
+          }
+        }
+      }
+    },
+    "Reconnecting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnecting"
+          }
+        }
+      }
+    },
+    "Remember in Keychain": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remember in Keychain"
+          }
+        }
+      }
+    },
+    "Remember the password in my Keychain": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remember the password in my Keychain"
+          }
+        }
+      }
+    },
+    "Remove": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        }
+      }
+    },
+    "Remove “%@”?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove “%@”?"
+          }
+        }
+      }
+    },
+    "Remove…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove…"
+          }
+        }
+      }
+    },
+    "Rename…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename…"
+          }
+        }
+      }
+    },
+    "Replace": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace"
+          }
+        }
+      }
+    },
+    "Replace profile file…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace profile file…"
+          }
+        }
+      }
+    },
+    "Replace…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace…"
+          }
+        }
+      }
+    },
+    "replaced since then": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "replaced since then"
+          }
+        }
+      }
+    },
+    "Required": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Required"
+          }
+        }
+      }
+    },
+    "Restart Now": {
+      "comment": "Language change: quit and relaunch to switch language.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart Now"
+          }
+        }
+      }
+    },
+    "Restart VPN Plus to switch to %@?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart VPN Plus to switch to %@?"
+          }
+        }
+      }
+    },
+    "Restart your Mac to finish setup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart your Mac to finish setup"
+          }
+        }
+      }
+    },
+    "Restored DNS and routes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restored DNS and routes"
+          }
+        }
+      }
+    },
+    "retried": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "retried"
+          }
+        }
+      }
+    },
+    "Reveal Configuration File in Finder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reveal Configuration File in Finder"
+          }
+        }
+      }
+    },
+    "Reveal in Finder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reveal in Finder"
+          }
+        }
+      }
+    },
+    "Revert": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revert"
+          }
+        }
+      }
+    },
+    "Revert this setting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revert this setting"
+          }
+        }
+      }
+    },
+    "Revert to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revert to %@"
+          }
+        }
+      }
+    },
+    "Revert to no value": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revert to no value"
+          }
+        }
+      }
+    },
+    "running": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "running"
+          }
+        }
+      }
+    },
+    "Saved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved"
+          }
+        }
+      }
+    },
+    "Saved — type to replace it": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved — type to replace it"
+          }
+        }
+      }
+    },
+    "Saving the password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving the password"
+          }
+        }
+      }
+    },
+    "Search": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search"
+          }
+        }
+      }
+    },
+    "Select All": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select All"
+          }
+        }
+      }
+    },
+    "server": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "server"
+          }
+        }
+      }
+    },
+    "Server": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server"
+          }
+        }
+      }
+    },
+    "Servers": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servers"
+          }
+        }
+      }
+    },
+    "set by this profile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "set by this profile"
+          }
+        }
+      }
+    },
+    "Setting up your connection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Setting up your connection"
+          }
+        }
+      }
+    },
+    "Settings not used": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings not used"
+          }
+        }
+      }
+    },
+    "Settings…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings…"
+          }
+        }
+      }
+    },
+    "Setup isn't finished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Setup isn't finished"
+          }
+        }
+      }
+    },
+    "Show details": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show details"
+          }
+        }
+      }
+    },
+    "Show Details": {
+      "comment": "Button on a failure: open the Diagnostics sheet.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Details"
+          }
+        }
+      }
+    },
+    "Show Details…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Details…"
+          }
+        }
+      }
+    },
+    "Show Diagnostics": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Diagnostics"
+          }
+        }
+      }
+    },
+    "Show icon in the Dock": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show icon in the Dock"
+          }
+        }
+      }
+    },
+    "Show profile name in the menu bar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show profile name in the menu bar"
+          }
+        }
+      }
+    },
+    "Show which": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show which"
+          }
+        }
+      }
+    },
+    "Shown only while a connection is active. A crowded menu bar wants the icon alone; someone switching often wants to see which profile is up.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shown only while a connection is active. A crowded menu bar wants the icon alone; someone switching often wants to see which profile is up."
+          }
+        }
+      }
+    },
+    "Sign in to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in to %@"
+          }
+        }
+      }
+    },
+    "Sign-in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign-in"
+          }
+        }
+      }
+    },
+    "Signing in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signing in"
+          }
+        }
+      }
+    },
+    "Since it last connected, macOS has started using a private address for this Mac on this network, so a server that checks hardware addresses won't recognise it. You can turn that off for this network in System Settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Since it last connected, macOS has started using a private address for this Mac on this network, so a server that checks hardware addresses won't recognise it. You can turn that off for this network in System Settings."
+          }
+        }
+      }
+    },
+    "Software Update": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Software Update"
+          }
+        }
+      }
+    },
+    "Started connecting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Started connecting"
+          }
+        }
+      }
+    },
+    "stopped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "stopped"
+          }
+        }
+      }
+    },
+    "Stopped, with no reason given": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stopped, with no reason given"
+          }
+        }
+      }
+    },
+    "succeeded": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "succeeded"
+          }
+        }
+      }
+    },
+    "Switching": {
+      "comment": "State word on the card the user asked for while another tunnel comes down.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switching"
+          }
+        }
+      }
+    },
+    "System": {
+      "comment": "Language picker: follow the Mac's language rather than an override.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System"
+          }
+        }
+      }
+    },
+    "System Settings should be open. Turn on VPN Plus there, then come back — this window will notice.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System Settings should be open. Turn on VPN Plus there, then come back — this window will notice."
+          }
+        }
+      }
+    },
+    "That certificate can't be used": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That certificate can't be used"
+          }
+        }
+      }
+    },
+    "the “%@” folder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the “%@” folder"
+          }
+        }
+      }
+    },
+    "The certificate couldn't be used": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The certificate couldn't be used"
+          }
+        }
+      }
+    },
+    "The certificate or key this profile needs couldn't be read.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The certificate or key this profile needs couldn't be read."
+          }
+        }
+      }
+    },
+    "The connection couldn't begin because the part of VPN Plus that carries traffic didn't start on this Mac. VPN Plus tried twice. Try again, and if it keeps happening, restart your Mac.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The connection couldn't begin because the part of VPN Plus that carries traffic didn't start on this Mac. VPN Plus tried twice. Try again, and if it keeps happening, restart your Mac."
+          }
+        }
+      }
+    },
+    "The connection dropped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The connection dropped"
+          }
+        }
+      }
+    },
+    "The connection dropped and couldn't be restored after %lld attempts.": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The connection dropped and couldn't be restored after %lld attempt."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The connection dropped and couldn't be restored after %lld attempts."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "The connection stopped while %@, and VPN Plus doesn't have a specific reason for it. Trying again is worth a go.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The connection stopped while %@, and VPN Plus doesn't have a specific reason for it. Trying again is worth a go."
+          }
+        }
+      }
+    },
+    "The connection to %@ timed out": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The connection to %@ timed out"
+          }
+        }
+      }
+    },
+    "the disk image": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the disk image"
+          }
+        }
+      }
+    },
+    "The Keychain refused": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Keychain refused"
+          }
+        }
+      }
+    },
+    "The network came back": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The network came back"
+          }
+        }
+      }
+    },
+    "The network component didn't start": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The network component didn't start"
+          }
+        }
+      }
+    },
+    "The new file does not allow saving the password.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The new file does not allow saving the password."
+          }
+        }
+      }
+    },
+    "The new file fixes the username to %@; yours was %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "The new file fixes the username to %1$@; yours was %2$@."
+          }
+        }
+      }
+    },
+    "The new file no longer offers %@, which you had chosen.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The new file no longer offers %@, which you had chosen."
+          }
+        }
+      }
+    },
+    "The new language takes effect when VPN Plus starts again. Nothing else changes.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The new language takes effect when VPN Plus starts again. Nothing else changes."
+          }
+        }
+      }
+    },
+    "The original .ovpn file on your Mac is not touched.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The original .ovpn file on your Mac is not touched."
+          }
+        }
+      }
+    },
+    "the profile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the profile"
+          }
+        }
+      }
+    },
+    "The profile was read, but VPN Plus couldn't save it. Your Keychain may have denied access.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The profile was read, but VPN Plus couldn't save it. Your Keychain may have denied access."
+          }
+        }
+      }
+    },
+    "The profile was read, but VPN Plus couldn't store it. Your Keychain may have denied access, and the old profile is still in place.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The profile was read, but VPN Plus couldn't store it. Your Keychain may have denied access, and the old profile is still in place."
+          }
+        }
+      }
+    },
+    "the record of when it last connected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the record of when it last connected"
+          }
+        }
+      }
+    },
+    "the same network": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the same network"
+          }
+        }
+      }
+    },
+    "The server accepted your sign-in, then never sent the connection settings. That usually means a policy on the server refused this device.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server accepted your sign-in, then never sent the connection settings. That usually means a policy on the server refused this device."
+          }
+        }
+      }
+    },
+    "The server and sign-in details are the same as before. Certificates, keys and options aren't compared.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server and sign-in details are the same as before. Certificates, keys and options aren't compared."
+          }
+        }
+      }
+    },
+    "The server closed the connection without saying why.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server closed the connection without saying why."
+          }
+        }
+      }
+    },
+    "The server closes connections that have been idle for a while.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server closes connections that have been idle for a while."
+          }
+        }
+      }
+    },
+    "The server didn't accept your username or password. If they're definitely right, the account may be disabled or locked — worth asking whoever runs this VPN.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server didn't accept your username or password. If they're definitely right, the account may be disabled or locked — worth asking whoever runs this VPN."
+          }
+        }
+      }
+    },
+    "The server didn't respond": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server didn't respond"
+          }
+        }
+      }
+    },
+    "The server didn't respond. It may be down, or this network may be blocking the connection.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server didn't respond. It may be down, or this network may be blocking the connection."
+          }
+        }
+      }
+    },
+    "The server ended it": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server ended it"
+          }
+        }
+      }
+    },
+    "The server ended the connection to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server ended the connection to %@"
+          }
+        }
+      }
+    },
+    "The server only permits specific devices, and this Mac wasn't recognised": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server only permits specific devices, and this Mac wasn't recognised"
+          }
+        }
+      }
+    },
+    "The server refused the sign-in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server refused the sign-in"
+          }
+        }
+      }
+    },
+    "The server refused the sign-in on reconnecting.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server refused the sign-in on reconnecting."
+          }
+        }
+      }
+    },
+    "The server said: “%@”": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server said: “%@”"
+          }
+        }
+      }
+    },
+    "The server sent no connection settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server sent no connection settings"
+          }
+        }
+      }
+    },
+    "The server stopped responding.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server stopped responding."
+          }
+        }
+      }
+    },
+    "The server's address couldn't be looked up. This is usually a problem with the network you're on rather than with the VPN.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server's address couldn't be looked up. This is usually a problem with the network you're on rather than with the VPN."
+          }
+        }
+      }
+    },
+    "The server's address didn't resolve": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server's address didn't resolve"
+          }
+        }
+      }
+    },
+    "The server's address stopped resolving.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server's address stopped resolving."
+          }
+        }
+      }
+    },
+    "The server's certificate has expired": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server's certificate has expired"
+          }
+        }
+      }
+    },
+    "The server's certificate wasn't accepted": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server's certificate wasn't accepted"
+          }
+        }
+      }
+    },
+    "The server's security certificate wasn't accepted. This normally means something changed on the server, or this profile is out of date. Ask whoever supplied this profile whether it needs updating.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server's security certificate wasn't accepted. This normally means something changed on the server, or this profile is out of date. Ask whoever supplied this profile whether it needs updating."
+          }
+        }
+      }
+    },
+    "The settings couldn't be applied": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The settings couldn't be applied"
+          }
+        }
+      }
+    },
+    "This account is already connected from another device on your network": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This account is already connected from another device on your network"
+          }
+        }
+      }
+    },
+    "This build can't check for updates.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This build can't check for updates."
+          }
+        }
+      }
+    },
+    "This copy of VPN Plus is damaged": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This copy of VPN Plus is damaged"
+          }
+        }
+      }
+    },
+    "This file isn't a profile VPN Plus can read": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This file isn't a profile VPN Plus can read"
+          }
+        }
+      }
+    },
+    "This Mac isn't connected to a network, so %@ can't be reached.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Mac isn't connected to a network, so %@ can't be reached."
+          }
+        }
+      }
+    },
+    "This Mac lost its network": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Mac lost its network"
+          }
+        }
+      }
+    },
+    "This Mac lost its network.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Mac lost its network."
+          }
+        }
+      }
+    },
+    "This Mac's clock looks wrong": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Mac's clock looks wrong"
+          }
+        }
+      }
+    },
+    "This Mac's settings don't allow it": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Mac's settings don't allow it"
+          }
+        }
+      }
+    },
+    "This profile also asks: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This profile also asks: %@"
+          }
+        }
+      }
+    },
+    "This profile doesn't allow saving the password.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This profile doesn't allow saving the password."
+          }
+        }
+      }
+    },
+    "This profile isn't complete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This profile isn't complete"
+          }
+        }
+      }
+    },
+    "This profile keeps its certificate somewhere VPN Plus can't read": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This profile keeps its certificate somewhere VPN Plus can't read"
+          }
+        }
+      }
+    },
+    "This profile needs a file that isn't here": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This profile needs a file that isn't here"
+          }
+        }
+      }
+    },
+    "This profile needs something VPN Plus doesn't support": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This profile needs something VPN Plus doesn't support"
+          }
+        }
+      }
+    },
+    "This profile signs in on its own. No username or password needed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This profile signs in on its own. No username or password needed."
+          }
+        }
+      }
+    },
+    "This profile's file was replaced since it last connected. If the new file changed the server or the sign-in, that is the first thing to check.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This profile's file was replaced since it last connected. If the new file changed the server or the sign-in, that is the first thing to check."
+          }
+        }
+      }
+    },
+    "This profile's key needs a passphrase to unlock it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This profile's key needs a passphrase to unlock it."
+          }
+        }
+      }
+    },
+    "This removes:": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This removes:"
+          }
+        }
+      }
+    },
+    "This server uses older security settings than VPN Plus accepts. Ask whoever runs it whether it can be updated.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This server uses older security settings than VPN Plus accepts. Ask whoever runs it whether it can be updated."
+          }
+        }
+      }
+    },
+    "This usually happens after moving to a new Mac, reinstalling, or restoring from a backup. It's the same one-time approval as before.\n\nYou'll be asked to turn VPN Plus on in System Settings, and to enter your Mac's password.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This usually happens after moving to a new Mac, reinstalling, or restoring from a backup. It's the same one-time approval as before.\n\nYou'll be asked to turn VPN Plus on in System Settings, and to enter your Mac's password."
+          }
+        }
+      }
+    },
+    "this VPN": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "this VPN"
+          }
+        }
+      }
+    },
+    "this window will notice": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "this window will notice"
+          }
+        }
+      }
+    },
+    "Transport": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transport"
+          }
+        }
+      }
+    },
+    "Try Again": {
+      "comment": "Button on a failure: start the same connection again.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try Again"
+          }
+        }
+      }
+    },
+    "Trying again in %lld seconds — attempt %lld of %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trying again in %#@seconds@ — attempt %2$lld of %3$lld"
+          },
+          "substitutions": {
+            "seconds": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg second"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg seconds"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "unchanged": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unchanged"
+          }
+        }
+      }
+    },
+    "unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unknown"
+          }
+        }
+      }
+    },
+    "Use the file's": {
+      "comment": "Replace report: take the new file's value, dropping the user's override.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use the file's"
+          }
+        }
+      }
+    },
+    "Use This Certificate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use This Certificate"
+          }
+        }
+      }
+    },
+    "Use This File": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use This File"
+          }
+        }
+      }
+    },
+    "username": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "username"
+          }
+        }
+      }
+    },
+    "Username": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Username"
+          }
+        }
+      }
+    },
+    "Username %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Username %@"
+          }
+        }
+      }
+    },
+    "username %@ and password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "username %@ and password"
+          }
+        }
+      }
+    },
+    "Username %@ and your saved password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Username %@ and your saved password"
+          }
+        }
+      }
+    },
+    "username and password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "username and password"
+          }
+        }
+      }
+    },
+    "Username and password required": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Username and password required"
+          }
+        }
+      }
+    },
+    "Using %@ instead of the profile's own.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Using %@ instead of the profile's own."
+          }
+        }
+      }
+    },
+    "Using the file's.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Using the file's."
+          }
+        }
+      }
+    },
+    "Version": {
+      "comment": "Settings row label: the app's version number.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        }
+      }
+    },
+    "View": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View"
+          }
+        }
+      }
+    },
+    "VPN Plus — %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus — %@"
+          }
+        }
+      }
+    },
+    "VPN Plus — connected to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus — connected to %@"
+          }
+        }
+      }
+    },
+    "VPN Plus — connecting to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus — connecting to %@"
+          }
+        }
+      }
+    },
+    "VPN Plus — couldn't connect to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus — couldn't connect to %@"
+          }
+        }
+      }
+    },
+    "VPN Plus — disconnecting from %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus — disconnecting from %@"
+          }
+        }
+      }
+    },
+    "VPN Plus — not connected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus — not connected"
+          }
+        }
+      }
+    },
+    "VPN Plus — reconnecting to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus — reconnecting to %@"
+          }
+        }
+      }
+    },
+    "VPN Plus %@ is available.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus %@ is available."
+          }
+        }
+      }
+    },
+    "VPN Plus %@ is the latest version.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus %@ is the latest version."
+          }
+        }
+      }
+    },
+    "VPN Plus asked %lld times over %lld seconds.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus asked %#@times@ over %#@seconds@."
+          },
+          "substitutions": {
+            "times": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg time"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg times"
+                    }
+                  }
+                }
+              }
+            },
+            "seconds": {
+              "argNum": 2,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg second"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg seconds"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "VPN Plus can't find that profile's original file any more. The profile still works — it is the file that has moved.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus can't find that profile's original file any more. The profile still works — it is the file that has moved."
+          }
+        }
+      }
+    },
+    "VPN Plus couldn't forget your saved password. It may still be able to connect on its own.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus couldn't forget your saved password. It may still be able to connect on its own."
+          }
+        }
+      }
+    },
+    "VPN Plus couldn't reach its network component.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus couldn't reach its network component."
+          }
+        }
+      }
+    },
+    "VPN Plus couldn't read that file.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus couldn't read that file."
+          }
+        }
+      }
+    },
+    "VPN Plus couldn't remove that profile.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus couldn't remove that profile."
+          }
+        }
+      }
+    },
+    "VPN Plus couldn't save your password. This connection will still work; the next one will ask for it again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus couldn't save your password. This connection will still work; the next one will ask for it again."
+          }
+        }
+      }
+    },
+    "VPN Plus couldn't store that certificate. The profile still works, using whatever certificate it carries.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus couldn't store that certificate. The profile still works, using whatever certificate it carries."
+          }
+        }
+      }
+    },
+    "VPN Plus diagnostics — %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus diagnostics — %@"
+          }
+        }
+      }
+    },
+    "VPN Plus doesn't have a specific reason for it. Trying again is worth a go.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus doesn't have a specific reason for it. Trying again is worth a go."
+          }
+        }
+      }
+    },
+    "VPN Plus doesn't have permission from macOS to create a VPN connection, so it can't connect yet.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus doesn't have permission from macOS to create a VPN connection, so it can't connect yet."
+          }
+        }
+      }
+    },
+    "VPN Plus doesn't have that profile's settings any more. Import the profile again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus doesn't have that profile's settings any more. Import the profile again."
+          }
+        }
+      }
+    },
+    "VPN Plus doesn't recognise everything in this profile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus doesn't recognise everything in this profile"
+          }
+        }
+      }
+    },
+    "VPN Plus doesn't use %lld of its settings.": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "VPN Plus doesn't use %lld of its settings."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "VPN Plus doesn't use %lld of its settings."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "VPN Plus doesn't use %lld of the settings in this profile. It will still connect the way the profile describes.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus doesn't use %lld of the settings in this profile. It will still connect the way the profile describes."
+          }
+        }
+      }
+    },
+    "VPN Plus has no record of the old file to compare with.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus has no record of the old file to compare with."
+          }
+        }
+      }
+    },
+    "VPN Plus is running from %@. macOS won't let it create a VPN connection from there.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus is running from %@. macOS won't let it create a VPN connection from there."
+          }
+        }
+      }
+    },
+    "VPN Plus needs a .ovpn configuration file to connect. These usually come from your employer, a VPN provider, or your own server.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus needs a .ovpn configuration file to connect. These usually come from your employer, a VPN provider, or your own server."
+          }
+        }
+      }
+    },
+    "VPN Plus needs permission again": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus needs permission again"
+          }
+        }
+      }
+    },
+    "VPN Plus waited %lld seconds.": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "VPN Plus waited %lld second."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "VPN Plus waited %lld seconds."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "VPN Plus's network component didn't start": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VPN Plus's network component didn't start"
+          }
+        }
+      }
+    },
+    "Waiting for connection settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for connection settings"
+          }
+        }
+      }
+    },
+    "Waiting for your approval": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for your approval"
+          }
+        }
+      }
+    },
+    "What changed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What changed"
+          }
+        }
+      }
+    },
+    "What changed in the file": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What changed in the file"
+          }
+        }
+      }
+    },
+    "What changed since it last worked": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What changed since it last worked"
+          }
+        }
+      }
+    },
+    "What this profile contains": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What this profile contains"
+          }
+        }
+      }
+    },
+    "What's New": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What's New"
+          }
+        }
+      }
+    },
+    "What's New in %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What's New in %@"
+          }
+        }
+      }
+    },
+    "When": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When"
+          }
+        }
+      }
+    },
+    "When connecting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When connecting"
+          }
+        }
+      }
+    },
+    "When it last connected, macOS was using a private address for this Mac; it is using the real one now, which a server that checks addresses may not know.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When it last connected, macOS was using a private address for this Mac; it is using the real one now, which a server that checks addresses may not know."
+          }
+        }
+      }
+    },
+    "Wi-Fi": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi"
+          }
+        }
+      }
+    },
+    "yes": {
+      "comment": "Export text: the value of a yes/no fact, lower case inside a sentence.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "yes"
+          }
+        }
+      }
+    },
+    "Yes": {
+      "comment": "Diagnostics comparison cell: the address is randomised.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yes"
+          }
+        }
+      }
+    },
+    "You're already on this network": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're already on this network"
+          }
+        }
+      }
+    },
+    "Your %@ override (%@) no longer matches the file, which now says %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Your %1$@ override (%2$@) no longer matches the file, which now says %3$@."
+          }
+        }
+      }
+    },
+    "Your certificate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your certificate"
+          }
+        }
+      }
+    },
+    "your Desktop": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "your Desktop"
+          }
+        }
+      }
+    },
+    "your Documents folder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "your Documents folder"
+          }
+        }
+      }
+    },
+    "your Downloads folder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "your Downloads folder"
+          }
+        }
+      }
+    },
+    "Your Mac's date and time look wrong": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Mac's date and time look wrong"
+          }
+        }
+      }
+    },
+    "Your name for it, “%@”": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your name for it, “%@”"
+          }
+        }
+      }
+    },
+    "Your saved password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your saved password"
+          }
+        }
+      }
+    },
+    "Your server choice, %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your server choice, %@"
+          }
+        }
+      }
+    },
+    "Your settings, kept": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your settings, kept"
+          }
+        }
+      }
+    },
+    "your VPN": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "your VPN"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}
