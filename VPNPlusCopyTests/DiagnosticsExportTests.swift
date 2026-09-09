@@ -121,13 +121,12 @@ struct DiagnosticsExportTests {
         #expect(text.contains("Interface: Wi-Fi -> Wi-Fi"))
     }
 
-    @Test func theFilenameCarriesTheProfileAndAUTCStamp() throws {
+    @Test func theFilenameCarriesTheProfileAsWrittenAndAUTCStamp() throws {
         // 2026-09-09 03:41:10 UTC.
         let when = Date(timeIntervalSince1970: 1_788_925_270)
-        let name = DiagnosticsExport.filename(profileName: "Work — 東京", at: when)
-        #expect(name == "VPN Plus diagnostics - Work - __ - 20260909T034110Z.txt")
-        let plain = name.unicodeScalars.allSatisfy { $0.isASCII }
-        #expect(plain)
+        let name = DiagnosticsExport.filename(profileName: "Work — 東京/2", at: when)
+        // The name as the user wrote it, bar the path separator.
+        #expect(name == "VPN Plus diagnostics - Work — 東京-2 - 20260909T034110Z.txt")
         let pattern = try Regex(#"^VPN Plus diagnostics - .+ - \d{8}T\d{6}Z\.txt$"#)
         #expect(name.contains(pattern))
     }
