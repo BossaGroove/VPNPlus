@@ -44,11 +44,16 @@ public struct FailureNotice: Equatable, Sendable {
     ///
     /// `looking` is whether the user can see the window right now — the app
     /// active and the window on screen. The same record twice (a re-render, a
-    /// second observation of the same failure) posts once.
+    /// second observation of the same failure) posts once. A failure that
+    /// happened **before `since`** — the app's launch — is not news: the app
+    /// restores the last failure from disk on launch so the window can show
+    /// it (D50), and re-announcing it re-notified a failure the user had
+    /// already seen and acted on (2026-09-09, D288).
     public static func owed(
-        from previous: Connection, to next: Connection, looking: Bool, name: (UUID) -> String
+        from previous: Connection, to next: Connection, looking: Bool, since: Date = .distantPast,
+        name: (UUID) -> String
     ) -> FailureNotice? {
-        guard case .failed(let record) = next, !looking else { return nil }
+        guard case .failed(let record) = next, !looking, record.at >= since else { return nil }
         if case .failed(let before) = previous, before == record { return nil }
         return notice(for: record, name: name(record.profile))
     }

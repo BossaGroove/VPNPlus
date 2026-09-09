@@ -56,6 +56,15 @@ struct FailureNoticeTests {
         #expect(FailureNotice.owed(from: state, to: failed(.serverEnded, attempts: nil), looking: false, name: name) != nil)
     }
 
+    /// D288: the app restores the last failure on launch; that is the window's
+    /// to show, not a banner's to announce again.
+    @Test func aFailureFromBeforeLaunchIsNotNews() {
+        let launched = start + 3600
+        #expect(FailureNotice.owed(from: .disconnected, to: failed(), looking: false, since: launched, name: name) == nil)
+        let fresh = Connection.failed(FailureRecord(profile: profile, at: launched + 5, reason: .recoveryGaveUp, attempts: 5))
+        #expect(FailureNotice.owed(from: .disconnected, to: fresh, looking: false, since: launched, name: name) != nil)
+    }
+
     @Test func theBodyIsTheFirstSentenceOnly() {
         #expect(FailureNotice.firstSentence(of: "One thing. Then another.") == "One thing.")
         #expect(FailureNotice.firstSentence(of: "Only one thing") == "Only one thing")

@@ -42,6 +42,8 @@ final class FailureNotifier: NSObject, UNUserNotificationCenterDelegate {
     private let isLooking: () -> Bool
     private let onOpen: (UUID) -> Void
     private var previous = Connection.disconnected
+    /// Failures older than this were restored, not suffered (D288).
+    private let launchedAt = Date()
     private var asked = false
     private var center: UNUserNotificationCenter? {
         // The framework needs a bundle to talk for; a test host has none.
@@ -74,7 +76,7 @@ final class FailureNotifier: NSObject, UNUserNotificationCenterDelegate {
             break
         }
         if let notice = FailureNotice.owed(
-            from: previous, to: connection, looking: isLooking(),
+            from: previous, to: connection, looking: isLooking(), since: launchedAt,
             name: { [catalogue] id in
                 catalogue.profiles.first { $0.id == id }.map(catalogue.title(of:)) ?? String(localized: "your VPN")
             })
