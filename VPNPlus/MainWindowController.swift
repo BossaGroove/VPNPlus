@@ -69,9 +69,13 @@ final class MainWindowController: NSWindowController {
     private let gridScroll = NSScrollView()
     private let empty = GuidanceView()
     /// Held, because the gap above the grid belongs to the promoted region
-    /// and there is no region to leave a gap under in Idle.
+    /// and there is no region to leave a gap under in Idle. **Starts at the
+    /// Idle value**: the window opens with no region showing, and the gutter
+    /// is what a slide-in adds and a slide-out removes. Created at the
+    /// slide-in value, the grid sat a gutter too low from launch until the
+    /// first slide-out corrected it (owner's screenshots, 2026-09-09).
     private lazy var gridTop = gridScroll.topAnchor.constraint(
-        equalTo: promoted.bottomAnchor, constant: Space.gutter)
+        equalTo: promoted.bottomAnchor, constant: 0)
     private var tick: Timer?
 
     /// The profile the promoted region is about. **What the user asked for,
