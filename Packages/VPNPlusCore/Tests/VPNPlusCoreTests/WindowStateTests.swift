@@ -35,6 +35,13 @@ struct WindowStateTests {
         WindowState.derive(connection: connection, hasProfiles: profiles, setup: setup)
     }
 
+    /// D62: checked at launch, said before anything else — even before Empty.
+    @Test func theWrongLocationOutranksEverything() {
+        #expect(WindowState.derive(connection: .disconnected, hasProfiles: false, setup: .ready, misplaced: true) == .wrongLocation)
+        #expect(WindowState.derive(connection: .disconnected, hasProfiles: true, setup: .blocked(nil), misplaced: true) == .wrongLocation)
+        #expect(WindowState.derive(connection: .disconnected, hasProfiles: true, setup: .ready, misplaced: false) == .idle)
+    }
+
     @Test func noProfilesIsTheEmptyScreen() {
         #expect(derive(profiles: false) == .empty)
     }

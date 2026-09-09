@@ -71,6 +71,10 @@ public enum WindowState: Sendable, Equatable {
     /// (D22). The same screen when the last profile is removed — not a
     /// different state, and it needs no different words.
     case empty
+    /// Step 0 (D62, C3): the app is not in `/Applications`, so the mechanism
+    /// cannot work from here. Checked at launch, said before anything else,
+    /// with the fix one click away.
+    case wrongLocation
     /// A5's *One-time setup*: the explanation before the OS prompt, in the
     /// window's centre where Empty is, with the grid put away (D65).
     case setupExplain(again: Bool)
@@ -98,9 +102,15 @@ public enum WindowState: Sendable, Equatable {
     public static func derive(
         connection: Connection,
         hasProfiles: Bool,
-        setup: SetupState
+        setup: SetupState,
+        misplaced: Bool = false
     ) -> WindowState {
         let live = connection.state != .disconnected
+
+        // 0. **Wrong location outranks everything** (D62): nothing else in
+        //    this window can work until it is fixed, and a tunnel cannot be
+        //    live from a bundle the mechanism refuses.
+        if misplaced { return .wrongLocation }
 
         if !hasProfiles, !live { return .empty }
 

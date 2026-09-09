@@ -64,6 +64,22 @@ public enum SetupCopy {
             secondary: String(localized: "Not now"))
     }
 
+    /// Step 0, the WrongLocation artboard (D62, D151, D156). `canMove` is
+    /// whether the app can do it itself; when it cannot, the button gives way
+    /// to the instruction — D62's degrade, never a dead control (D55).
+    public static func wrongLocation(path: String, canMove: Bool) -> SetupMessage {
+        let body = String(localized: "VPN Plus is running from \(folderName(path)). macOS won't let it create a VPN connection from there.")
+        if canMove {
+            return SetupMessage(
+                title: String(localized: "Move VPN Plus to your Applications folder"),
+                body: body, action: String(localized: "Move to Applications"), secondary: nil)
+        }
+        return SetupMessage(
+            title: String(localized: "Move VPN Plus to your Applications folder"),
+            body: body + " " + String(localized: "Drag VPN Plus into your Applications folder, then open it from there."),
+            action: nil, secondary: nil)
+    }
+
     /// The one bold phrase in `waiting` — a promise (D153).
     public static var waitingEmphasis: String { String(localized: "this window will notice") }
 

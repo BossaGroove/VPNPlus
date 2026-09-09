@@ -61,6 +61,19 @@ struct SetupCopyTests {
         #expect(SetupCopy.blocked(.forbiddenByPolicy).action == nil)
     }
 
+    /// D62's degrade: without the button, the instruction; with it, no
+    /// instruction to compete with the button.
+    @Test func theWrongLocationOffersTheMoveOrSaysHow() {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let movable = SetupCopy.wrongLocation(path: home + "/Downloads/VPN Plus.app", canMove: true)
+        #expect(movable.action == "Move to Applications")
+        #expect(movable.body.contains("your Downloads folder"))
+        #expect(!movable.body.contains("Drag"))
+        let stuck = SetupCopy.wrongLocation(path: "/Volumes/VPN Plus/VPN Plus.app", canMove: false)
+        #expect(stuck.action == nil)
+        #expect(stuck.body.contains("the disk image") && stuck.body.contains("Drag VPN Plus"))
+    }
+
     /// D156: where it actually is.
     @Test func theWrongLocationIsNamedWhereItIs() {
         let home = FileManager.default.homeDirectoryForCurrentUser.path

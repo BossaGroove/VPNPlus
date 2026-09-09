@@ -55,6 +55,8 @@ final class MainWindowController: NSWindowController {
     private static let defaultSize = NSSize(width: 760, height: 560)
     private static let minimumSize = NSSize(width: 620, height: 440)
 
+    /// Where the app is, read once (D62): a bundle does not move while it runs.
+    private let location = InstallLocation.current
     /// A5's setup sequence, holding the connect intent across it (D60).
     private let setup = SetupFlow(
         installer: ExtensionInstaller(identifier: "com.bossagroove.VPNPlus.tunnel"))
@@ -211,6 +213,18 @@ final class MainWindowController: NSWindowController {
             }
             toggleSheet("openDiagnostics") { controller in
                 controller.showDiagnostics(nil)
+            }
+
+            // **Development only: the move, without a click.**
+            //
+            //   notifyutil -p com.bossagroove.VPNPlus.debug.moveToApplications
+            //
+            // Runs *Move to Applications* on a copy launched from elsewhere.
+            var moveToken: Int32 = NOTIFY_TOKEN_INVALID
+            notify_register_dispatch(
+                "com.bossagroove.VPNPlus.debug.moveToApplications", &moveToken, DispatchQueue.main
+            ) { _ in
+                MainActor.assumeIsolated { [weak self] in self?.moveToApplications() }
             }
 
             // **Development only: D76's notification, on demand.**
@@ -412,6 +426,7 @@ final class MainWindowController: NSWindowController {
                         self.grid.show(profiles, titles: self.catalogue.titles(), presence: [id: .failed])
                     }
                 ),
+                ("misplaced", { self.render(forcing: .wrongLocation) }),
                 ("explain", { self.render(forcing: .setupExplain(again: false)) }),
                 ("reapprove", { self.render(forcing: .setupExplain(again: true)) }),
                 ("blocked", { self.render(forcing: .blocked) }),
@@ -570,13 +585,19 @@ final class MainWindowController: NSWindowController {
         let state =
             forced
             ?? WindowState.derive(
-                connection: tunnel.connection, hasProfiles: !stored.isEmpty, setup: setup.state)
+                connection: tunnel.connection, hasProfiles: !stored.isEmpty, setup: setup.state,
+                misplaced: !location.isCorrect)
 
-        // The explanation takes the Empty screen's place: centred prose, the
-        // grid put away, nothing else competing for the moment (D65).
-        let explaining: Bool = if case .setupExplain = state { true } else { false }
-        empty.isHidden = state != .empty && !explaining
-        gridScroll.isHidden = state == .empty || explaining
+        // The explanation and the wrong-location screen take the Empty
+        // screen's place: centred prose, the grid put away, nothing else
+        // competing for the moment (D65, D62).
+        let fullWindow: Bool =
+            switch state {
+            case .empty, .wrongLocation, .setupExplain: true
+            default: false
+            }
+        empty.isHidden = !fullWindow
+        gridScroll.isHidden = fullWindow
         promoted.isHidden = false
 
         switch state {
@@ -597,6 +618,15 @@ final class MainWindowController: NSWindowController {
                     }
                 ),
                 hint: String(localized: "or drag a .ovpn file anywhere in this window"))
+
+        case .wrongLocation:
+            promoted.isHidden = true
+            promoted.showNothing()
+            let path = if case .elsewhere(let url) = location { url.path } else { Bundle.main.bundleURL.path }
+            let message = SetupCopy.wrongLocation(path: path, canMove: InstallLocation.canMove)
+            empty.show(
+                title: message.title, body: message.body,
+                action: message.action.map { ($0, { [weak self] in self?.moveToApplications() }) })
 
         case .setupExplain(let again):
             promoted.isHidden = true
@@ -1014,6 +1044,23 @@ final class MainWindowController: NSWindowController {
             let sheet = DiagnosticsSheet(
                 profileName: name, record: record, comparison: comparison, message: message)
             content.presentAsSheet(sheet)
+        }
+    }
+
+    /// *Move to Applications* (D62). The copy is made, the relaunch is
+    /// scheduled, and this process quits; if the copy fails the screen stays
+    /// and says why in a sentence, so the user is never left with nothing.
+    private func moveToApplications() {
+        do {
+            try InstallLocation.moveAndRelaunch()
+            Self.log.notice("moved to \(InstallLocation.destination.path, privacy: .public); relaunching from there")
+            NSApp.terminate(nil)
+        } catch {
+            Self.log.error("could not move to Applications: \(error.localizedDescription, privacy: .public)")
+            empty.show(
+                title: String(localized: "Couldn't move VPN Plus"),
+                body: String(localized: "macOS didn't allow the copy into your Applications folder. Drag VPN Plus there yourself, then open it from there."),
+                action: nil)
         }
     }
 
