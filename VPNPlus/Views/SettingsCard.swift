@@ -46,9 +46,13 @@ final class SettingsCard: NSView {
 
     private let stack = NSStackView()
     private let width: CGFloat
+    private let rowHeight: CGFloat
 
-    init(width: CGFloat) {
+    /// `rowHeight` is the minimum a row takes: the configuration sheet's 34,
+    /// or Settings' 44 (its artboards).
+    init(width: CGFloat, rowHeight: CGFloat = Metric.rowHeight) {
         self.width = width
+        self.rowHeight = rowHeight
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
@@ -115,7 +119,7 @@ final class SettingsCard: NSView {
             control.topAnchor.constraint(greaterThanOrEqualTo: row.topAnchor, constant: Space.xs),
             control.bottomAnchor.constraint(
                 lessThanOrEqualTo: row.bottomAnchor, constant: -Space.xs),
-            row.heightAnchor.constraint(greaterThanOrEqualToConstant: Metric.rowHeight),
+            row.heightAnchor.constraint(greaterThanOrEqualToConstant: rowHeight),
         ]
         if fillsWidth {
             // A text field takes the rest of the row rather than hugging its

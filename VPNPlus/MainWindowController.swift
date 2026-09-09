@@ -215,6 +215,16 @@ final class MainWindowController: NSWindowController {
                 controller.showDiagnostics(nil)
             }
 
+            // **Development only: Settings, on demand.**
+            //
+            //   notifyutil -p com.bossagroove.VPNPlus.debug.openSettings
+            var settingsToken: Int32 = NOTIFY_TOKEN_INVALID
+            notify_register_dispatch(
+                "com.bossagroove.VPNPlus.debug.openSettings", &settingsToken, DispatchQueue.main
+            ) { _ in
+                MainActor.assumeIsolated { (NSApp.delegate as? AppDelegate)?.debugToggleSettings() }
+            }
+
             // **Development only: the move, without a click.**
             //
             //   notifyutil -p com.bossagroove.VPNPlus.debug.moveToApplications

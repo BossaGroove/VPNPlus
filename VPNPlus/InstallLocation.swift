@@ -72,14 +72,7 @@ enum InstallLocation {
             try? fm.trashItem(at: source, resultingItemURL: nil)
         }
 
-        let relaunch = Process()
-        relaunch.executableURL = URL(fileURLWithPath: "/bin/sh")
-        let quoted = target.path.replacingOccurrences(of: "'", with: "'\\''")
-        relaunch.arguments = [
-            "-c",
-            "while kill -0 \(ProcessInfo.processInfo.processIdentifier) 2>/dev/null; do sleep 0.2; done; open '\(quoted)'",
-        ]
-        try relaunch.run()
+        try Relaunch.schedule(opening: target)
     }
 
     /// Plain language, a cause and a next action — never a code (D2).

@@ -39,9 +39,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowController: MainWindowController?
     private var statusItem: StatusItemController?
     private var notifier: FailureNotifier?
+    private lazy var settings = SettingsWindowController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
+        // Someone who lives in the menu bar asked for no Dock tile; honoured
+        // before any window appears, so nothing flashes.
+        AppSettings.applyDockPolicy()
         let controller = MainWindowController(tunnel: tunnel, catalogue: catalogue)
         windowController = controller
 
@@ -73,7 +77,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    @objc func showSettings(_ sender: Any?) {
+        settings.showWindow(sender)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     #if DEBUG
+        /// **Development only.** Opens Settings, or closes it if it is open:
+        ///
+        ///   notifyutil -p com.bossagroove.VPNPlus.debug.openSettings
+        /// Each post steps on: open on General, then Menu Bar, then Software
+        /// Update, then closed — so a capture loop sees every section.
+        func debugToggleSettings() {
+            guard settings.window?.isVisible == true else {
+                settings.show(.general)
+                showSettings(nil)
+                return
+            }
+            let all = SettingsWindowController.Section.allCases
+            let index = all.firstIndex(of: settings.section) ?? 0
+            if index + 1 < all.count {
+                settings.show(all[index + 1])
+            } else {
+                settings.close()
+            }
+        }
+
         /// **Development only.** Posts the notification for a synthetic M14
         /// failure of the first profile, whether or not anyone is looking:
         ///
@@ -110,6 +139,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(
             withTitle: String(localized: "About VPN Plus"),
             action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(.separator())
+        // ⌘, and nowhere else (D13, D52).
+        let settingsItem = appMenu.addItem(
+            withTitle: String(localized: "Settings…"), action: #selector(showSettings(_:)), keyEquivalent: ",")
+        settingsItem.target = self
         appMenu.addItem(.separator())
         appMenu.addItem(
             withTitle: String(localized: "Quit VPN Plus"),

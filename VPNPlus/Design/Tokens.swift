@@ -64,6 +64,10 @@ enum Type {
     }
     /// Buttons and fields.
     static var control: NSFont { .preferredFont(forTextStyle: .body) }
+    /// The selected item in a sidebar (Settings).
+    static var controlEmphasis: NSFont {
+        .systemFont(ofSize: NSFont.preferredFont(forTextStyle: .body).pointSize, weight: .semibold)
+    }
     /// A profile name on a card.
     static var cardTitle: NSFont { .preferredFont(forTextStyle: .headline) }
     /// Host, last-connected, elapsed.

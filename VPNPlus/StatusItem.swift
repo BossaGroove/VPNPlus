@@ -76,6 +76,12 @@ final class StatusItemController: NSObject {
         item.menu?.delegate = self
 
         tunnel.observe { [weak self] connection, _ in self?.render(connection) }
+        // Settings' *Show profile name in the menu bar* takes effect at once.
+        NotificationCenter.default.addObserver(
+            forName: AppSettings.didChange, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.render(tunnel.connection) }
+        }
 
         #if DEBUG
         // Development only: **the app opens its own status menu on request.**

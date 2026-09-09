@@ -62,6 +62,7 @@ targets:
       - sdk: CoreServices.framework
       - sdk: CoreFoundation.framework
       - sdk: UserNotifications.framework
+      - sdk: ServiceManagement.framework
     # XcodeGen GENERATES this file from the properties below — it does not
     # merge with whatever is on disk. Anything hand-written at this path is
     # silently overwritten, so every key the bundle needs must be here.
