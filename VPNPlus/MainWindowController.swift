@@ -1524,8 +1524,12 @@ final class MainWindowController: NSWindowController {
         // **Switching is one click** (D70). Something else is up, or coming
         // up, for a different profile: the app performs the disconnect *and*
         // the connect, and the user is never told to disconnect first.
+        // A Failed state is not something up (D287): its tunnel is gone and
+        // the record is a message. Connect on another card from Failed is a
+        // plain connect — before this it took the switch path and waited for
+        // a teardown that never came, and the click did nothing.
         let current = tunnel.connection
-        if current.state != .disconnected, current.profile != profile.id {
+        if current.hasTunnel, current.profile != profile.id {
             tunnel.replaceSession(with: profile.id, then: start)
         } else {
             start()

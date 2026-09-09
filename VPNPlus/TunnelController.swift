@@ -185,7 +185,15 @@ final class TunnelController {
     /// throughout: the promoted region shows what the user asked for from the
     /// moment they ask (A13), not the profile that happens to be coming down.
     func replaceSession(with destination: Profile.ID, then start: @escaping () -> Void) {
+        // Nothing to bring down — Idle, or a Failed state whose tunnel is
+        // already gone (D287): the "switch" is a plain connect, and waiting
+        // for a teardown to finish would wait for ever.
+        guard connection.hasTunnel else {
+            start()
+            return
+        }
         pendingSwitch = destination
+        pendingStart = start
         Self.log.notice(
             "switching to \(destination.uuidString, privacy: .public); tearing the current session down first"
         )
@@ -193,16 +201,24 @@ final class TunnelController {
         disconnect()
 
         // The second half begins when the first finishes, and only then — so
-        // no surface ever has a Disconnected state to render in between.
+        // no surface ever has a Disconnected state to render in between. One
+        // observer for the life of the controller: a switch used to add one
+        // per click, and the inert ones accumulated.
+        guard !watchingForSwitch else { return }
+        watchingForSwitch = true
         observe { [weak self] connection, _ in
-            guard let self, pendingSwitch == destination, connection.state == .disconnected else {
-                return
-            }
+            guard let self, pendingSwitch != nil, connection.state == .disconnected,
+                let start = pendingStart
+            else { return }
             pendingSwitch = nil
+            pendingStart = nil
             Self.log.notice("teardown finished; connecting the profile the user asked for")
             start()
         }
     }
+
+    private var pendingStart: (() -> Void)?
+    private var watchingForSwitch = false
 
     /// The profile the user asked for while another was still coming down.
     private(set) var pendingSwitch: Profile.ID?

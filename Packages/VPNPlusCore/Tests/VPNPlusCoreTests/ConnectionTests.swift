@@ -49,6 +49,20 @@ struct ConnectionTests {
         #expect(session.since == start + 6)
     }
 
+    /// D287: the field pass found Connect on another card doing nothing from
+    /// Failed — the window took the switch path and waited for a teardown that
+    /// had nothing to tear down.
+    @Test func aFailedStateHasNoTunnelToReplace() {
+        let record = FailureRecord(profile: singapore, at: start, reason: .recoveryGaveUp)
+        let attempt = Attempt(profile: singapore, startedAt: start)
+        #expect(!Connection.failed(record).hasTunnel)
+        #expect(!Connection.disconnected.hasTunnel)
+        #expect(Connection.connecting(attempt).hasTunnel)
+        #expect(Connection.reconnecting(attempt).hasTunnel)
+        #expect(Connection.connected(Session(profile: singapore, since: start)).hasTunnel)
+        #expect(Connection.disconnecting(Teardown(profile: singapore, startedAt: start)).hasTunnel)
+    }
+
     @Test func retryingAFailureIsAFreshAttempt() {
         let record = FailureRecord(profile: singapore, at: start, reason: .authenticationFailed)
         let state = ConnectionMachine.next(.failed(record), on: .connect(singapore), at: start + 60)

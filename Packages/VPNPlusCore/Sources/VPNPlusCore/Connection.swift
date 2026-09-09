@@ -60,6 +60,18 @@ public enum Connection: Sendable, Equatable {
         }
     }
 
+    /// Whether there is a tunnel to bring down: up, on its way up, or already
+    /// on its way down. **Failed is not one** — the tunnel that failed is
+    /// gone, and the record left behind is a message, not a session. A
+    /// switch that waits for a Failed state to finish tearing down waits for
+    /// ever (D287).
+    public var hasTunnel: Bool {
+        switch self {
+        case .connecting, .reconnecting, .connected, .disconnecting: true
+        case .disconnected, .failed: false
+        }
+    }
+
     /// The session, if the tunnel is up.
     public var session: Session? {
         if case .connected(let session) = self { return session }
