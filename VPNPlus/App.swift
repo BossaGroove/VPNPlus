@@ -24,7 +24,7 @@ enum VPNPlusApp {
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
-        app.setActivationPolicy(.regular)
+        app.setActivationPolicy(Rehearsal.activationPolicy)
         app.run()
     }
 }
@@ -35,12 +35,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// one. The status item is a peer of the window (D33), not something
     /// derived from it, and nothing derived from the other could be trusted to
     /// agree with it (D93).
-    private let tunnel: TunnelController
-    private let catalogue: ProfileCatalogue
+    // Internal rather than private: the hosted UI tests (M8.4) read the model
+    // and drive the window through the delegate.
+    let tunnel: TunnelController
+    let catalogue: ProfileCatalogue
     /// Under UI testing (M8.4): the stand-in tunnel and the fixture watcher.
     private let rehearsal: RehearsalTunnel?
     private var fixtures: RehearsalFixtures?
-    private var windowController: MainWindowController?
+    private(set) var windowController: MainWindowController?
     private var statusItem: StatusItemController?
     private var notifier: FailureNotifier?
     private let updater = Updater()
@@ -57,7 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         buildMenu()
         // Someone who lives in the menu bar asked for no Dock tile; honoured
         // before any window appears, so nothing flashes.
-        AppSettings.applyDockPolicy()
+        if !Rehearsal.isActive { AppSettings.applyDockPolicy() }
         // Sparkle, in its own words for the update and ours for the check.
         if !Rehearsal.isActive { updater.start() }
         // Which language the catalog is serving, and which it carries (M8).
@@ -72,7 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             catalogue: catalogue,
             onOpenWindow: { [weak self] in
                 self?.windowController?.showWindow(nil)
-                NSApp.activate(ignoringOtherApps: true)
+                Rehearsal.bringToFront()
             },
             onImport: { [weak self] in self?.windowController?.importProfileFromPanel(nil) },
             onConnect: { [weak self] in self?.windowController?.connectFromMenu($0) })
@@ -88,11 +90,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onOpen: { [weak self] _ in
                 self?.windowController?.showWindow(nil)
-                NSApp.activate(ignoringOtherApps: true)
+                Rehearsal.bringToFront()
             })
 
         controller.showWindow(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        Rehearsal.bringToFront()
 
         if let rehearsal {
             // A fixture whose server is in the reserved `.invalid` domain is
@@ -107,24 +109,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let watcher = RehearsalFixtures(
                     directory: directory,
                     importFile: { [weak controller] in controller?.importProfile(at: $0) },
-                    afterImport: { [catalogue, weak controller] in
-                        // Every fixture counts as signed in already, so Connect
-                        // connects: the sign-in sheet is M4's surface, not this
-                        // suite's, and the stand-in tunnel never asks.
-                        for profile in catalogue.profiles where !profile.credentialsSaved {
-                            try? catalogue.store.setCredentialsSaved(true, for: profile.id)
-                        }
-                        controller?.storeDidChange()
-                    })
+                    afterImport: { [weak self] in self?.markFixturesSignedIn() })
                 watcher.begin()
                 fixtures = watcher
             }
         }
     }
 
+    /// Every fixture counts as signed in already, so Connect connects: the
+    /// sign-in sheet is M4's surface, not the UI suite's, and the stand-in
+    /// tunnel never asks. Called after the watcher imports, and by the hosted
+    /// tests after they import.
+    func markFixturesSignedIn() {
+        guard Rehearsal.isActive else { return }
+        for profile in catalogue.profiles where !profile.credentialsSaved {
+            try? catalogue.store.setCredentialsSaved(true, for: profile.id)
+        }
+        windowController?.storeDidChange()
+    }
+
     @objc func showSettings(_ sender: Any?) {
         settings.showWindow(sender)
-        NSApp.activate(ignoringOtherApps: true)
+        Rehearsal.bringToFront()
     }
 
     #if DEBUG

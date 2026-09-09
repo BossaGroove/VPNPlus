@@ -108,6 +108,8 @@ enum AppSettings {
     /// the menu bar's left half — which is what someone who lives in the menu
     /// bar asked for.
     static func applyDockPolicy() {
+        // A rehearsal is an accessory for its whole run and never activates.
+        if Rehearsal.isActive { return }
         let wanted: NSApplication.ActivationPolicy = showsDockIcon ? .regular : .accessory
         if NSApp.activationPolicy() != wanted {
             NSApp.setActivationPolicy(wanted)

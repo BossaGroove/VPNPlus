@@ -83,6 +83,10 @@ final class SettingsWindowController: NSWindowController {
 
     override func showWindow(_ sender: Any?) {
         root.refresh()
+        if Rehearsal.isActive {
+            Rehearsal.show(window, sender: sender)
+            return
+        }
         super.showWindow(sender)
         window?.makeKeyAndOrderFront(sender)
     }

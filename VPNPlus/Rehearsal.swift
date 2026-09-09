@@ -56,6 +56,28 @@ enum Rehearsal {
     /// Profiles in memory and in the suite: nothing reaches the Keychain.
     static let store = StoredProfileStore(
         secrets: MemorySecretStore(), metadata: DefaultsMetadataStore(defaults: defaults))
+
+    /// **A rehearsal never takes the owner's focus.** Every place the app
+    /// would activate itself goes through here, and in rehearsal it does
+    /// nothing; likewise a window that would come to the front and become
+    /// key is ordered to the *back* instead, on screen but behind everything
+    /// (owner, 2026-09-10). The suite asserts the frontmost app never changes.
+    @MainActor
+    static func bringToFront() {
+        if !isActive { NSApp.activate(ignoringOtherApps: true) }
+    }
+
+    @MainActor
+    static func show(_ window: NSWindow?, sender: Any? = nil) {
+        if isActive {
+            window?.orderBack(sender)
+        } else {
+            window?.makeKeyAndOrderFront(sender)
+        }
+    }
+
+    /// No Dock tile and no place in the app switcher while rehearsing.
+    static var activationPolicy: NSApplication.ActivationPolicy { isActive ? .accessory : .regular }
 }
 
 /// The preferences the app writes, routed through one place so a rehearsal

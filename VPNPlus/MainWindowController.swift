@@ -1115,6 +1115,16 @@ final class MainWindowController: NSWindowController {
         importer.importProfile(at: url, over: window)
     }
 
+    /// In rehearsal the window is shown *behind* everything and never made
+    /// key (M8.4); otherwise as any window controller shows its window.
+    override func showWindow(_ sender: Any?) {
+        if Rehearsal.isActive {
+            Rehearsal.show(window, sender: sender)
+            return
+        }
+        super.showWindow(sender)
+    }
+
     /// The store changed behind the window's back — the rehearsal's seeding
     /// (M8.4) — so every card is rebuilt from what it now says.
     func storeDidChange() { render() }
