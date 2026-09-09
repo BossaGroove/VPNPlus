@@ -15,6 +15,7 @@
 // with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import AppKit
+import VPNPlusCore
 
 @main
 enum VPNPlusApp {
@@ -37,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let catalogue = ProfileCatalogue()
     private var windowController: MainWindowController?
     private var statusItem: StatusItemController?
+    private var notifier: FailureNotifier?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
@@ -53,9 +55,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onImport: { [weak self] in self?.windowController?.importProfileFromPanel(nil) },
             onConnect: { [weak self] in self?.windowController?.connectFromMenu($0) })
 
+        // D76: the one push the app ever sends, for a failure nobody is
+        // looking at. The window is "looked at" when the app is active and
+        // the window is on screen; a closed window and a hidden app both mean
+        // the Failed state is invisible.
+        notifier = FailureNotifier(
+            tunnel: tunnel, catalogue: catalogue,
+            isLooking: { [weak controller] in
+                NSApp.isActive && (controller?.window.map { $0.isVisible && !$0.isMiniaturized } ?? false)
+            },
+            onOpen: { [weak self] _ in
+                self?.windowController?.showWindow(nil)
+                NSApp.activate(ignoringOtherApps: true)
+            })
+
         controller.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
+
+    #if DEBUG
+        /// **Development only.** Posts the notification for a synthetic M14
+        /// failure of the first profile, whether or not anyone is looking:
+        ///
+        ///   notifyutil -p com.bossagroove.VPNPlus.debug.postNotice
+        func debugPostNotice() {
+            guard let profile = catalogue.profiles.first else { return }
+            notifier?.askOnce()
+            notifier?.post(
+                FailureNotice.notice(
+                    for: FailureRecord(profile: profile.id, at: Date(), reason: .recoveryGaveUp, attempts: 5),
+                    name: catalogue.title(of: profile)))
+        }
+    #endif
 
     /// Double-clicking a profile in the Finder, and dropping one on the app
     /// icon (2.1). The window may not exist yet on a cold launch, so the

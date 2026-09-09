@@ -203,6 +203,16 @@ final class MainWindowController: NSWindowController {
                 controller.showDiagnostics(nil)
             }
 
+            // **Development only: D76's notification, on demand.**
+            //
+            //   notifyutil -p com.bossagroove.VPNPlus.debug.postNotice
+            var noticeToken: Int32 = NOTIFY_TOKEN_INVALID
+            notify_register_dispatch(
+                "com.bossagroove.VPNPlus.debug.postNotice", &noticeToken, DispatchQueue.main
+            ) { _ in
+                MainActor.assumeIsolated { (NSApp.delegate as? AppDelegate)?.debugPostNotice() }
+            }
+
             // **Development only: fold or unfold the open configuration sheet's
             // transparency section**, as a click on its heading would.
             //
