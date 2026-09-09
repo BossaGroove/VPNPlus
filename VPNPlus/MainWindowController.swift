@@ -199,6 +199,20 @@ final class MainWindowController: NSWindowController {
                 controller.importer.debugPresentReport(for: profile, over: controller.window)
             }
 
+            // **Development only: the record, in the words the sheet will use.**
+            //
+            //   notifyutil -p com.bossagroove.VPNPlus.debug.dumpDiagnostics
+            //
+            // M6.5 builds the Diagnostics sheet; until it exists this is how
+            // the record gets *looked at* rather than reasoned about, which is
+            // the lesson of the window that shipped empty (D234).
+            var recordToken: Int32 = NOTIFY_TOKEN_INVALID
+            notify_register_dispatch(
+                "com.bossagroove.VPNPlus.debug.dumpDiagnostics", &recordToken, DispatchQueue.main
+            ) { _ in
+                MainActor.assumeIsolated { [weak self] in self?.dumpDiagnostics() }
+            }
+
             // **Development only: a switch's slide timing**, without a tunnel.
             //
             //   notifyutil -p com.bossagroove.VPNPlus.debug.probeSwitchSlide
@@ -773,6 +787,42 @@ final class MainWindowController: NSWindowController {
 
     #if DEBUG
         private var rendersDuringSlide = 0
+
+        /// The record for the last profile, as the sheet will show it, plus
+        /// what the export would carry. Two layers, one stream (D138).
+        private func dumpDiagnostics() {
+            guard let profile = catalogue.profiles.last else { return }
+            let name = title(of: profile)
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                guard let record = await tunnel.diagnostics(for: profile.id) else {
+                    Self.log.notice("debug: no record for \(name, privacy: .public)")
+                    return
+                }
+                Self.log.notice(
+                    "debug: \(name, privacy: .public) — \(record.attempts.count, privacy: .public) attempts kept"
+                )
+                for attempt in record.forScreen() {
+                    Self.log.notice(
+                        "debug: \(DiagnosticsCopy.header(attempt), privacy: .public)")
+                    for entry in attempt.entries {
+                        guard let phrase = DiagnosticsCopy.phrase(entry) else { continue }
+                        let at = DateFormatter.localizedString(
+                            from: entry.at, dateStyle: .none, timeStyle: .medium)
+                        Self.log.notice(
+                            "debug:   \(at, privacy: .public)  \(phrase, privacy: .public)")
+                    }
+                }
+                // The export's layer: the engine's own lines, which the screen
+                // never shows. Counted rather than printed — the point is that
+                // they are kept, and the redactor is what makes that safe.
+                let engineLines = record.attempts.reduce(0) { total, attempt in
+                    total + attempt.entries.filter { !$0.kind.isForScreen }.count
+                }
+                Self.log.notice(
+                    "debug: \(engineLines, privacy: .public) engine lines kept for the export")
+            }
+        }
 
         /// Where the grid *is presented* a third and two thirds of the way
         /// through, against where it started. A slide shows two different

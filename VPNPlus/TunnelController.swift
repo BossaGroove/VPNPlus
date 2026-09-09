@@ -387,7 +387,7 @@ final class TunnelController {
             return
         }
         do {
-            try session.sendProviderMessage(Data()) { [weak self] reply in
+            try session.sendProviderMessage(ProviderRequest.report.encoded()) { [weak self] reply in
                 guard let self else { return }
                 guard let reply,
                     let report = try? JSONDecoder().decode(TunnelReport.self, from: reply)
@@ -470,6 +470,82 @@ final class TunnelController {
             )
         }
         schedulePoll()
+    }
+
+    /// The redacted record of what happened, for the Diagnostics sheet
+    /// (M6.2, A14).
+    ///
+    /// Two sources, in this order, because they know different things:
+    ///
+    /// 1. **The running provider**, which has the attempt in flight — the one
+    ///    the user is watching fail.
+    /// 2. **The extension's own store**, over the privileged channel, which
+    ///    has every attempt that finished and answers with **nothing
+    ///    running** — the ordinary case, since the provider exits within a
+    ///    second of a failure and D141 says the sheet opens without one.
+    ///
+    /// Whichever has more attempts wins; a tie goes to the live one.
+    func diagnostics(for profile: Profile.ID) async -> DiagnosticsLog? {
+        let live = await fromTheProvider(profile)
+        let kept: DiagnosticsLog?
+        do {
+            kept = try await PrivilegedClient().diagnostics(for: profile)
+        } catch {
+            Self.log.notice(
+                "no stored record: \(error.localizedDescription, privacy: .public)")
+            kept = nil
+        }
+        switch (live, kept) {
+        case (let live?, let kept?):
+            return kept.attempts.count > live.attempts.count ? kept : live
+        case (let live?, nil):
+            return live
+        case (nil, let kept?):
+            return kept
+        case (nil, nil):
+            return nil
+        }
+    }
+
+    /// The record as the running provider holds it, including the attempt in
+    /// flight. Nil whenever there is no provider to ask, which is ordinary.
+    private func fromTheProvider(_ profile: Profile.ID) async -> DiagnosticsLog? {
+        guard let session = manager?.connection as? NETunnelProviderSession else { return nil }
+        return await withCheckedContinuation { continuation in
+            let once = OnceReply(continuation)
+            do {
+                try session.sendProviderMessage(
+                    ProviderRequest.diagnostics(profile: profile).encoded()
+                ) { reply in
+                    // A report coming back means an extension older than this
+                    // app, which answers every message with the model. It
+                    // fails to decode, which is the honest outcome.
+                    once.finish(reply.flatMap { try? JSONDecoder().decode(DiagnosticsLog.self, from: $0) })
+                }
+            } catch {
+                once.finish(nil)
+            }
+        }
+    }
+
+    /// `sendProviderMessage` promises one call of its handler and cannot
+    /// promise it when there is nothing listening; a continuation resumed
+    /// twice would trap, and one never resumed would hang.
+    private final class OnceReply: @unchecked Sendable {
+        private let lock = NSLock()
+        private var continuation: CheckedContinuation<DiagnosticsLog?, Never>?
+
+        init(_ continuation: CheckedContinuation<DiagnosticsLog?, Never>) {
+            self.continuation = continuation
+        }
+
+        func finish(_ value: DiagnosticsLog?) {
+            lock.lock()
+            let pending = continuation
+            continuation = nil
+            lock.unlock()
+            pending?.resume(returning: value)
+        }
     }
 
     /// Asks again, while an attempt is running, in case the doorbell was not

@@ -39,7 +39,7 @@ targets:
     type: application
     platform: macOS
     scheme:
-      testTargets: [VPNPlusEngineTests]
+      testTargets: [VPNPlusEngineTests, VPNPlusSharedTests]
     sources:
       - path: VPNPlus
         excludes: ["*.entitlements", "Info.plist"]
@@ -204,6 +204,25 @@ targets:
           - USE_OPENSSL
           - USE_TUN_BUILDER
           - ENABLE_EXTERNAL_PKI
+
+  # The app↔extension boundary's own code: the redactor that stands between
+  # the engine and everything kept (D199), and the table where OpenVPN's event
+  # names meet A10's failure codes. Both were untestable until M6.2, because
+  # nothing compiled VPNPlusShared except the two shipping targets.
+  VPNPlusSharedTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: VPNPlusSharedTests
+      - path: VPNPlusShared
+    dependencies:
+      - package: VPNPlusCore
+        product: VPNPlusCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bossagroove.VPNPlus.SharedTests
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""
 
   VPNPlusEngineTests:
     type: bundle.unit-test

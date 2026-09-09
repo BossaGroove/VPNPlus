@@ -15,6 +15,7 @@
 // with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import Foundation
+import VPNPlusCore
 import os
 
 /// The app's side of the privileged interface.
@@ -44,33 +45,31 @@ struct PrivilegedClient {
     /// failing, and both are wired up — so without this, one of them either
     /// crashes on a double resume or, worse, never resumes and the caller
     /// waits for ever.
-    private final class Once: @unchecked Sendable {
+    /// A continuation resumed at most once, whichever of the two paths gets
+    /// there first — the reply block or the connection's error handler.
+    /// Generic since M6.2, because one call now brings something back.
+    private final class Once<T: Sendable>: @unchecked Sendable {
         private let lock = NSLock()
-        private var continuation: CheckedContinuation<Void, any Error>?
+        private var continuation: CheckedContinuation<T, any Error>?
 
-        init(_ continuation: CheckedContinuation<Void, any Error>) {
+        init(_ continuation: CheckedContinuation<T, any Error>) {
             self.continuation = continuation
         }
 
-        func finish(_ error: (any Error)?) {
+        func finish(_ result: Result<T, any Error>) {
             lock.lock()
             let pending = continuation
             continuation = nil
             lock.unlock()
-            guard let pending else { return }
-            if let error {
-                pending.resume(throwing: error)
-            } else {
-                pending.resume()
-            }
+            pending?.resume(with: result)
         }
     }
 
     /// One call, one connection, and a guarantee that it returns.
-    private func perform(
+    private func invoke<T: Sendable>(
         pinning requirement: String,
-        _ call: @escaping (any PrivilegedInterface, @escaping ((any Error)?) -> Void) -> Void
-    ) async throws {
+        _ call: @escaping (any PrivilegedInterface, @escaping (Result<T, any Error>) -> Void) -> Void
+    ) async throws -> T {
         let connection = NSXPCConnection(machServiceName: PrivilegedChannel.machServiceName, options: [])
         connection.remoteObjectInterface = NSXPCInterface(with: PrivilegedInterface.self)
         // This does not report failure: a requirement that is malformed, or
@@ -81,22 +80,58 @@ struct PrivilegedClient {
         connection.resume()
         defer { connection.invalidate() }
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+        return try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<T, any Error>) in
             let once = Once(continuation)
             let proxy = connection.remoteObjectProxyWithErrorHandler { error in
                 // The connection failed — refused by the requirement, or
                 // nothing listening. Either way the caller hears about it.
                 Self.log.error("privileged call failed: \(error.localizedDescription, privacy: .public)")
-                once.finish(Failure.refused(error.localizedDescription))
+                once.finish(.failure(Failure.refused(error.localizedDescription)))
             }
             guard let proxy = proxy as? any PrivilegedInterface else {
-                once.finish(Failure.unavailable)
+                once.finish(.failure(Failure.unavailable))
                 return
             }
+            call(proxy) { result in once.finish(result) }
+        }
+    }
+
+    private func perform(
+        pinning requirement: String,
+        _ call: @escaping (any PrivilegedInterface, @escaping ((any Error)?) -> Void) -> Void
+    ) async throws {
+        try await invoke(pinning: requirement) {
+            (proxy, done: @escaping (Result<Void, any Error>) -> Void) in
             call(proxy) { error in
-                once.finish(error.map { Failure.refused($0.localizedDescription) })
+                if let error {
+                    done(.failure(Failure.refused(error.localizedDescription)))
+                } else {
+                    done(.success(()))
+                }
             }
         }
+    }
+
+    /// The redacted record the extension keeps for a profile (M6.2). Works
+    /// with no tunnel running, which is when it is usually asked for (D141).
+    func diagnostics(
+        for profile: UUID,
+        pinning requirement: String = PrivilegedChannel.extensionRequirement
+    ) async throws -> DiagnosticsLog {
+        let data = try await invoke(pinning: requirement) {
+            (proxy, done: @escaping (Result<Data, any Error>) -> Void) in
+            proxy.diagnostics(profile: profile) { data, error in
+                if let error {
+                    done(.failure(Failure.refused(error.localizedDescription)))
+                } else if let data {
+                    done(.success(data))
+                } else {
+                    done(.failure(Failure.unavailable))
+                }
+            }
+        }
+        return try JSONDecoder().decode(DiagnosticsLog.self, from: data)
     }
 
     /// Hands one secret to the extension. Returns when it has been stored, so

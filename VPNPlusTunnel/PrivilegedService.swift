@@ -120,12 +120,33 @@ extension PrivilegedService: PrivilegedInterface {
             for kind in SecretKind.allCases {
                 try secrets.remove(for: kind.account(for: profile))
             }
-            log.notice("removed every secret for \(profile.uuidString, privacy: .public)")
+            // D122: the record goes with the credentials and the last-good
+            // record. A diagnostics log outliving the profile it is about is
+            // exactly the privacy surface flow-failure.md refused.
+            DiagnosticsStore().remove(for: profile)
+            log.notice("removed every secret and the record for \(profile.uuidString, privacy: .public)")
             reply(nil)
         } catch {
             log.error("could not remove secrets: \(error.localizedDescription, privacy: .public)")
             reply(PrivilegedFailure.storageFailed.asError)
         }
+    }
+
+    /// What is on disk for this profile — every attempt that has finished.
+    /// The attempt in flight lives in the provider object and reaches the app
+    /// by the tunnel session; this is the answer when nothing is running,
+    /// which is when somebody is usually reading (D141).
+    func diagnostics(profile: UUID, reply: @escaping (Data?, (any Error)?) -> Void) {
+        let record = DiagnosticsStore().load(for: profile)
+        guard let data = try? JSONEncoder().encode(record) else {
+            log.error("could not encode the record for \(profile.uuidString, privacy: .public)")
+            reply(nil, PrivilegedFailure.storageFailed.asError)
+            return
+        }
+        log.notice(
+            "handing over \(record.attempts.count, privacy: .public) recorded attempts for \(profile.uuidString, privacy: .public)"
+        )
+        reply(data, nil)
     }
 }
 

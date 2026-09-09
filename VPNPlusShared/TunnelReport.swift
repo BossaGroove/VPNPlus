@@ -108,6 +108,31 @@ struct TunnelReport: Codable, Sendable, Equatable {
 /// tell the app there is a reason to ask, and a Darwin notification is the one
 /// mechanism that crosses from a root system extension to a user-session app
 /// without a shared container or an entitlement.
+/// What the app is asking the provider for.
+///
+/// The provider has answered exactly one question since M5.2 — *what are you
+/// doing* — and the message carried no body at all. M6.2 adds a second, so
+/// the body is now a request. **An empty message stays a report**, because
+/// that is what every build before M6.2 sends, and the two binaries update
+/// independently.
+enum ProviderRequest: Codable, Sendable, Equatable {
+    /// The model, as `TunnelReport`.
+    case report
+    /// The redacted record, as `DiagnosticsLog`, for one profile.
+    case diagnostics(profile: UUID?)
+
+    func encoded() -> Data {
+        (try? JSONEncoder().encode(self)) ?? Data()
+    }
+
+    /// Never fails: an unreadable request from a newer app is answered with
+    /// the model, which is the answer that is always true.
+    static func decode(_ data: Data) -> ProviderRequest {
+        guard !data.isEmpty else { return .report }
+        return (try? JSONDecoder().decode(ProviderRequest.self, from: data)) ?? .report
+    }
+}
+
 enum TunnelReportChannel {
     /// Posted by the provider whenever its report changes. Carries no payload:
     /// a notification is a doorbell, and the answer comes back over XPC where

@@ -44,6 +44,20 @@ import Foundation
     /// never a path, a command or an address — and like the other two it asks
     /// for a state rather than an action.
     func deleteSecret(profile: UUID, kind: Int, reply: @escaping ((any Error)?) -> Void)
+
+    /// The redacted diagnostics record for one profile (M6.2).
+    ///
+    /// **The only thing this interface returns, and it is not a secret**: every
+    /// line in it passed the redactor before it was kept (D199), which is the
+    /// whole reason that filter exists. D193 stands — no credential, key or
+    /// passphrase is ever handed back.
+    ///
+    /// It is here rather than only on the tunnel session because of *when* a
+    /// record is wanted: the provider exits within a second of a failure, so
+    /// the session can no longer be asked exactly when the user goes looking
+    /// (measured, the M5.6 ladder). The extension process outlives the
+    /// session, and this channel is how the app reaches it (M4.2).
+    func diagnostics(profile: UUID, reply: @escaping (Data?, (any Error)?) -> Void)
 }
 
 /// What a stored secret is. Deliberately a small closed set: an interface that

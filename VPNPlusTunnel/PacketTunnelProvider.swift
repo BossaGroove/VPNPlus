@@ -152,6 +152,16 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     private var serverOverride = Engine.ServerOverride()
     private var identity = Engine.ClientIdentity()
     private let secrets = ExtensionSecretStore()
+
+    /// The record, and the filter everything entering it passes through
+    /// (D199). Its own lock rather than `state`'s: engine log lines arrive on
+    /// the connect thread, and file I/O never happens while a lock is held.
+    private struct Recording {
+        var log = DiagnosticsLog()
+        var redactor = Redactor()
+    }
+    private let recording = OSAllocatedUnfairLock(initialState: Recording())
+    private let records = DiagnosticsStore()
     private var deadline: DispatchWorkItem?
     /// Every phase has one of its own (feature-spec 3.5). One attempt deadline
     /// could only ever say "it took too long"; a phase deadline says which
@@ -195,6 +205,15 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         }
         let identifier = asked ?? configured
         self.identifier = identifier
+        // Whatever this profile's record already holds, from a provider
+        // process that is gone (A9 capture requirement 5).
+        let kept = records.load(for: identifier)
+        recording.withLock {
+            $0.log = kept
+            // A fresh engine writes a fresh stream, so a block the last one
+            // left open must not swallow this one's lines.
+            $0.redactor = Redactor()
+        }
 
         let completion = Completion(completionHandler)
         state.withLock {
@@ -372,9 +391,14 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         self.engine = engine
         state.withLock { $0.attemptEnded = false; $0.phasesEntered = []; $0.pushRequests = 0 }
         pausedForNetwork = false
+        beginRecording()
 
         engine.onLog = { [weak self, engineLog] text in
             engineLog.notice("\(text, privacy: .public)")
+            // **Every line, redacted, kept** (A9 capture requirement 1,
+            // feature-spec 4.9): the progress lines are the timeline that
+            // makes a stall explicable, and this is the only copy of them.
+            self?.recordEngineLine(text)
             // The one log line that is a count (D177's "free counter"): the
             // engine re-sends its request every 3 s while the server is silent.
             if text.contains("Sending PUSH_REQUEST") {
@@ -383,10 +407,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         }
         engine.onEvent = { [weak self] event in self?.handle(event) }
         engine.onEstablish = { [weak self] settings in self?.establish(settings) }
-        engine.onTeardown = { [log] disconnect in
+        engine.onTeardown = { [weak self, log] disconnect in
             // Nothing of ours to undo: the OS applied the settings and the OS
             // removes them.
             log.notice("engine teardown disconnect=\(disconnect, privacy: .public)")
+            // The artboard's "Restored DNS and routes", which is the line that
+            // answers J11 for whoever is reading afterwards.
+            self?.record(.teardownRestored)
         }
 
         // Chosen afresh for every session, so a token captured a moment ago
@@ -490,13 +517,80 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     /// Answers the app's question. The only thing this returns is the report:
     /// no secret crosses, and nothing the caller says changes what we do.
     override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)?) {
-        let report = state.withLock {
-            TunnelReport(connection: $0.connection, foreignTunnel: self.foreignTunnel)
+        switch ProviderRequest.decode(messageData) {
+        case .report:
+            let report = state.withLock {
+                TunnelReport(connection: $0.connection, foreignTunnel: self.foreignTunnel)
+            }
+            log.notice(
+                "answering with \(report.state.rawValue, privacy: .public) (pid \(getpid(), privacy: .public))"
+            )
+            completionHandler?(try? JSONEncoder().encode(report))
+        case .diagnostics(let profile):
+            // This process's record when it is the profile's, else whatever is
+            // on disk — the app may be asking about a profile that has not
+            // connected since this provider started.
+            let mine = recording.withLock { $0.log }
+            let record =
+                (profile == nil || profile == mine.profile || mine.profile == nil)
+                ? mine : records.load(for: profile)
+            log.notice(
+                "answering with \(record.attempts.count, privacy: .public) recorded attempts"
+            )
+            completionHandler?(try? JSONEncoder().encode(record))
         }
-        log.notice(
-            "answering with \(report.state.rawValue, privacy: .public) (pid \(getpid(), privacy: .public))"
-        )
-        completionHandler?(try? JSONEncoder().encode(report))
+    }
+
+    // MARK: - The record (M6.2)
+
+    /// Starts an attempt in the record. The recovery count is the model's, so
+    /// the record and the failure message cannot disagree about it.
+    private func beginRecording() {
+        let recovery = state.withLock { $0.connection.attempt?.recovery ?? 0 }
+        recording.withLock {
+            if $0.log.profile == nil { $0.log.profile = self.identifier }
+            $0.log.begin(recovery: recovery, at: Date())
+        }
+    }
+
+    /// One of our own entries — typed, because the words are the app's.
+    private func record(_ kind: DiagnosticsEntry.Kind, identifier: String? = nil) {
+        let now = Date()
+        recording.withLock { $0.log.add(kind, identifier: identifier, at: now) }
+    }
+
+    /// The engine's own prose, **redacted before it is kept** and never shown
+    /// on a surface (D138, D199).
+    private func recordEngineLine(_ text: String) {
+        let now = Date()
+        recording.withLock {
+            guard let scrubbed = $0.redactor.scrub(text) else { return }
+            $0.log.add(.engine(scrubbed), at: now)
+        }
+    }
+
+    /// Ours, for the export, and scrubbed as well: an event's text is the
+    /// engine's or the server's, and neither is trusted (D199).
+    private func recordNote(_ text: String, identifier: String? = nil) {
+        let now = Date()
+        recording.withLock {
+            $0.log.add(.note(Redactor.scrub(text)), identifier: identifier, at: now)
+        }
+    }
+
+    /// Closes the attempt and puts the record on disk. **The only place it is
+    /// written**, so an attempt's outcome and its persistence cannot diverge —
+    /// and outside the lock, because writing a file under one is how a hang
+    /// starts.
+    private func finishRecording(_ outcome: DiagnosticsAttempt.Outcome) {
+        let now = Date()
+        let (record, changed) = recording.withLock { recording -> (DiagnosticsLog, Bool) in
+            guard recording.log.isAttemptOpen else { return (recording.log, false) }
+            recording.log.finish(outcome, at: now)
+            return (recording.log, true)
+        }
+        guard changed else { return }
+        records.save(record, for: record.profile ?? identifier)
     }
 
     // MARK: - Deadlines (D177, A8)
@@ -527,6 +621,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             // A stall is a mode with an identity (D100): the phase names the
             // message, and the config stall carries how many times it asked.
             let requests = state.withLock { $0.pushRequests }
+            record(.gaveUp(phase: phase.rawValue, seconds: seconds))
             failAttempt(
                 FailureDetail.forStall(
                     in: phase, waited: seconds,
@@ -595,6 +690,11 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         } else {
             failure = detail.reason.error(detail.detail ?? "")
         }
+        record(
+            .failed(
+                detail.reason, waited: detail.waited.map { Int($0.components.seconds) },
+                requests: detail.attempts))
+        finishRecording(.failed(detail.reason))
         let pending = state.withLock { $0.startCompletion != nil }
         if pending {
             finishStart(with: failure)
@@ -620,6 +720,10 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         log.notice(
             "recovery attempt \(attempt.recovery, privacy: .public) of \(Recovery.maxAttempts, privacy: .public) in \(Int(wait.components.seconds), privacy: .public) s"
         )
+        record(
+            .tryingAgain(
+                attempt: attempt.recovery, of: Recovery.maxAttempts,
+                seconds: Int(wait.components.seconds)))
         deadline?.cancel()
         phaseDeadline?.cancel()
         transportPoll?.cancel()
@@ -755,12 +859,14 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             if path.status == .satisfied {
                 // C measured that the engine's own reconnect on this path is
                 // never answered by the server; a fresh engine is.
+                if paused { record(.networkReturned) }
                 pausedForNetwork = false
                 restartFresh(reason: paused ? "network returned" : "network changed")
             } else if !paused {
                 // Quiet the engine while there is nothing to send on; the
                 // return of a path restarts fresh above.
                 log.notice("no network path; pausing the engine until one returns")
+                record(.networkLost)
                 reasserting = true
                 // And say so. **Connected means carrying traffic** — not that
                 // a tunnel object exists (feature-spec 3.9) — so a tunnel with
@@ -801,6 +907,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
     ) {
         log.notice("provider stop reason=\(reason.rawValue, privacy: .public)")
         state.withLock { $0.stopping = true }
+        record(.disconnected)
+        finishRecording(.cancelled)
         apply(.disconnect)
         deadline?.cancel()
         phaseDeadline?.cancel()
@@ -828,9 +936,14 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
         // worse than the one we already have.
         if let phase = OpenVPNPhase.beginning(with: event.name) {
             apply(.entered(phase.asPhase))
+            record(.phase(phase.rawValue), identifier: event.name)
             // Once per phase per attempt — see `phasesEntered`.
             let first = state.withLock { $0.phasesEntered.insert(phase).inserted }
             if first { armPhaseDeadline(phase) }
+        } else if event.name != "CONNECTED" {
+            // Everything else, for the export: the identifier travels with the
+            // entry and the screen never shows it (D138).
+            recordNote("\(event.name): \(event.info)", identifier: event.name)
         }
 
         switch event.name {
@@ -852,6 +965,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider, @unchecked Sendable {
             phaseDeadline?.cancel()
             transportPoll?.cancel()
             apply(.established)
+            record(.connected, identifier: event.name)
+            finishRecording(.connected)
             rememberSessionToken()
             // A token that worked has earned the fallback back: the *next*
             // token to be refused is a new one, and stale for its own reasons.
