@@ -281,6 +281,26 @@ targets:
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: ""
 
+  # The UI suite (M8.4): a unit-test bundle *hosted by the app*, which the
+  # scheme launches in rehearsal. The tests run inside the app's process and
+  # drive its own window; nothing crosses to the owner's input or focus.
+  VPNPlusAppTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: VPNPlusAppTests
+    dependencies:
+      - target: VPNPlus
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bossagroove.VPNPlus.AppTests
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""
+        # The host by its product name, which has a space; the generated
+        # default used the target name and found nothing.
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/VPN Plus.app/Contents/MacOS/VPN Plus"
+        BUNDLE_LOADER: $(TEST_HOST)
+
   VPNPlusEngineTests:
     type: bundle.unit-test
     platform: macOS
@@ -302,3 +322,24 @@ targets:
         OTHER_LDFLAGS: [-lssl, -lcrypto, -llz4, -lfmt]
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: ""
+
+# The UI suite's scheme: the host launched in rehearsal. `VPNPLUS_SHOTS` is a
+# build setting given on the xcodebuild command line, handed to the host as an
+# environment variable, so the sweep's PNGs land where the caller says.
+# `Scripts/ui-test.sh` is the invocation; the ordinary `xcodebuild test` on the
+# VPNPlus scheme is unchanged.
+schemes:
+  VPNPlusAppTests:
+    build:
+      targets:
+        VPNPlus: all
+        VPNPlusAppTests: [test]
+    test:
+      config: Debug
+      targets: [VPNPlusAppTests]
+      commandLineArguments:
+        "-UITesting": true
+      environmentVariables:
+        - variable: VPNPLUS_SHOTS
+          value: $(VPNPLUS_SHOTS)
+          isEnabled: true
