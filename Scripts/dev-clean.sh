@@ -29,9 +29,12 @@
 # grows the same way.
 #
 # --uninstall runs `systemextensionsctl uninstall` for the extension, which
-# needs developer mode (`systemextensionsctl developer on`) or SIP off, and
-# **resets the one-time approval**: the next Connect walks the setup sequence
-# again. That is the point when the sequence is what you want to test.
+# **needs System Integrity Protection off** — developer mode is not enough
+# (Apple's own message, measured 2026-09-09) — and **resets the one-time
+# approval**: the next Connect walks the setup sequence again. With SIP on,
+# the way to walk the sequence again is System Settings ▸ General ▸ Login
+# Items & Extensions ▸ Network Extensions: turn VPN Plus off there, and the
+# next Connect asks to turn it on.
 set -euo pipefail
 
 BUNDLE_ID="com.bossagroove.VPNPlus.tunnel"
@@ -45,6 +48,14 @@ for arg in "$@"; do
     *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
 done
+
+# Refuse before touching anything, so a refused uninstall costs no rebuild.
+if [ "$UNINSTALL" -eq 1 ] && csrutil status 2>/dev/null | grep -q "enabled"; then
+  echo "systemextensionsctl uninstall needs System Integrity Protection off; it is on." >&2
+  echo "To walk the setup sequence again without that: System Settings > General >" >&2
+  echo "Login Items & Extensions > Network Extensions, turn VPN Plus off, then Connect." >&2
+  exit 1
+fi
 
 echo "== Staged system extensions"
 LIST=$(systemextensionsctl list 2>/dev/null || true)
@@ -71,6 +82,12 @@ fi
 
 if [ "$UNINSTALL" -eq 1 ]; then
   echo "== Uninstalling the system extension"
+  if csrutil status 2>/dev/null | grep -q "enabled"; then
+    echo "   systemextensionsctl uninstall needs System Integrity Protection off; it is on." >&2
+    echo "   To walk the setup sequence again without that: System Settings > General >" >&2
+    echo "   Login Items & Extensions > Network Extensions, turn VPN Plus off, then Connect." >&2
+    exit 1
+  fi
   if [ ! -d "$APP" ]; then
     echo "   $APP is not installed; nothing to uninstall" >&2
     exit 1
