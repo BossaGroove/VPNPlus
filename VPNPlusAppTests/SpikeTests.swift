@@ -37,13 +37,41 @@ final class SpikeTests: RehearsalTestCase {
         guard let connect = view(AccessibilityID.profileConnect, in: card(Fixtures.office)) else {
             return XCTFail("no Connect button on \(Fixtures.office)")
         }
-        click(connect)
-        XCTAssertTrue(
-            waitUntil(timeout: 3) { self.state == "active:connecting" },
-            "after the click the region reads \(state)")
-        XCTAssertTrue(
-            waitUntil(timeout: 8) { self.state == "active:connected" },
-            "the rehearsal did not connect; region reads \(state)")
+        // First run (2026-09-10): the posted click left the region idle. This
+        // run says which of two things that is — the click not reaching the
+        // button, or Connect's own flow stopping — by trying three deliveries
+        // in turn and recording what each did. The spike passes on any of
+        // them; the message names the one the harness should use.
+        continueAfterFailure = true
+        var deliveries: [String] = []
+        func attempt(_ name: String, _ run: () -> Void) -> Bool {
+            run()
+            let connecting = waitUntil(timeout: 3) { self.state == "connecting" }
+            deliveries.append(
+                "\(name): region \(state), key \(window.isKeyWindow), active \(NSApp.isActive), sheet \(window.attachedSheet != nil), model \(delegate.tunnel.connection.state.rawValue)"
+            )
+            return connecting
+        }
+        let acceptsFirstMouse = connect.acceptsFirstMouse(for: nil)
+        let landsOn = hit(at: connect)
+        var connected =
+            attempt("posted click on a non-key window") { postClick(connect) }
+            || attempt("mouse-down through the window, mouse-up posted") { clickThroughWindow(connect) }
+            || attempt("performClick") { (connect as? NSButton)?.performClick(nil) }
+        let report =
+            "acceptsFirstMouse \(acceptsFirstMouse); a click at the button's centre lands on \(landsOn.map { String(describing: type(of: $0)) } ?? "nothing") (\(landsOn === connect ? "the button" : "NOT the button"))\n"
+            + deliveries.joined(separator: "\n")
+        let note = XCTAttachment(string: report)
+        note.name = "deliveries"
+        note.lifetime = .keepAlways
+        add(note)
+        XCTAssertTrue(connected, "no delivery connected:\n\(report)")
+        if connected {
+            connected = waitUntil(timeout: 8) { self.state == "connected" }
+            XCTAssertTrue(connected, "the rehearsal did not connect; region reads \(state)")
+        }
+        // Printed into xcodebuild's output as well, so the run's log carries it.
+        print("SPIKE DELIVERIES\n\(report)")
 
         XCTAssertTrue(capture(as: "spike-connected"))
         XCTAssertNotNil(

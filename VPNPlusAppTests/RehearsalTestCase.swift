@@ -24,22 +24,47 @@ import XCTest
 /// to its own queue. Nothing here can reach the owner's input or focus — and
 /// every test proves it: the frontmost application is recorded before and
 /// checked after, and the app must never be active.
+/// Remembers whether the app became active while a test ran. The owner may
+/// switch between their own apps during a run; what must never happen is
+/// *this* app becoming active, even for a moment.
+final class ActivationWatch: @unchecked Sendable {
+    private let lock = NSLock()
+    private var flag = false
+    private var token: (any NSObjectProtocol)?
+
+    init() {
+        token = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: nil
+        ) { [self] _ in lock.withLock { flag = true } }
+    }
+
+    var activated: Bool { lock.withLock { flag } }
+
+    func stop() {
+        if let token { NotificationCenter.default.removeObserver(token) }
+        token = nil
+    }
+}
+
 @MainActor
 class RehearsalTestCase: XCTestCase {
-    private var frontmostBefore: pid_t?
+    private var watch: ActivationWatch?
 
     override func setUp() async throws {
         continueAfterFailure = false
         XCTAssertTrue(Rehearsal.isActive, "the host was not launched with -UITesting; use the VPNPlusAppTests scheme")
-        frontmostBefore = NSWorkspace.shared.frontmostApplication?.processIdentifier
-        XCTAssertNotEqual(frontmostBefore, ProcessInfo.processInfo.processIdentifier, "the host is frontmost before the test began")
+        XCTAssertFalse(NSApp.isActive, "the host is active before the test began")
+        watch = ActivationWatch()
     }
 
     override func tearDown() async throws {
-        XCTAssertFalse(NSApp.isActive, "the harness activated the app — it must never take focus")
-        XCTAssertEqual(
-            NSWorkspace.shared.frontmostApplication?.processIdentifier, frontmostBefore,
-            "the frontmost application changed during the test — the harness took focus")
+        watch?.stop()
+        XCTAssertFalse(watch?.activated ?? true, "the harness activated the app during the test — it must never take focus")
+        XCTAssertFalse(NSApp.isActive, "the harness left the app active — it must never take focus")
+        XCTAssertNotEqual(
+            NSWorkspace.shared.frontmostApplication?.processIdentifier,
+            ProcessInfo.processInfo.processIdentifier,
+            "the host is frontmost after the test — the harness took focus")
     }
 
     // MARK: The app
@@ -95,18 +120,24 @@ class RehearsalTestCase: XCTestCase {
         cards.first { $0.accessibilityLabel() == name }
     }
 
-    /// The promoted region's state name: `idle`, `active:connecting`, …
+    /// The promoted region's state name: `idle`, `connecting`, `connected`, `failed`, …
     var state: String {
         (view(AccessibilityID.promotedRegion)?.accessibilityValue() as? String) ?? ""
     }
 
     // MARK: Driving
 
-    /// A click at the view's centre, as a mouse-down/mouse-up pair **posted to
-    /// the app's own event queue** for this window. It travels
+    /// A click at the view's centre — `clickThroughWindow`, the delivery the
+    /// spike proved (run 4, 2026-09-10): the mouse-up posted to the app's own
+    /// queue, the mouse-down handed to the window, so it travels
     /// `NSWindow.sendEvent → hitTest → the control`, which is where D259
     /// lived, and never reaches the window server.
-    func click(_ view: NSView) {
+    func click(_ view: NSView) { clickThroughWindow(view) }
+
+    /// The same pair **posted** to the app's queue instead. Kept for the
+    /// record: for an inactive app the pair goes nowhere (runs 1–4), so
+    /// nothing uses it.
+    func postClick(_ view: NSView) {
         guard let target = view.window else { return XCTFail("the view is not in a window") }
         let centre = view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: nil)
         let time = ProcessInfo.processInfo.systemUptime
@@ -120,6 +151,39 @@ class RehearsalTestCase: XCTestCase {
             NSApp.postEvent(event, atStart: false)
         }
         pump(0.1)
+    }
+
+    /// The same pair, delivered the other way round: the mouse-up is posted to
+    /// the queue first, then the mouse-down is handed straight to the window,
+    /// whose `sendEvent → hitTest → control` runs the button's tracking loop,
+    /// which finds the waiting mouse-up. This skips whatever `NSApplication`
+    /// does with a click meant for an inactive app, which is where run 3
+    /// (2026-09-10) showed a posted pair going nowhere.
+    func clickThroughWindow(_ view: NSView) {
+        guard let target = view.window else { return XCTFail("the view is not in a window") }
+        let centre = view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: nil)
+        let time = ProcessInfo.processInfo.systemUptime
+        guard
+            let down = NSEvent.mouseEvent(
+                with: .leftMouseDown, location: centre, modifierFlags: [], timestamp: time,
+                windowNumber: target.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1),
+            let up = NSEvent.mouseEvent(
+                with: .leftMouseUp, location: centre, modifierFlags: [], timestamp: time + 0.05,
+                windowNumber: target.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 0)
+        else { return XCTFail("could not make a mouse event") }
+        NSApp.postEvent(up, atStart: true)
+        target.sendEvent(down)
+        pump(0.1)
+    }
+
+    /// What a click at the view's centre would land on — D259's question,
+    /// asked of the window directly. `hitTest` takes a point in the
+    /// receiver's *superview's* coordinates, so the window point is converted
+    /// into the content view's superview (the window's frame view) first.
+    func hit(at view: NSView) -> NSView? {
+        guard let content = view.window?.contentView, let frame = content.superview else { return nil }
+        let inWindow = view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: nil)
+        return content.hitTest(frame.convert(inWindow, from: nil))
     }
 
     // MARK: Waiting
@@ -149,6 +213,9 @@ class RehearsalTestCase: XCTestCase {
     @discardableResult
     func capture(_ target: NSWindow? = nil, as name: String) -> Bool {
         let target = target ?? window
+        // The backing store lags the model by a display cycle: a capture taken
+        // the instant the state changed showed the frame before it (run 3).
+        pump(0.3)
         guard
             let image = CGWindowListCreateImage(
                 .null, .optionIncludingWindow, CGWindowID(target.windowNumber),
