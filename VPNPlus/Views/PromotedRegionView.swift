@@ -100,6 +100,9 @@ final class PromotedRegionView: NSView {
 
     private let shortForm: NSStackView
     private let proseForm: NSStackView
+    /// The prose states' buttons. Its arranged views are rebuilt from the
+    /// visible buttons on every show (`settleActions`, D319).
+    private let actions = NSStackView()
     private let content: NSStackView
     private let gutterBox = NSView()
     private var padding: [NSLayoutConstraint] = []
@@ -175,7 +178,7 @@ final class PromotedRegionView: NSView {
         causesList.alignment = .leading
         causesList.spacing = Space.xs
         changedHeading.stringValue = String(localized: "What changed since it last worked")
-        let actions = NSStackView(views: [proseButton, secondaryButton, tertiaryButton])
+        for button in [proseButton, secondaryButton, tertiaryButton] { actions.addArrangedSubview(button) }
         actions.orientation = .horizontal
         actions.alignment = .centerY
         actions.spacing = Space.s
@@ -431,6 +434,25 @@ final class PromotedRegionView: NSView {
         case .disconnected:
             showNothing()
         }
+        settleActions()
+    }
+
+    /// **A hidden button, shown again, was outside its own stack.** NSStackView
+    /// detaches a hidden view, and on the second Failed state of a session it
+    /// did not take *Show Details* back: the actions stack stayed 81 pt wide —
+    /// *Try Again* alone — while the button was laid out at x 89, drawn
+    /// (stacks do not clip) but beyond the stack's frame, where no hit test
+    /// reaches. A real click on it did nothing. Found by the hosted sweep at
+    /// the window minimum, 2026-09-10 (D319). The arranged views are rebuilt
+    /// from what is visible, every time something is shown.
+    private func settleActions() {
+        let visible = [proseButton, secondaryButton, tertiaryButton].filter { !$0.isHidden }
+        guard actions.arrangedSubviews != visible else { return }
+        for view in actions.arrangedSubviews {
+            actions.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+        for view in visible { actions.addArrangedSubview(view) }
     }
 
     /// Idle: nothing is promoted because nothing is happening, and **the
@@ -495,6 +517,7 @@ final class PromotedRegionView: NSView {
         } else {
             proseButton.isHidden = true
         }
+        settleActions()
     }
 
     /// **Prose wraps to the width it has, never to a constant** (D157, D314).
