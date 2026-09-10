@@ -102,11 +102,26 @@ final class SettingsViewController: NSViewController {
     typealias Section = SettingsWindowController.Section
     private static let log = Logger(subsystem: "com.bossagroove.VPNPlus", category: "settings")
 
-    private static let sidebarWidth: CGFloat = 216
+    /// The artboard's 216, or as wide as the widest section title needs
+    /// (D320): a fixed width on text is a truncation in disguise — Japanese
+    /// *ソフトウェアアップデート* lost its last glyph at 216 (M8.5, 2026-09-10).
+    /// Measured in the selected item's bold, so selection never re-truncates.
+    private let sidebarWidth: CGFloat = SettingsViewController.sidebarWidthForTitles()
     private static let sidebarInset: CGFloat = 16
     private static let contentInset: CGFloat = 20
-    private static var contentWidth: CGFloat {
-        SettingsWindowController.size.width - sidebarInset - sidebarWidth - 2 * contentInset
+    private var contentWidth: CGFloat {
+        SettingsWindowController.size.width - Self.sidebarInset - sidebarWidth - 2 * Self.contentInset
+    }
+
+    private static func sidebarWidthForTitles() -> CGFloat {
+        let bold = NSFont.boldSystemFont(ofSize: Type.control.pointSize)
+        let widest =
+            Section.allCases.map { ($0.title as NSString).size(withAttributes: [.font: bold]).width }.max()
+            ?? 0
+        // The item's own chrome: 18 to the icon, an 18-pt icon, Space.s to the
+        // label, Space.m after it; then the sidebar's 16-pt gutter each side.
+        let chrome: CGFloat = 18 + 18 + Space.s + Space.m + 2 * sidebarInset
+        return max(216, ceil(widest) + chrome)
     }
     private static let rowHeight: CGFloat = 44
 
@@ -223,7 +238,7 @@ final class SettingsViewController: NSViewController {
             sidebar.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: Self.sidebarInset),
             sidebar.topAnchor.constraint(equalTo: root.topAnchor, constant: Self.sidebarInset),
             sidebar.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -Self.sidebarInset),
-            sidebar.widthAnchor.constraint(equalToConstant: Self.sidebarWidth),
+            sidebar.widthAnchor.constraint(equalToConstant: sidebarWidth),
             // The sibling's panel: a full gutter around the pills, not a lip.
             list.topAnchor.constraint(equalTo: sidebar.topAnchor, constant: Self.sidebarInset),
             list.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: Self.sidebarInset),
@@ -290,6 +305,9 @@ final class SettingsViewController: NSViewController {
         icon.translatesAutoresizingMaskIntoConstraints = false
         let label = NSTextField(labelWithString: section.title)
         label.font = Type.control
+        // The width above is sized so this never fires; if it ever does, an
+        // ellipsis rather than a missing glyph.
+        label.lineBreakMode = .byTruncatingTail
         label.translatesAutoresizingMaskIntoConstraints = false
         for view in [icon, label] as [NSView] {
             // Clicks fall through to the button beneath.
@@ -431,7 +449,7 @@ final class SettingsViewController: NSViewController {
             let body = NSTextField(wrappingLabelWithString: notes.bullets.map { "•  " + $0 }.joined(separator: "\n"))
             body.font = Type.detail
             body.textColor = Palette.textSecondary
-            body.preferredMaxLayoutWidth = Self.contentWidth - 2 * SettingsCard.Metric.inset
+            body.preferredMaxLayoutWidth = contentWidth - 2 * SettingsCard.Metric.inset
             let column = NSStackView(views: [title, body])
             column.orientation = .vertical
             column.alignment = .leading
@@ -493,7 +511,7 @@ final class SettingsViewController: NSViewController {
     }
 
     private func card() -> SettingsCard {
-        let card = SettingsCard(width: Self.contentWidth, rowHeight: Self.rowHeight)
+        let card = SettingsCard(width: contentWidth, rowHeight: Self.rowHeight)
         content.addArrangedSubview(card)
         content.setCustomSpacing(Space.l + 2, after: card)
         return card
@@ -504,7 +522,7 @@ final class SettingsViewController: NSViewController {
         let note = NSTextField(wrappingLabelWithString: text)
         note.font = Type.hint
         note.textColor = Palette.textSecondary
-        note.preferredMaxLayoutWidth = Self.contentWidth - 2 * SettingsCard.Metric.inset
+        note.preferredMaxLayoutWidth = contentWidth - 2 * SettingsCard.Metric.inset
         note.translatesAutoresizingMaskIntoConstraints = false
         content.setCustomSpacing(6, after: card)
         content.addArrangedSubview(note)
