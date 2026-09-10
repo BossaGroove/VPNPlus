@@ -329,6 +329,10 @@ final class PromotedRegionView: NSView {
         _ connection: Connection, name: String, switchingFrom: String? = nil,
         at now: Date = Date()
     ) {
+        // The state by name, as the accessibility value, for the UI tests to
+        // wait on (M8.4): set here rather than by the window, because a
+        // failure can be shown from more than one place.
+        setAccessibilityValue(connection.state.rawValue)
         isEmpty = false
         needsDisplay = true
         for constraint in padding { constraint.constant = 0 }
@@ -434,6 +438,7 @@ final class PromotedRegionView: NSView {
     /// grid is the content (A12's Idle, and the Main artboard has no container
     /// in it).
     func showNothing() {
+        setAccessibilityValue("idle")
         isEmpty = true
         needsDisplay = true
         shortForm.isHidden = true
@@ -448,6 +453,7 @@ final class PromotedRegionView: NSView {
         guidance content: (title: String, body: String, action: (title: String, run: () -> Void)?),
         blocked: Bool, emphasis: String? = nil
     ) {
+        setAccessibilityValue(blocked ? "blocked" : "setup")
         isEmpty = false
         needsDisplay = true
         padding[0].constant = Metric.padding

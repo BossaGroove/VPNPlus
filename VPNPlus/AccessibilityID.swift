@@ -22,9 +22,11 @@ import Foundation
 /// two cannot drift.
 ///
 /// Where a surface has a *state* the tests care about, it is exposed as the
-/// element's accessibility **value** — `promotedRegion` carries the window
-/// state's name, `profileCard` the card's presence — so a test waits on a
-/// word that no translation touches.
+/// element's accessibility **value** — `promotedRegion` carries the
+/// connection state it shows (`idle`, `connecting`, `connected`, `failed`,
+/// `disconnecting`, `reconnecting`; `setup` / `blocked` for guidance),
+/// `profileCard` the card's presence — so a test waits on a word that no
+/// translation touches.
 enum AccessibilityID {
     static let mainWindow = "main.window"
     static let guidance = "main.guidance"

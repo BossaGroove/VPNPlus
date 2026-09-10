@@ -627,10 +627,6 @@ final class MainWindowController: NSWindowController {
         // The explanation and the wrong-location screen take the Empty
         // screen's place: centred prose, the grid put away, nothing else
         // competing for the moment (D65, D62).
-        // The state, by name, for the UI tests to wait on (M8.4): a word no
-        // translation touches, on the region that shows it.
-        promoted.setAccessibilityValue(Self.name(of: state, connection: tunnel.connection))
-
         let fullWindow: Bool =
             switch state {
             case .empty, .wrongLocation, .setupExplain: true
@@ -1129,24 +1125,6 @@ final class MainWindowController: NSWindowController {
     /// (M8.4) — so every card is rebuilt from what it now says.
     func storeDidChange() { render() }
 
-    /// `idle`, `active:connecting`, `active:connected`, `failed`, … — the
-    /// window state and, while a tunnel is involved, the connection's own.
-    private static func name(of state: WindowState, connection: Connection) -> String {
-        let base =
-            switch state {
-            case .empty: "empty"
-            case .wrongLocation: "wrongLocation"
-            case .setupExplain: "setupExplain"
-            case .setup: "setup"
-            case .blocked: "blocked"
-            case .idle: "idle"
-            case .active: "active"
-            case .failed: "failed"
-            }
-        if case .active = state { return base + ":" + connection.state.rawValue }
-        return base
-    }
-
     private func configure(_ profile: Profile) {
         guard let descriptor = catalogue.descriptor(of: profile) else { return }
         let overrides = (try? store.overrides(for: profile.id)) ?? Overrides()
@@ -1542,10 +1520,18 @@ final class MainWindowController: NSWindowController {
     /// have what it needed. Everything else — which profile, whether to save,
     /// which server — is decided from the stored model.
     private func connect(
-        to profile: Profile,
+        to card: Profile,
         typed: (username: String, password: String, remember: Bool)? = nil,
         confirmed: Bool = false
     ) {
+        // **The card's copy of the profile is as old as the card.** The
+        // handover finishes after the import that rebuilt the grid, and it
+        // deletes the app's copy of the configuration; a click on a card that
+        // still says "not handed over" then read a configuration that was
+        // gone and reported the profile's settings missing (D318, found by
+        // the hosted UI spike, 2026-09-10). What is saved, handed over or
+        // remembered is read from the store at the click.
+        let profile = catalogue.profile(card.id) ?? card
         // **Setup is deferred to this moment** (D59). Approval missing: hold
         // the intent, explain first (D65), and come back here when it lands
         // (D60) — the user never clicks Connect twice. And **confirm before
