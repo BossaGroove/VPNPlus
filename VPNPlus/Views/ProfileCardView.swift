@@ -240,6 +240,9 @@ final class ProfileCardView: NSView {
         warning.contentTintColor = Palette.stateFailed
         warning.translatesAutoresizingMaskIntoConstraints = false
         for mark in [dot, spinner, warning] { mark.isHidden = true }
+        dot.setAccessibilityIdentifier(AccessibilityID.indicatorDot)
+        spinner.setAccessibilityIdentifier(AccessibilityID.indicatorSpinner)
+        warning.setAccessibilityIdentifier(AccessibilityID.indicatorSymbol)
         NSLayoutConstraint.activate([
             dot.widthAnchor.constraint(equalToConstant: 10),
             dot.heightAnchor.constraint(equalToConstant: 10),
@@ -309,17 +312,24 @@ final class ProfileCardView: NSView {
             inUse = false
             dot.isHidden = true
             warning.isHidden = true
+            spinner.isHidden = true
             spinner.stopAnimation(nil)
         case .failed:
             inUse = false
             dot.isHidden = true
             warning.isHidden = false
+            spinner.isHidden = true
             spinner.stopAnimation(nil)
         case .inUse(let indicator, let word):
             inUse = true
             stateLabel.stringValue = word
             dot.isHidden = indicator != .connected
             warning.isHidden = indicator != .failed
+            // Hidden at init with the other marks, and never shown until the
+            // D94 test asked for the busy card's shape (D321, 2026-09-10): the
+            // spinner was started but stayed hidden, so a busy card carried
+            // its word alone.
+            spinner.isHidden = indicator != .busy
             if indicator == .busy { spinner.startAnimation(nil) } else { spinner.stopAnimation(nil) }
         }
         // Not a control while in use: the action lives in the promoted region.
