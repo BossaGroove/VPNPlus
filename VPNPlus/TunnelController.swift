@@ -319,6 +319,17 @@ final class TunnelController {
         connection = decorate(ConnectionMachine.next(connection, on: event))
     }
 
+    /// Between hosted UI tests (M8.4): the stand-in dropped, the model back
+    /// to Disconnected, no switch pending. Nothing outside a rehearsal.
+    func rehearsalReset() {
+        guard let rehearsal else { return }
+        rehearsal.reset()
+        pendingSwitch = nil
+        pendingStart = nil
+        start = nil
+        connection = .disconnected
+    }
+
     /// True when the last thing that happened was the user asking to stop.
     ///
     /// NetworkExtension keeps the last disconnect error until something

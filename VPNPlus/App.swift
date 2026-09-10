@@ -128,6 +128,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowController?.storeDidChange()
     }
 
+    /// Between hosted UI tests (M8.4): every sheet dismissed, Settings closed,
+    /// the stand-in tunnel and the model reset, every profile removed. One app
+    /// instance hosts the whole run, so this is what makes each test start
+    /// from the first-launch state the suite's defaults promise.
+    func rehearsalReset() {
+        guard Rehearsal.isActive else { return }
+        if let window = windowController?.window {
+            for sheet in window.sheets { window.endSheet(sheet) }
+            if let host = window.contentViewController {
+                for presented in host.presentedViewControllers ?? [] { host.dismiss(presented) }
+            }
+        }
+        if settings.isWindowLoaded { settings.close() }
+        tunnel.rehearsalReset()
+        for profile in catalogue.profiles { try? catalogue.store.remove(profile.id) }
+        windowController?.storeDidChange()
+    }
+
     @objc func showSettings(_ sender: Any?) {
         settings.showWindow(sender)
         Rehearsal.bringToFront()

@@ -422,6 +422,11 @@ final class ProfileCardView: NSView {
     }
 
     /// A13's list, and deliberately short: everything on it is rare.
+    /// The menu, for the hosted UI tests (M8.4): its items and actions are
+    /// tested; the popup is AppKit's and runs a modal loop, so it is never
+    /// opened by a test.
+    func menuForTesting() -> NSMenu { menu() }
+
     private func menu() -> NSMenu {
         let menu = NSMenu()
         add(to: menu, String(localized: "Connect"), #selector(connect), "connect")

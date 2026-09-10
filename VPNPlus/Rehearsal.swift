@@ -153,6 +153,9 @@ final class RehearsalTunnel {
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: item)
     }
 
+    /// Between tests: nothing pending.
+    func reset() { cancel() }
+
     private func cancel() {
         for item in pending { item.cancel() }
         pending.removeAll()
