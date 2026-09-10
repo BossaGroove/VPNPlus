@@ -77,7 +77,18 @@ swift test --package-path Packages/VPNPlusCore                  # the protocol-a
 xcodebuild -project VPNPlus.xcodeproj -scheme VPNPlus \
   -configuration Debug -destination 'platform=macOS' \
   CODE_SIGNING_ALLOWED=NO test                                   # the engine (C++), via its test bundle
+Scripts/ui-test.sh <shots-dir> [en de fr ja zh-Hans zh-Hant]   # the UI, inside the app, in rehearsal (see below)
 ```
+
+**The UI suite runs inside the app.** `VPNPlusAppTests` is hosted by the app,
+which its scheme launches with `-UITesting`: a stand-in tunnel walks the real
+state machine, fixture profiles live in a throwaway store, no extension,
+Keychain or notification is touched, and the app never activates — its window
+sits behind everything and every test asserts the frontmost application did
+not change. It needs no approved extension and no signing beyond the ordinary
+build. One run per language writes a capture of every routine state under the
+shots directory. Never drive the app with XCUITest, System Events or anything
+that synthesises global input: the suite must never take the developer's Mac.
 
 The engine is compiled into the tunnel extension from `ThirdParty/openvpn3`
 (see `ThirdParty/README.md`); `Scripts/build-deps.sh` is idempotent and CI runs

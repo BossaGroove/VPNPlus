@@ -109,6 +109,7 @@
 		C799B621B422ACB497FC0FDF /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7ED01D1888C03F68BC162FA3 /* CoreServices.framework */; };
 		C79DCB232F97FE60A0C61EE1 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0249DBE000CCC1904590F222 /* main.swift */; };
 		C7EECD2776988F15EFB8617A /* PrivilegedInterface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C8C37F94F76028963C3E687 /* PrivilegedInterface.swift */; };
+		C9D233B7B9A77D93D059BB64 /* LanguageSweepTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EC569903FCFD56D0311450E /* LanguageSweepTests.swift */; };
 		CBBC167801A60682B985D0D5 /* Redaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78465DC02DD9E2EF9A28C78E /* Redaction.swift */; };
 		CCD8A54D48B861FE5AB01B30 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 13133B04CBB3D94810E7E1E6 /* CoreFoundation.framework */; };
 		CCF814AD83E789107066C510 /* ProfileStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B4A4F17AAADBDA419BA9006 /* ProfileStorage.swift */; };
@@ -264,6 +265,7 @@
 		7ED01D1888C03F68BC162FA3 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = System/Library/Frameworks/CoreServices.framework; sourceTree = SDKROOT; };
 		87036C32513D26DEDC05FC4D /* Relaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Relaunch.swift; sourceTree = "<group>"; };
 		8D29B2DFA2D5B14954AFC31F /* VPNPlus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VPNPlus.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8EC569903FCFD56D0311450E /* LanguageSweepTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageSweepTests.swift; sourceTree = "<group>"; };
 		8FEE9E343B5527DF69A7C22D /* StatusItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItem.swift; sourceTree = "<group>"; };
 		92FA759A42A5B4F74D866FC1 /* ExternalPKIHelper.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ExternalPKIHelper.c; sourceTree = "<group>"; };
 		962FFB35529700DA512C13A4 /* FailureNoticeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FailureNoticeTests.swift; sourceTree = "<group>"; };
@@ -514,6 +516,7 @@
 			children = (
 				067F834456B90B553F9C62F3 /* ClickOnlyBugsTests.swift */,
 				143CE7958B1F2D79F4D4B272 /* Fixtures.swift */,
+				8EC569903FCFD56D0311450E /* LanguageSweepTests.swift */,
 				FE18FA4C46BAE2B5FC26CA2D /* RehearsalTestCase.swift */,
 				B255534845782913BEE522FC /* SpikeTests.swift */,
 				57F4FD87F6F54989CF1866EA /* SurfacesTests.swift */,
@@ -987,6 +990,7 @@
 			files = (
 				F64A61D5CE7869C384FC5CFA /* ClickOnlyBugsTests.swift in Sources */,
 				9466E3AE2DF4F66C07852560 /* Fixtures.swift in Sources */,
+				C9D233B7B9A77D93D059BB64 /* LanguageSweepTests.swift in Sources */,
 				16EE42E2F63BDDCF592AC95C /* RehearsalTestCase.swift in Sources */,
 				6953F45DE689F82B1930AA59 /* SpikeTests.swift in Sources */,
 				367C42315143D887CA3CFCB0 /* SurfacesTests.swift in Sources */,

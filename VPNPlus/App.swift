@@ -140,7 +140,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 for presented in host.presentedViewControllers ?? [] { host.dismiss(presented) }
             }
         }
-        if settings.isWindowLoaded { settings.close() }
+        if settings.isWindowLoaded {
+            settings.close()
+            // The controller lives for the run and remembers its section; a
+            // fresh launch opens on General, so the reset does too.
+            settings.show(.general)
+        }
         tunnel.rehearsalReset()
         for profile in catalogue.profiles { try? catalogue.store.remove(profile.id) }
         windowController?.storeDidChange()

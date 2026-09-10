@@ -180,11 +180,13 @@ class RehearsalTestCase: XCTestCase {
 
     /// A click at the view's centre. First the question every click asks —
     /// what a click *there* would land on — asserted, because that is where
-    /// D259 lived. Then the delivery: in the main window, `clickThroughWindow`
-    /// (the spike's proven path: mouse-up posted to the app's own queue, the
-    /// mouse-down handed to the window, through `sendEvent → hitTest`); in a
-    /// sheet, the control's own click — run 5 (2026-09-10) showed the mouse
-    /// pair not reaching a sheet's controls, cause not yet established.
+    /// D259 lived. Then the delivery: a control takes its own click
+    /// (`performClick`; a switch flips and sends its action); anything else
+    /// takes the mouse pair through the window. The pair reached the cards'
+    /// Connect buttons in every run and never a sheet's controls or the
+    /// region's Disconnect (sweep run 2, 2026-09-10), all enabled, visible and
+    /// correctly hit-tested — cause not established, so the harness does not
+    /// depend on it for controls.
     func click(_ view: NSView, file: StaticString = #filePath, line: UInt = #line) {
         layoutNow()
         XCTAssertFalse(view.frame.isEmpty, "\(type(of: view)) has no size: it is not laid out or not on screen", file: file, line: line)
@@ -200,10 +202,10 @@ class RehearsalTestCase: XCTestCase {
             landing === view || landing.map { $0.isDescendant(of: view) } == true,
             "a click at the view's centre lands on \(landing.map { String(describing: type(of: $0)) } ?? "nothing"), not on \(type(of: view))",
             file: file, line: line)
-        if view.window === window {
-            clickThroughWindow(view)
-        } else {
+        if view is NSControl {
             clickControlDirectly(view, file: file, line: line)
+        } else {
+            clickThroughWindow(view)
         }
     }
 
