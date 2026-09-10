@@ -322,6 +322,40 @@ class RehearsalTestCase: XCTestCase {
         waitUntil(timeout: timeout) { self.window.attachedSheet == nil }
     }
 
+    // MARK: Menus and windows
+
+    /// A key equivalent, offered to the main menu the way AppKit offers one
+    /// before any view sees it — ⌘, for Settings, ⌘D for Diagnostics.
+    @discardableResult
+    func pressKeyEquivalent(_ character: String, _ modifiers: NSEvent.ModifierFlags) -> Bool {
+        guard
+            let event = NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: modifiers,
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                context: nil, characters: character, charactersIgnoringModifiers: character,
+                isARepeat: false, keyCode: 0)
+        else { return false }
+        let handled = NSApp.mainMenu?.performKeyEquivalent(with: event) ?? false
+        pump(0.1)
+        return handled
+    }
+
+    /// The Settings window, once it is on screen.
+    func waitForSettingsWindow(timeout: TimeInterval = 5) -> NSWindow? {
+        var found: NSWindow?
+        _ = waitUntil(timeout: timeout) {
+            found = NSApp.windows.first { $0.accessibilityIdentifier() == AccessibilityID.settingsWindow && $0.isVisible }
+            return found != nil
+        }
+        return found
+    }
+
+    /// The cards from left to right, by title.
+    var cardOrder: [String] {
+        layoutNow()
+        return cards.sorted { $0.frame.minX < $1.frame.minX }.compactMap { $0.accessibilityLabel() }
+    }
+
     // MARK: Waiting
 
     /// Runs the main run loop until the condition holds or the time is up, so
