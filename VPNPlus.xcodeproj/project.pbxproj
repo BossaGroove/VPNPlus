@@ -134,6 +134,7 @@
 		F4808618DD2930504319912A /* OpenVPNPhases.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C272E4AD0B0F8E346C08845 /* OpenVPNPhases.swift */; };
 		F5EEC0BAB4BD07488521CB11 /* SetupCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D5B80E157B8033FE601F567 /* SetupCopy.swift */; };
 		F623E92317EDD5151F1B9CCF /* UpdateCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07CF1A66CB33E50A224DEE82 /* UpdateCopy.swift */; };
+		F64A61D5CE7869C384FC5CFA /* ClickOnlyBugsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 067F834456B90B553F9C62F3 /* ClickOnlyBugsTests.swift */; };
 		F87C7542792D4E115557BF22 /* Relaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87036C32513D26DEDC05FC4D /* Relaunch.swift */; };
 		FB556FCAF7D5B786F0EE4F22 /* ExtensionInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = C535D99BB8588E6A6E0F467E /* ExtensionInstaller.swift */; };
 		FDC5E5B2F51D9BACD256037D /* ProfileCatalogue.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEBFF959B90678044D60D0AA /* ProfileCatalogue.swift */; };
@@ -207,6 +208,7 @@
 		0249DBE000CCC1904590F222 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		04CAFB64BEF242A0C35DF78D /* MessageSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageSheet.swift; sourceTree = "<group>"; };
 		05D57C00265B12AEF250D992 /* EngineShim.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = EngineShim.cpp; sourceTree = "<group>"; };
+		067F834456B90B553F9C62F3 /* ClickOnlyBugsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClickOnlyBugsTests.swift; sourceTree = "<group>"; };
 		07CF1A66CB33E50A224DEE82 /* UpdateCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCopy.swift; sourceTree = "<group>"; };
 		098726CF87659388D4A4CFD0 /* VPNPlusSharedTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VPNPlusSharedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0B9C0D8B239DD61BBE192732 /* DiagnosticsExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsExportTests.swift; sourceTree = "<group>"; };
@@ -508,6 +510,7 @@
 		CD7D3006BFE1BEB20E08925C /* VPNPlusAppTests */ = {
 			isa = PBXGroup;
 			children = (
+				067F834456B90B553F9C62F3 /* ClickOnlyBugsTests.swift */,
 				143CE7958B1F2D79F4D4B272 /* Fixtures.swift */,
 				FE18FA4C46BAE2B5FC26CA2D /* RehearsalTestCase.swift */,
 				B255534845782913BEE522FC /* SpikeTests.swift */,
@@ -979,6 +982,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F64A61D5CE7869C384FC5CFA /* ClickOnlyBugsTests.swift in Sources */,
 				9466E3AE2DF4F66C07852560 /* Fixtures.swift in Sources */,
 				16EE42E2F63BDDCF592AC95C /* RehearsalTestCase.swift in Sources */,
 				6953F45DE689F82B1930AA59 /* SpikeTests.swift in Sources */,

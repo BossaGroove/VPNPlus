@@ -50,14 +50,50 @@ final class ActivationWatch: @unchecked Sendable {
 class RehearsalTestCase: XCTestCase {
     private var watch: ActivationWatch?
 
-    override func setUp() async throws {
-        continueAfterFailure = false
-        XCTAssertTrue(Rehearsal.isActive, "the host was not launched with -UITesting; use the VPNPlusAppTests scheme")
-        XCTAssertFalse(NSApp.isActive, "the host is active before the test began")
-        watch = ActivationWatch()
+    // Synchronous, on the main thread XCTest runs hosted tests on. With the
+    // async variants, a failing assertion under `continueAfterFailure = false`
+    // took the whole host down — run 5 (2026-09-10) restarted the app after
+    // every failed test.
+    nonisolated override func setUp() {
+        // XCTest calls these from a nonisolated context on the main thread;
+        // the test case is main-actor state, so the hop is asserted, not awaited.
+        nonisolated(unsafe) let this = self
+        MainActor.assumeIsolated { this.setUpOnMain() }
     }
 
-    override func tearDown() async throws {
+    nonisolated override func tearDown() {
+        nonisolated(unsafe) let this = self
+        MainActor.assumeIsolated { this.tearDownOnMain() }
+    }
+
+    private func setUpOnMain() {
+        do {
+            continueAfterFailure = false
+            XCTAssertTrue(Rehearsal.isActive, "the host was not launched with -UITesting; use the VPNPlusAppTests scheme")
+            XCTAssertFalse(NSApp.isActive, "the host is active before the test began")
+            delegate.rehearsalReset()
+            XCTAssertTrue(waitUntil(timeout: 2) { self.cards.isEmpty && self.window.attachedSheet == nil }, "the app did not reset")
+            // The region slides out over the grid for ~400 ms after a reset
+            // from a connected state; a click during the slide lands on the
+            // fading region, not the card beneath (run 5).
+            _ = waitUntil(timeout: 2) { self.state == "idle" }
+            pump(0.7)
+            watch = ActivationWatch()
+            do {
+                try prepare()
+            } catch {
+                XCTFail("preparing the test failed: \(error)")
+            }
+        }
+    }
+
+    /// What a test class needs on screen before each test — fixtures, a
+    /// connection — run **after** the reset. (XCTest runs `setUpWithError`
+    /// before `setUp`, so a subclass importing there had its cards removed
+    /// by the reset that followed; run 7, 2026-09-10.)
+    func prepare() throws {}
+
+    private func tearDownOnMain() {
         watch?.stop()
         XCTAssertFalse(watch?.activated ?? true, "the harness activated the app during the test — it must never take focus")
         XCTAssertFalse(NSApp.isActive, "the harness left the app active — it must never take focus")
@@ -86,9 +122,24 @@ class RehearsalTestCase: XCTestCase {
             controller.importProfile(at: url)
         }
         delegate.markFixturesSignedIn()
+        layoutNow()
         XCTAssertTrue(
             waitUntil(timeout: 5) { self.cards.count == profiles.count },
-            "expected \(profiles.count) cards, found \(cards.count)")
+            "expected \(profiles.count) cards, found \(cards.count): \(cardLabels); store holds \(delegate.catalogue.profiles.map(\.title))")
+    }
+
+    var cardLabels: [String] { cards.map { ($0.accessibilityLabel() ?? "?") + "=" + (($0.accessibilityValue() as? String) ?? "?") } }
+
+    /// Auto Layout is lazy: a card exists the instant it is imported, with a
+    /// zero frame until the next layout pass — so a click "at its centre"
+    /// landed at the grid's origin, and a hit test there found the grid (runs
+    /// 7–8, 2026-09-10). Every measurement and every click runs layout first.
+    func layoutNow() {
+        for candidate in [window] + window.sheets {
+            candidate.contentView?.layoutSubtreeIfNeeded()
+            candidate.layoutIfNeeded()
+        }
+        pump(0.05)
     }
 
     // MARK: Finding
@@ -127,12 +178,49 @@ class RehearsalTestCase: XCTestCase {
 
     // MARK: Driving
 
-    /// A click at the view's centre — `clickThroughWindow`, the delivery the
-    /// spike proved (run 4, 2026-09-10): the mouse-up posted to the app's own
-    /// queue, the mouse-down handed to the window, so it travels
-    /// `NSWindow.sendEvent → hitTest → the control`, which is where D259
-    /// lived, and never reaches the window server.
-    func click(_ view: NSView) { clickThroughWindow(view) }
+    /// A click at the view's centre. First the question every click asks —
+    /// what a click *there* would land on — asserted, because that is where
+    /// D259 lived. Then the delivery: in the main window, `clickThroughWindow`
+    /// (the spike's proven path: mouse-up posted to the app's own queue, the
+    /// mouse-down handed to the window, through `sendEvent → hitTest`); in a
+    /// sheet, the control's own click — run 5 (2026-09-10) showed the mouse
+    /// pair not reaching a sheet's controls, cause not yet established.
+    func click(_ view: NSView, file: StaticString = #filePath, line: UInt = #line) {
+        layoutNow()
+        XCTAssertFalse(view.frame.isEmpty, "\(type(of: view)) has no size: it is not laid out or not on screen", file: file, line: line)
+        // What a person does before clicking something below the fold: the
+        // configuration sheet caps its scroll view, and a control under the
+        // cap is clipped, so a hit test there finds nothing (run 9).
+        view.scrollToVisible(view.bounds)
+        layoutNow()
+        // The question every click asks first — what a click *there* lands on —
+        // because that is where D259 lived.
+        let landing = hit(at: view)
+        XCTAssertTrue(
+            landing === view || landing.map { $0.isDescendant(of: view) } == true,
+            "a click at the view's centre lands on \(landing.map { String(describing: type(of: $0)) } ?? "nothing"), not on \(type(of: view))",
+            file: file, line: line)
+        if view.window === window {
+            clickThroughWindow(view)
+        } else {
+            clickControlDirectly(view, file: file, line: line)
+        }
+    }
+
+    /// The control's own click: `performClick` for a button, and for a switch
+    /// the state flipped and the action sent, which is what its click does.
+    func clickControlDirectly(_ view: NSView, file: StaticString = #filePath, line: UInt = #line) {
+        switch view {
+        case let toggle as NSSwitch:
+            toggle.state = toggle.state == .on ? .off : .on
+            if let action = toggle.action { NSApp.sendAction(action, to: toggle.target, from: toggle) }
+        case let control as NSControl:
+            control.performClick(nil)
+        default:
+            XCTFail("no direct click for \(type(of: view))", file: file, line: line)
+        }
+        pump(0.1)
+    }
 
     /// The same pair **posted** to the app's queue instead. Kept for the
     /// record: for an inactive app the pair goes nowhere (runs 1–4), so
@@ -184,6 +272,54 @@ class RehearsalTestCase: XCTestCase {
         guard let content = view.window?.contentView, let frame = content.superview else { return nil }
         let inWindow = view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: nil)
         return content.hitTest(frame.convert(inWindow, from: nil))
+    }
+
+    /// Every way of asking, for the spike to compare against what a delivered
+    /// click actually reached (runs 4–8: the helper said "grid", the click
+    /// said "button").
+    func hitReport(for view: NSView) -> String {
+        guard let target = view.window, let content = target.contentView else { return "no window" }
+        let centre = NSPoint(x: view.bounds.midX, y: view.bounds.midY)
+        let inWindow = view.convert(centre, to: nil)
+        func name(_ v: NSView?) -> String { v.map { String(describing: type(of: $0)) } ?? "nil" }
+        var lines = [
+            "view \(type(of: view)) bounds \(view.bounds) frame \(view.frame) flippedSuper \(view.superview?.isFlipped ?? false)",
+            "inWindow \(inWindow); window frame \(target.frame); content frame \(content.frame) flipped \(content.isFlipped)",
+            "content.hitTest(inWindow) → \(name(content.hitTest(inWindow)))",
+            "content.hitTest(content.convert(inWindow, from: nil)) → \(name(content.hitTest(content.convert(inWindow, from: nil))))",
+        ]
+        if let frame = content.superview {
+            lines.append("frame.hitTest(inWindow) → \(name(frame.hitTest(inWindow)))")
+            lines.append("content.hitTest(frame.convert(inWindow, from: nil)) → \(name(content.hitTest(frame.convert(inWindow, from: nil))))")
+        }
+        if let parent = view.superview {
+            let inParentSuper = parent.superview.map { $0.convert(inWindow, from: nil) } ?? inWindow
+            lines.append("parent(\(type(of: parent))).hitTest(point in its superview) → \(name(parent.hitTest(inParentSuper)))")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    // MARK: Sheets and menus
+
+    /// The card's menu item with this key (`card.menu.edit`, …), performed
+    /// through the menu — the same target and action a click on it fires.
+    func performMenuItem(_ key: String, of name: String) {
+        guard let card = card(name) as? ProfileCardView else { return XCTFail("no card called \(name); cards: \(cardLabels)") }
+        let menu = card.menuForTesting()
+        guard let index = menu.items.firstIndex(where: { $0.accessibilityIdentifier() == AccessibilityID.cardMenuPrefix + key })
+        else { return XCTFail("no \(key) item in the card menu") }
+        menu.performActionForItem(at: index)
+        pump(0.1)
+    }
+
+    /// The sheet attached to the main window, once it is there.
+    func waitForSheet(timeout: TimeInterval = 5) -> NSWindow? {
+        _ = waitUntil(timeout: timeout) { self.window.attachedSheet != nil }
+        return window.attachedSheet
+    }
+
+    func waitForNoSheet(timeout: TimeInterval = 5) -> Bool {
+        waitUntil(timeout: timeout) { self.window.attachedSheet == nil }
     }
 
     // MARK: Waiting

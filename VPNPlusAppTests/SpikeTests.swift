@@ -53,7 +53,9 @@ final class SpikeTests: RehearsalTestCase {
             return connecting
         }
         let acceptsFirstMouse = connect.acceptsFirstMouse(for: nil)
+        layoutNow()
         let landsOn = hit(at: connect)
+        let connectReport = hitReport(for: connect)
         var connected =
             attempt("posted click on a non-key window") { postClick(connect) }
             || attempt("mouse-down through the window, mouse-up posted") { clickThroughWindow(connect) }
@@ -74,6 +76,24 @@ final class SpikeTests: RehearsalTestCase {
         print("SPIKE DELIVERIES\n\(report)")
 
         XCTAssertTrue(capture(as: "spike-connected"))
+
+        // Hit-test variants against a button the delivered click provably
+        // reached, and against a control in a sheet.
+        var hits = "MAIN WINDOW, Connect on Office (before the click):\n" + connectReport
+        performMenuItem("edit", of: Fixtures.home)
+        if let sheet = waitForSheet(), let remember = view(AccessibilityID.configurationRemember, in: sheet.contentView) {
+            hits += "\nSHEET, Remember switch:\n" + hitReport(for: remember)
+            if let done = view(AccessibilityID.configurationDone, in: sheet.contentView) {
+                hits += "\nSHEET, Done:\n" + hitReport(for: done)
+                clickThroughWindow(done)
+                hits += "\nwindow-delivered click on Done closed the sheet: \(waitForNoSheet(timeout: 2))"
+            }
+        }
+        let hitNote = XCTAttachment(string: hits)
+        hitNote.name = "hits"
+        hitNote.lifetime = .keepAlways
+        add(hitNote)
+        print("SPIKE HITS\n\(hits)\nEND HITS")
         XCTAssertNotNil(
             ProcessInfo.processInfo.environment["VPNPLUS_SHOTS"],
             "VPNPLUS_SHOTS did not reach the host; the PNG went to the result bundle only")
