@@ -145,6 +145,10 @@ final class PromotedRegionView: NSView {
             control.translatesAutoresizingMaskIntoConstraints = false
             control.heightAnchor.constraint(equalToConstant: Metric.buttonHeight).isActive = true
         }
+        stateLabel.setAccessibilityIdentifier(AccessibilityID.promotedState)
+        dot.setAccessibilityIdentifier(AccessibilityID.indicatorDot)
+        spinner.setAccessibilityIdentifier(AccessibilityID.indicatorSpinner)
+        icon.setAccessibilityIdentifier(AccessibilityID.indicatorSymbol)
         primary.setAccessibilityIdentifier(AccessibilityID.promotedPrimary)
         proseButton.setAccessibilityIdentifier(AccessibilityID.promotedProseAction)
         secondaryButton.setAccessibilityIdentifier(AccessibilityID.promotedSecondary)

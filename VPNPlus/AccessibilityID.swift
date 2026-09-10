@@ -38,6 +38,15 @@ enum AccessibilityID {
     static let promotedProseAction = "promoted.prose-action"
     static let promotedSecondary = "promoted.secondary"
     static let promotedTertiary = "promoted.tertiary"
+    /// The short states' word (Connecting…, Connected, Disconnecting…).
+    static let promotedState = "promoted.state"
+
+    /// The state's non-colour carriers, on a card and on the region alike
+    /// (D94): a dot is colour, a spinner and a symbol are shapes; the word is
+    /// always beside them.
+    static let indicatorDot = "indicator.dot"
+    static let indicatorSpinner = "indicator.spinner"
+    static let indicatorSymbol = "indicator.symbol"
 
     static let profileCard = "profile.card"
     static let profileConnect = "profile.connect"

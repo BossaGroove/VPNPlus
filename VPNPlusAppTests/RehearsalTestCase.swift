@@ -349,6 +349,52 @@ class RehearsalTestCase: XCTestCase {
         waitUntil(timeout: timeout) { self.window.attachedSheet == nil }
     }
 
+    // MARK: Keys
+
+    /// A key press delivered to the window, the way AppKit delivers one: the
+    /// window routes it to its first responder (or a key equivalent). Never
+    /// posted system-wide.
+    func pressKey(_ character: String, keyCode: UInt16, modifiers: NSEvent.ModifierFlags = [], in target: NSWindow? = nil) {
+        let target = target ?? window
+        let time = ProcessInfo.processInfo.systemUptime
+        for (kind, delay) in [(NSEvent.EventType.keyDown, 0.0), (.keyUp, 0.03)] {
+            guard
+                let event = NSEvent.keyEvent(
+                    with: kind, location: .zero, modifierFlags: modifiers, timestamp: time + delay,
+                    windowNumber: target.windowNumber, context: nil, characters: character,
+                    charactersIgnoringModifiers: character, isARepeat: false, keyCode: keyCode)
+            else { return XCTFail("could not make a key event") }
+            target.sendEvent(event)
+        }
+        pump(0.05)
+    }
+
+    enum Key {
+        static let left: (String, UInt16) = (String(Character(Unicode.Scalar(NSLeftArrowFunctionKey)!)), 123)
+        static let right: (String, UInt16) = (String(Character(Unicode.Scalar(NSRightArrowFunctionKey)!)), 124)
+        static let down: (String, UInt16) = (String(Character(Unicode.Scalar(NSDownArrowFunctionKey)!)), 125)
+        static let up: (String, UInt16) = (String(Character(Unicode.Scalar(NSUpArrowFunctionKey)!)), 126)
+        static let `return`: (String, UInt16) = ("\r", 36)
+        static let delete: (String, UInt16) = ("\u{7f}", 51)
+        static let escape: (String, UInt16) = ("\u{1b}", 53)
+    }
+
+    func press(_ key: (String, UInt16), modifiers: NSEvent.ModifierFlags = [], in target: NSWindow? = nil) {
+        pressKey(key.0, keyCode: key.1, modifiers: modifiers, in: target)
+    }
+
+    /// The first view of a type in the window (or a root).
+    func firstView<T: NSView>(of type: T.Type, in root: NSView? = nil) -> T? {
+        var found: T?
+        func walk(_ view: NSView) {
+            if found != nil { return }
+            if let match = view as? T { found = match; return }
+            for child in view.subviews { walk(child) }
+        }
+        if let root { walk(root) } else if let content = window.contentView { walk(content) }
+        return found
+    }
+
     // MARK: Menus and windows
 
     /// A key equivalent, offered to the main menu the way AppKit offers one

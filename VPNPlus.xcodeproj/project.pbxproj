@@ -42,6 +42,7 @@
 		4AD968F1B3929DEFF25C26E0 /* OpenVPNPhases.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C272E4AD0B0F8E346C08845 /* OpenVPNPhases.swift */; };
 		4B47A2A4E2892EBCEB09A5F6 /* DiagnosticsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AF44C54C60E6F5CDD8ECAD0 /* DiagnosticsStore.swift */; };
 		4D78EEA5FE37B5814C55C253 /* libVPNPlusEngine.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FBDBC35E7CE4C4696A7A964 /* libVPNPlusEngine.a */; };
+		4EAC358FF6446C257B8D135E /* ColourTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DD2D66D9BCAE759E241F3D2 /* ColourTests.swift */; };
 		5160165F03B03582C20F8B45 /* PrivilegedClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA3DDF22608AF05265B0B92A /* PrivilegedClient.swift */; };
 		532CDBC5E7E3EE3443915A60 /* DiagnosticsExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1FF8173104FC29D9BD0AE52 /* DiagnosticsExport.swift */; };
 		54875A1269A09B24FDEA19F3 /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1F31CF38D8EF4365E9387B51 /* UserNotifications.framework */; };
@@ -116,6 +117,7 @@
 		D547BAF5DF36F7768CC0271E /* VPNPlusCore in Frameworks */ = {isa = PBXBuildFile; productRef = E5AD49E779DF062A87D93C4D /* VPNPlusCore */; };
 		D567631A9E4E841EF5C19DD2 /* RedactionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D45C9B5991CC9DE3A8A581D /* RedactionTests.swift */; };
 		D6233C9C2F5338664608BA4C /* AutoLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B8DADE87564AFDA3C8B3CC /* AutoLayout.swift */; };
+		D8289FB3F69BAF1882C7FED9 /* KeyboardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A86E5A19B25717E8817078ED /* KeyboardTests.swift */; };
 		DD1118C0F8E834F09160946A /* InstallLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 014171C7BC3E81B7ACFD6DA1 /* InstallLocation.swift */; };
 		DEC7730B30484F284E6EBBE6 /* SetupCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D5B80E157B8033FE601F567 /* SetupCopy.swift */; };
 		E07A107241DDC403F27A17FB /* EngineShim.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05D57C00265B12AEF250D992 /* EngineShim.cpp */; };
@@ -233,6 +235,7 @@
 		376EA33312BE31C560F89273 /* ReplaceCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplaceCopy.swift; sourceTree = "<group>"; };
 		3C272E4AD0B0F8E346C08845 /* OpenVPNPhases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenVPNPhases.swift; sourceTree = "<group>"; };
 		3CBF178DBF0AF1CAED795117 /* TestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFixtures.swift; sourceTree = "<group>"; };
+		3DD2D66D9BCAE759E241F3D2 /* ColourTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColourTests.swift; sourceTree = "<group>"; };
 		3EE7FB96CCF503AA5008C88B /* VPNPlusCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = VPNPlusCore; path = Packages/VPNPlusCore; sourceTree = SOURCE_ROOT; };
 		41D7F56DE70EBCCA19081766 /* ReplaceReportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplaceReportSheet.swift; sourceTree = "<group>"; };
 		43BD04530C7322F12A73C014 /* Engine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine.swift; sourceTree = "<group>"; };
@@ -276,6 +279,7 @@
 		A0C0DB62A25CADB2DFD5CB5F /* TunnelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelController.swift; sourceTree = "<group>"; };
 		A1FF8173104FC29D9BD0AE52 /* DiagnosticsExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsExport.swift; sourceTree = "<group>"; };
 		A4591F96BB06385D5B65656E /* ImportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportTests.swift; sourceTree = "<group>"; };
+		A86E5A19B25717E8817078ED /* KeyboardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardTests.swift; sourceTree = "<group>"; };
 		A9806695FB09FD87884728DB /* VPNPlusCopyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VPNPlusCopyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A9B2A016A257BF9339FBFA19 /* NetworkFactsReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkFactsReader.swift; sourceTree = "<group>"; };
 		AC5C29758341AED992D06D2D /* PrivilegedService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivilegedService.swift; sourceTree = "<group>"; };
@@ -515,7 +519,9 @@
 			isa = PBXGroup;
 			children = (
 				067F834456B90B553F9C62F3 /* ClickOnlyBugsTests.swift */,
+				3DD2D66D9BCAE759E241F3D2 /* ColourTests.swift */,
 				143CE7958B1F2D79F4D4B272 /* Fixtures.swift */,
+				A86E5A19B25717E8817078ED /* KeyboardTests.swift */,
 				8EC569903FCFD56D0311450E /* LanguageSweepTests.swift */,
 				FE18FA4C46BAE2B5FC26CA2D /* RehearsalTestCase.swift */,
 				B255534845782913BEE522FC /* SpikeTests.swift */,
@@ -989,7 +995,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				F64A61D5CE7869C384FC5CFA /* ClickOnlyBugsTests.swift in Sources */,
+				4EAC358FF6446C257B8D135E /* ColourTests.swift in Sources */,
 				9466E3AE2DF4F66C07852560 /* Fixtures.swift in Sources */,
+				D8289FB3F69BAF1882C7FED9 /* KeyboardTests.swift in Sources */,
 				C9D233B7B9A77D93D059BB64 /* LanguageSweepTests.swift in Sources */,
 				16EE42E2F63BDDCF592AC95C /* RehearsalTestCase.swift in Sources */,
 				6953F45DE689F82B1930AA59 /* SpikeTests.swift in Sources */,
