@@ -140,7 +140,6 @@
 		F623E92317EDD5151F1B9CCF /* UpdateCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07CF1A66CB33E50A224DEE82 /* UpdateCopy.swift */; };
 		F64A61D5CE7869C384FC5CFA /* ClickOnlyBugsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 067F834456B90B553F9C62F3 /* ClickOnlyBugsTests.swift */; };
 		F87C7542792D4E115557BF22 /* Relaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87036C32513D26DEDC05FC4D /* Relaunch.swift */; };
-		FB1DFE0DEBA304DC6AFE8B75 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3546354A8845E7B7D096760C /* Assets.xcassets */; };
 		FB556FCAF7D5B786F0EE4F22 /* ExtensionInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = C535D99BB8588E6A6E0F467E /* ExtensionInstaller.swift */; };
 		FDC5E5B2F51D9BACD256037D /* ProfileCatalogue.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEBFF959B90678044D60D0AA /* ProfileCatalogue.swift */; };
 		FE3381B49CD9666D98F63824 /* CardGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC7D701DCB81C31777EE7880 /* CardGridView.swift */; };
@@ -233,7 +232,6 @@
 		302A71E65FD01AA5BEEFE23E /* SetupCopyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupCopyTests.swift; sourceTree = "<group>"; };
 		3243C7C4801A590F62E64B6E /* VPNPlusAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VPNPlusAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		32D4BDD65926A9573DA4BC40 /* Updater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updater.swift; sourceTree = "<group>"; };
-		3546354A8845E7B7D096760C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		376EA33312BE31C560F89273 /* ReplaceCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplaceCopy.swift; sourceTree = "<group>"; };
 		3C272E4AD0B0F8E346C08845 /* OpenVPNPhases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenVPNPhases.swift; sourceTree = "<group>"; };
 		3CBF178DBF0AF1CAED795117 /* TestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFixtures.swift; sourceTree = "<group>"; };
@@ -463,7 +461,6 @@
 				D0D131FA481054644CB4F1F7 /* AccessibilityID.swift */,
 				EFEC2F7E4380EC79C2474F2F /* App.swift */,
 				BB8F03B21DA449466725EAD6 /* AppSettings.swift */,
-				3546354A8845E7B7D096760C /* Assets.xcassets */,
 				134740794902FEB890D469CE /* DiagnosticsSheet.swift */,
 				58B8862F0FA21CF7DC071671 /* DropView.swift */,
 				C535D99BB8588E6A6E0F467E /* ExtensionInstaller.swift */,
@@ -615,6 +612,7 @@
 			buildPhases = (
 				FC2700D2D0F5B2C425B85C68 /* Release builds carry the Sparkle key */,
 				930AB0B242C24273A5B585C4 /* Sources */,
+				51A84D3849EC05D356D647B5 /* Compile Icon Composer icon */,
 				1BC278929FC397CB8CEF3731 /* Resources */,
 				1269687FADF30950D00F38BD /* Frameworks */,
 				EF3E76D93EA08B95A13CBDB2 /* Embed System Extensions */,
@@ -825,7 +823,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FB1DFE0DEBA304DC6AFE8B75 /* Assets.xcassets in Resources */,
 				9B8036D11DDF75D6F5D9D716 /* CHANGELOG.md in Resources */,
 				5C204AEC04C0A81517D938A9 /* Localizable.xcstrings in Resources */,
 			);
@@ -834,6 +831,28 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		51A84D3849EC05D356D647B5 /* Compile Icon Composer icon */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/VPNPlus/AppIcon.icon/icon.json",
+				"$(SRCROOT)/VPNPlus/AppIcon.icon/Assets/plus.svg",
+			);
+			name = "Compile Icon Composer icon";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Assets.car",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/AppIcon.icns",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "xcrun actool \"$SRCROOT/VPNPlus/AppIcon.icon\" \\\n  --compile \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" \\\n  --app-icon AppIcon --platform macosx \\\n  --minimum-deployment-target \"$MACOSX_DEPLOYMENT_TARGET\" \\\n  --output-partial-info-plist \"$DERIVED_FILE_DIR/AppIcon-partial.plist\"\n";
+		};
 		FC2700D2D0F5B2C425B85C68 /* Release builds carry the Sparkle key */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -1183,7 +1202,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_STANDALONE_ICON_BEHAVIOR = all;
 				CODE_SIGN_ENTITLEMENTS = VPNPlus/VPNPlus.release.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -1364,7 +1382,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_STANDALONE_ICON_BEHAVIOR = all;
 				CODE_SIGN_ENTITLEMENTS = VPNPlus/VPNPlus.debug.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
