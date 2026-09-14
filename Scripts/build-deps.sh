@@ -20,6 +20,8 @@ ARCHS="arm64 x86_64"
 MIN_MACOS="14.0"
 JOBS="$(sysctl -n hw.ncpu)"
 
+# Bumping any of these means re-checking THIRD_PARTY_NOTICES.md, which
+# records what ships and carries each licence text.
 ASIO_VERSION=1.24.0
 LZ4_VERSION=1.10.0
 FMT_VERSION=12.2.0
