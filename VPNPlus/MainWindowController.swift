@@ -251,6 +251,17 @@ final class MainWindowController: NSWindowController {
                 MainActor.assumeIsolated { (NSApp.delegate as? AppDelegate)?.debugCheckForUpdates() }
             }
 
+            // **Development only: the About panel, which carries the
+            // third-party notices (M9.2).**
+            //
+            //   notifyutil -p com.bossagroove.VPNPlus.debug.openAbout
+            var aboutToken: Int32 = NOTIFY_TOKEN_INVALID
+            notify_register_dispatch(
+                "com.bossagroove.VPNPlus.debug.openAbout", &aboutToken, DispatchQueue.main
+            ) { _ in
+                MainActor.assumeIsolated { (NSApp.delegate as? AppDelegate)?.debugOpenAbout() }
+            }
+
             // **Development only: the move, without a click.**
             //
             //   notifyutil -p com.bossagroove.VPNPlus.debug.moveToApplications

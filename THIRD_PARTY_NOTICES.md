@@ -18,7 +18,7 @@ other third-party components, and nothing is downloaded at runtime.
 | [Sparkle](https://sparkle-project.org) | 2.9.6 | `Sparkle.framework`, in the app | MIT, with vendored bsdiff and Ed25519 — see its text |
 
 Versions are pinned in `Scripts/build-deps.sh` and `project.yml`. **Changing a
-pin means re-checking this file.**
+pin means re-running `Scripts/make-notices.py`.**
 
 ## OpenVPN 3 Core: we elect MPL-2.0, never AGPL-3.0
 
@@ -46,10 +46,10 @@ it** — OpenSSL 3 is Apache-2.0, which is compatible with GPLv3 on its own.
 ### Getting the source
 
 Every component above is published by its own project at the version named,
-and VPN Plus's own source is at
-<https://github.com/BossaGroove/VPNPlus>, which carries the pinned versions,
-the build script, and the patches applied. Nothing shipped here is modified
-beyond the patches OpenVPN 3 itself supplies for asio.
+and VPN Plus's own source is at <https://github.com/BossaGroove/VPNPlus>,
+which carries the pinned versions, the build script, and the patches applied.
+Nothing shipped here is modified beyond the patches OpenVPN 3 itself supplies
+for asio.
 
 ---
 
@@ -706,8 +706,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## MIT — Sparkle
 
-Sparkle's own notice, which also covers the bsdiff and Ed25519 code it
-vendors:
+Sparkle's own notice, which also covers the bsdiff and Ed25519 code it vendors.
 
 ```
 Copyright (c) 2006-2013 Andy Matuschak.

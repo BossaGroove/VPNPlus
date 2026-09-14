@@ -15,6 +15,7 @@
 		0D638FEAF5C869187DDA8AD6 /* MessageSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04CAFB64BEF242A0C35DF78D /* MessageSheet.swift */; };
 		0D8358E4AB9B02338F7070BB /* ValidateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7902FE342F46EC63BBD69985 /* ValidateTests.swift */; };
 		0E04F2C597286220660B161C /* VPNPlusCore in Frameworks */ = {isa = PBXBuildFile; productRef = B4EEE11DD89DF281EE6A7291 /* VPNPlusCore */; };
+		13F1FCCBDEECCB6DD42BCFDD /* Credits.html in Resources */ = {isa = PBXBuildFile; fileRef = 042037E0B22859B737C16618 /* Credits.html */; };
 		1416F69FDA7E299A883F0701 /* Changelog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E738659C9B4C1C016C2F606B /* Changelog.swift */; };
 		14C783E99F2201AB42BB1F88 /* NetworkFactsReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9B2A016A257BF9339FBFA19 /* NetworkFactsReader.swift */; };
 		1664C02BE39BF5C3FC4E527A /* libVPNPlusEngine.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FBDBC35E7CE4C4696A7A964 /* libVPNPlusEngine.a */; };
@@ -210,6 +211,7 @@
 /* Begin PBXFileReference section */
 		014171C7BC3E81B7ACFD6DA1 /* InstallLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallLocation.swift; sourceTree = "<group>"; };
 		0249DBE000CCC1904590F222 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		042037E0B22859B737C16618 /* Credits.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = Credits.html; sourceTree = "<group>"; };
 		04CAFB64BEF242A0C35DF78D /* MessageSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageSheet.swift; sourceTree = "<group>"; };
 		05D57C00265B12AEF250D992 /* EngineShim.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = EngineShim.cpp; sourceTree = "<group>"; };
 		067F834456B90B553F9C62F3 /* ClickOnlyBugsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClickOnlyBugsTests.swift; sourceTree = "<group>"; };
@@ -461,6 +463,7 @@
 				D0D131FA481054644CB4F1F7 /* AccessibilityID.swift */,
 				EFEC2F7E4380EC79C2474F2F /* App.swift */,
 				BB8F03B21DA449466725EAD6 /* AppSettings.swift */,
+				042037E0B22859B737C16618 /* Credits.html */,
 				134740794902FEB890D469CE /* DiagnosticsSheet.swift */,
 				58B8862F0FA21CF7DC071671 /* DropView.swift */,
 				C535D99BB8588E6A6E0F467E /* ExtensionInstaller.swift */,
@@ -824,6 +827,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9B8036D11DDF75D6F5D9D716 /* CHANGELOG.md in Resources */,
+				13F1FCCBDEECCB6DD42BCFDD /* Credits.html in Resources */,
 				5C204AEC04C0A81517D938A9 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -54,6 +54,11 @@ targets:
       # What's New reads the same changelog the release notes come from.
       - path: CHANGELOG.md
         buildPhase: resources
+      # The About panel reads Credits.html by name; it carries the third-party
+      # notices (M9.2), generated with THIRD_PARTY_NOTICES.md by
+      # Scripts/make-notices.py.
+      - path: VPNPlus/Credits.html
+        buildPhase: resources
     dependencies:
       - package: VPNPlusCore
         product: VPNPlusCore

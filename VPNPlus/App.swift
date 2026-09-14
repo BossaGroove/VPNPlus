@@ -182,6 +182,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ///   notifyutil -p com.bossagroove.VPNPlus.debug.checkForUpdates
         func debugCheckForUpdates() { updater.checkNow() }
 
+        /// **Development only.** Opens the About panel, which is where the
+        /// third-party notices are (M9.2) — so they can be looked at without
+        /// reaching for the menu bar:
+        ///
+        ///   notifyutil -p com.bossagroove.VPNPlus.debug.openAbout
+        func debugOpenAbout() { NSApp.orderFrontStandardAboutPanel(nil) }
+
         /// **Development only.** Posts the notification for a synthetic M14
         /// failure of the first profile, whether or not anyone is looking:
         ///
