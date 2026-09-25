@@ -61,3 +61,9 @@ Requires macOS 14 (Sonoma) or later, on Apple silicon or Intel. Profiles that
 keep their certificate in a PKCS#12 keystore, or that download their settings
 from the server after you sign in, aren't supported yet; VPN Plus says so
 when you import one.
+
+## 1.0.0-rc.1 — 2026-09-25
+
+Release candidate for 1.0.0, published to rehearse signing, notarization and
+the update feed end to end. It is a pre-release: VPN Plus never offers it as
+an update. What it contains is described under 1.0.0 above.

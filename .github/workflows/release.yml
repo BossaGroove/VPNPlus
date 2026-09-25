@@ -246,8 +246,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # A pre-release is never "latest", so the feed — which goes by
+          # releases/latest — never offers it: an unsigned build, or any tag
+          # with a suffix (v1.0.0-rc.1). Before this, a signed rc would have
+          # published as latest and been offered to everyone.
           PRERELEASE=""
-          if [ "$HAS_SIGNING" != "true" ]; then
+          if [ "$HAS_SIGNING" != "true" ] || [[ "$GITHUB_REF_NAME" == *-* ]]; then
             PRERELEASE="--prerelease"
           fi
           gh release create "$GITHUB_REF_NAME" artifacts/* \
