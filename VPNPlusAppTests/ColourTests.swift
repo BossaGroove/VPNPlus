@@ -48,7 +48,10 @@ final class ColourTests: RehearsalTestCase {
         layoutNow()
         let officeCard = try XCTUnwrap(card(Fixtures.office))
         XCTAssertNotNil(visible(AccessibilityID.indicatorSpinner, in: officeCard), "busy card: no spinner")
-        XCTAssertNotNil(word(AccessibilityID.profileState, in: officeCard), "busy card: no word")
+        // The card cross-fades its button and its word, so the word is waited
+        // for rather than read at one instant: read mid-fade, it was under
+        // half opaque and failed once in six languages (R3, Japanese).
+        XCTAssertTrue(waitUntil(timeout: 1) { self.word(AccessibilityID.profileState, in: officeCard) != nil }, "busy card: no word")
         XCTAssertNotNil(visible(AccessibilityID.indicatorSpinner, in: region), "connecting region: no spinner")
         XCTAssertNotNil(word(AccessibilityID.promotedState, in: region), "connecting region: no word")
 
@@ -57,7 +60,9 @@ final class ColourTests: RehearsalTestCase {
         layoutNow()
         let connectedCard = try XCTUnwrap(card(Fixtures.office))
         XCTAssertNotNil(visible(AccessibilityID.indicatorDot, in: connectedCard), "connected card: no dot")
-        XCTAssertNotNil(word(AccessibilityID.profileState, in: connectedCard), "connected card: the dot is the only carrier")
+        XCTAssertTrue(
+            waitUntil(timeout: 1) { self.word(AccessibilityID.profileState, in: connectedCard) != nil },
+            "connected card: the dot is the only carrier")
         XCTAssertNotNil(visible(AccessibilityID.indicatorDot, in: region), "connected region: no dot")
         XCTAssertNotNil(word(AccessibilityID.promotedState, in: region), "connected region: the dot is the only carrier")
         XCTAssertEqual(connectedCard.accessibilityValue() as? String, "connected")
