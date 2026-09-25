@@ -4,6 +4,8 @@ on:
   push:
     branches: [master]
   pull_request:
+  # "Run workflow" on the Actions tab: CI on demand, with nothing to push.
+  workflow_dispatch:
 
 jobs:
   build-and-test:
