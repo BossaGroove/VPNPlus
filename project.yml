@@ -149,9 +149,11 @@ targets:
         # geometry is the source; the PNGs are its output, committed because
         # the build needs them.
         MARKETING_VERSION: "1.0.0"
-        # Sparkle's EdDSA public key. Empty until M9; Release refuses to build
-        # without it, so an unverifiable update can never ship by accident.
-        SPARKLE_ED_PUBLIC_KEY: ""
+        # Sparkle's EdDSA public key — VPN Plus's own, not shared with any
+        # other app. Its private half is in the owner's keychain and the
+        # release workflow's secret, nowhere else. Release refuses to build
+        # without this, so an unverifiable update can never ship by accident.
+        SPARKLE_ED_PUBLIC_KEY: "iMeRfNLNfeMbd+Vxmy/B06HeOgHT/8lSUg9ZFDxFDZg="
         CURRENT_PROJECT_VERSION: "1"
         # The extension is embedded here, which is what makes a Sparkle update
         # carry it and keeps every update free of an installer (D169).

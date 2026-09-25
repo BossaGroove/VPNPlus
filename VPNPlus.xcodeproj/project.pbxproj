@@ -1235,7 +1235,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.bossagroove.VPNPlus;
 				PRODUCT_NAME = "VPN Plus";
 				SDKROOT = macosx;
-				SPARKLE_ED_PUBLIC_KEY = "";
+				SPARKLE_ED_PUBLIC_KEY = "iMeRfNLNfeMbd+Vxmy/B06HeOgHT/8lSUg9ZFDxFDZg=";
 				SWIFT_OBJC_BRIDGING_HEADER = "VPNPlus/VPNPlus-Bridging-Header.h";
 				SYSTEM_EXTENSION_FOLDER_PATH = Contents/Library/SystemExtensions;
 			};
@@ -1415,7 +1415,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.bossagroove.VPNPlus;
 				PRODUCT_NAME = "VPN Plus";
 				SDKROOT = macosx;
-				SPARKLE_ED_PUBLIC_KEY = "";
+				SPARKLE_ED_PUBLIC_KEY = "iMeRfNLNfeMbd+Vxmy/B06HeOgHT/8lSUg9ZFDxFDZg=";
 				SWIFT_OBJC_BRIDGING_HEADER = "VPNPlus/VPNPlus-Bridging-Header.h";
 				SYSTEM_EXTENSION_FOLDER_PATH = Contents/Library/SystemExtensions;
 			};
