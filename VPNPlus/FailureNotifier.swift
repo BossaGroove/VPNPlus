@@ -35,7 +35,9 @@ import VPNPlusCore
 /// not keep announcing a failure the user has already fixed.
 @MainActor
 final class FailureNotifier: NSObject, UNUserNotificationCenterDelegate {
-    private static let log = Logger(subsystem: "com.bossagroove.VPNPlus", category: "notify")
+    // Nonisolated: the framework's completion handlers run off the main
+    // actor and log from there, and a Logger is safe to share.
+    nonisolated private static let log = Logger(subsystem: "com.bossagroove.VPNPlus", category: "notify")
 
     private let tunnel: TunnelController
     private let catalogue: ProfileCatalogue
@@ -93,7 +95,9 @@ final class FailureNotifier: NSObject, UNUserNotificationCenterDelegate {
                 Self.log.info("notifications: \(settings.authorizationStatus.rawValue, privacy: .public)")
                 return
             }
-            center.requestAuthorization(options: [.alert, .sound]) { granted, error in
+            // The same center, fetched again rather than captured: this
+            // handler runs off the main actor and the center is not Sendable.
+            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
                 if let error {
                     Self.log.error("notification permission: \(error.localizedDescription, privacy: .public)")
                 } else {
