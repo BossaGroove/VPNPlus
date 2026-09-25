@@ -21,7 +21,8 @@ import VPNPlusCore
 /// **UI testing runs the app in rehearsal** (M8.4): the same window, cards,
 /// sheets and state machine, with a stand-in for everything that reaches
 /// outside the process — the tunnel, the extension, the Keychain, the
-/// preferences the owner's copy has written, notifications, Sparkle.
+/// preferences the owner's copy has written, this Mac's network,
+/// notifications, Sparkle.
 ///
 /// The test harness launches the app with `-UITesting` and `-UITestFixtures <dir>`:
 /// every `.ovpn` in that directory is imported at launch through the ordinary
@@ -57,6 +58,16 @@ enum Rehearsal {
     static let store = StoredProfileStore(
         secrets: MemorySecretStore(), metadata: DefaultsMetadataStore(defaults: defaults))
 
+    /// A home Wi-Fi network on documentation addresses (RFC 5737, RFC 7042),
+    /// read fresh each time like the real one, with the Mac's own address not
+    /// randomised.
+    static var network: NetworkFacts {
+        NetworkFacts(
+            interfaceName: "en0", interfaceKind: .wiFi, gateway: "192.0.2.1",
+            gatewayHardwareAddress: "00:00:5e:00:53:01", subnetMask: "255.255.255.0",
+            hardwareAddress: "00:00:5e:00:53:10", addressIsRandomised: false)
+    }
+
     /// **A rehearsal never takes the owner's focus.** Every place the app
     /// would activate itself goes through here, and in rehearsal it does
     /// nothing; likewise a window that would come to the front and become
@@ -85,6 +96,14 @@ enum Rehearsal {
 /// has to live in the app's own domain to take effect, and no test changes it.
 enum Preferences {
     static var defaults: UserDefaults { Rehearsal.isActive ? Rehearsal.defaults : .standard }
+}
+
+/// This Mac's network as the app reads it, routed through one place for the
+/// same reason. A rehearsal never reads the real one: the suite's captures
+/// are published (the README's), and a real reading names the owner's router
+/// by its hardware address — and, with a VPN up, that VPN's route.
+enum LocalNetwork {
+    static func read() -> NetworkFacts { Rehearsal.isActive ? Rehearsal.network : NetworkFactsReader.read() }
 }
 
 /// A secret store that forgets everything at quit.

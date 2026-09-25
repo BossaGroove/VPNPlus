@@ -968,7 +968,7 @@ final class MainWindowController: NSWindowController {
                 // And the What changed table, which M6.5 puts beside the
                 // timeline (A14).
                 let comparison = NetworkComparison(
-                    lastGood: profile.lastGood, now: NetworkFactsReader.read(),
+                    lastGood: profile.lastGood, now: LocalNetwork.read(),
                     profileReplaced: (profile.origin.replacedAt ?? .distantPast)
                         > (profile.lastGood?.at ?? .distantFuture))
                 for row in DiagnosticsCopy.comparison(comparison) {
@@ -986,7 +986,7 @@ final class MainWindowController: NSWindowController {
                 // So the sentence is rendered here against a reading that has
                 // the bit set, because a message nobody can make appear is a
                 // message nobody has read.
-                var randomised = NetworkFactsReader.read()
+                var randomised = LocalNetwork.read()
                 randomised.addressIsRandomised = true
                 let stall = FailureRecord(
                     profile: profile.id, at: Date(), reason: .settingsNeverSent, phase: "config",
@@ -1493,7 +1493,7 @@ final class MainWindowController: NSWindowController {
     /// this is for the question asked before anything has started, when there
     /// is no provider and no reading to inherit.
     private func currentNetwork() -> NetworkFacts? {
-        let facts = NetworkFactsReader.read()
+        let facts = LocalNetwork.read()
         return facts.hasNetwork ? facts : nil
     }
 
