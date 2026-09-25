@@ -467,16 +467,14 @@ class RehearsalTestCase: XCTestCase {
     /// one's own windows. Attached to the result, and written to
     /// `$VPNPLUS_SHOTS/<language>/<name>.png` when the scheme supplied a path.
     @discardableResult
-    func capture(_ target: NSWindow? = nil, as name: String) -> Bool {
+    func capture(
+        _ target: NSWindow? = nil, with sheet: NSWindow? = nil, framed: Bool = false, as name: String
+    ) -> Bool {
         let target = target ?? window
         // The backing store lags the model by a display cycle: a capture taken
         // the instant the state changed showed the frame before it (run 3).
         pump(0.3)
-        guard
-            let image = CGWindowListCreateImage(
-                .null, .optionIncludingWindow, CGWindowID(target.windowNumber),
-                [.boundsIgnoreFraming, .bestResolution])
-        else {
+        guard let image = windowImage(target, with: sheet, framed: framed) else {
             XCTFail("could not capture window \(target.windowNumber)")
             return false
         }
@@ -504,4 +502,18 @@ class RehearsalTestCase: XCTestCase {
 
     /// The language the host is running in — `xcodebuild test -testLanguage`.
     var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
+
+    /// One window as the sweep captures it — its content, no shadow — or,
+    /// for a page, **framed**: with its shadow, and with a sheet composited
+    /// over it, frontmost first. Only the listed windows are drawn, so
+    /// whatever covers them on screen is not in the picture.
+    private func windowImage(_ target: NSWindow, with sheet: NSWindow?, framed: Bool) -> CGImage? {
+        let options: CGWindowImageOption = framed ? [.bestResolution] : [.boundsIgnoreFraming, .bestResolution]
+        guard sheet != nil || framed else {
+            return CGWindowListCreateImage(.null, .optionIncludingWindow, CGWindowID(target.windowNumber), options)
+        }
+        var ids = [sheet, target].compactMap { $0 }.map { UnsafeRawPointer(bitPattern: UInt($0.windowNumber)) }
+        guard let list = CFArrayCreate(kCFAllocatorDefault, &ids, ids.count, nil) else { return nil }
+        return CGImage(windowListFromArrayScreenBounds: .null, windowArray: list, imageOption: options)
+    }
 }

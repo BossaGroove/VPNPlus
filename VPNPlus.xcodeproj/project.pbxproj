@@ -122,6 +122,7 @@
 		DD1118C0F8E834F09160946A /* InstallLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 014171C7BC3E81B7ACFD6DA1 /* InstallLocation.swift */; };
 		DEC7730B30484F284E6EBBE6 /* SetupCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D5B80E157B8033FE601F567 /* SetupCopy.swift */; };
 		E07A107241DDC403F27A17FB /* EngineShim.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05D57C00265B12AEF250D992 /* EngineShim.cpp */; };
+		E2F33946C157375B6BD9314B /* ReadmeShotsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 369A0E488E9287B508CDE54E /* ReadmeShotsTests.swift */; };
 		E331C45DCD7FC398D5538B6F /* TunnelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0C0DB62A25CADB2DFD5CB5F /* TunnelController.swift */; };
 		E3A3779B05540B21EA5EEDD4 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 10BC1655F49A221682EA0E4A /* IOKit.framework */; };
 		E49A90E618461145DD478766 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E855E821FD66EF1537305B0 /* SystemConfiguration.framework */; };
@@ -234,6 +235,7 @@
 		302A71E65FD01AA5BEEFE23E /* SetupCopyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupCopyTests.swift; sourceTree = "<group>"; };
 		3243C7C4801A590F62E64B6E /* VPNPlusAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VPNPlusAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		32D4BDD65926A9573DA4BC40 /* Updater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updater.swift; sourceTree = "<group>"; };
+		369A0E488E9287B508CDE54E /* ReadmeShotsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadmeShotsTests.swift; sourceTree = "<group>"; };
 		376EA33312BE31C560F89273 /* ReplaceCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplaceCopy.swift; sourceTree = "<group>"; };
 		3C272E4AD0B0F8E346C08845 /* OpenVPNPhases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenVPNPhases.swift; sourceTree = "<group>"; };
 		3CBF178DBF0AF1CAED795117 /* TestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFixtures.swift; sourceTree = "<group>"; };
@@ -526,6 +528,7 @@
 				143CE7958B1F2D79F4D4B272 /* Fixtures.swift */,
 				A86E5A19B25717E8817078ED /* KeyboardTests.swift */,
 				8EC569903FCFD56D0311450E /* LanguageSweepTests.swift */,
+				369A0E488E9287B508CDE54E /* ReadmeShotsTests.swift */,
 				FE18FA4C46BAE2B5FC26CA2D /* RehearsalTestCase.swift */,
 				B255534845782913BEE522FC /* SpikeTests.swift */,
 				57F4FD87F6F54989CF1866EA /* SurfacesTests.swift */,
@@ -1026,6 +1029,7 @@
 				9466E3AE2DF4F66C07852560 /* Fixtures.swift in Sources */,
 				D8289FB3F69BAF1882C7FED9 /* KeyboardTests.swift in Sources */,
 				C9D233B7B9A77D93D059BB64 /* LanguageSweepTests.swift in Sources */,
+				E2F33946C157375B6BD9314B /* ReadmeShotsTests.swift in Sources */,
 				16EE42E2F63BDDCF592AC95C /* RehearsalTestCase.swift in Sources */,
 				6953F45DE689F82B1930AA59 /* SpikeTests.swift in Sources */,
 				367C42315143D887CA3CFCB0 /* SurfacesTests.swift in Sources */,

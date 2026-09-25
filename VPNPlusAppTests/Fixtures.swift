@@ -32,6 +32,18 @@ enum Fixtures {
         (office, profile(remote: "office.rehearsal.example 1194", proto: "udp")),
     ]
 
+    /// The README's screenshots (R2b): names a reader would give their own
+    /// profiles, on reserved domains. Frankfurt's server is the `.invalid`
+    /// one, so it is the one that fails.
+    static let tokyo = "Tokyo"
+    static let frankfurt = "Frankfurt"
+    static let showcase: [(name: String, text: String)] = [
+        ("Home", profile(remote: "home.vpn.example 443", proto: "tcp")),
+        ("Office", profile(remote: "office.vpn.example 1194", proto: "udp")),
+        (tokyo, profile(remote: "tokyo.vpn.example 1194", proto: "udp")),
+        (frankfurt, profile(remote: "frankfurt.vpn.invalid 1194", proto: "udp")),
+    ]
+
     /// The office profile again, reissued on another port — the replace
     /// report's "before → after" row.
     static let officeReissued = profile(remote: "office.rehearsal.example 443", proto: "udp")
