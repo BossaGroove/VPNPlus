@@ -166,19 +166,22 @@ jobs:
 
           codesign --verify --deep --strict --verbose=2 "$APP"
 
-          # Notarization rejects get-task-allow — fail fast if it crept in.
+          # Each subject's entitlements are read once and then searched, never
+          # piped into `grep -q`: under pipefail that pipeline fails when grep
+          # matches and quits early, which would make the first check below
+          # pass silently and the second fail falsely (CI #1, 2026-09-25).
           for subject in "$APP" "$EXT"; do
-            if codesign -d --entitlements - "$subject" 2>/dev/null | grep -q get-task-allow; then
+            ENTITLEMENTS=$(codesign -d --entitlements - "$subject" 2>/dev/null)
+
+            # Notarization rejects get-task-allow — fail fast if it crept in.
+            if grep -q get-task-allow <<< "$ENTITLEMENTS"; then
               echo "::error::get-task-allow present on $subject" >&2
               exit 1
             fi
-          done
 
-          # The suffixed value is what a Developer ID profile allow-lists; the
-          # un-suffixed one is a debug build that would fail at activation.
-          for subject in "$APP" "$EXT"; do
-            codesign -d --entitlements - "$subject" 2>/dev/null \
-              | grep -q "packet-tunnel-provider-systemextension" \
+            # The suffixed value is what a Developer ID profile allow-lists; the
+            # un-suffixed one is a debug build that would fail at activation.
+            grep -q "packet-tunnel-provider-systemextension" <<< "$ENTITLEMENTS" \
               || { echo "::error::$subject is missing the -systemextension entitlement"; exit 1; }
           done
 

@@ -85,8 +85,12 @@ jobs:
           APP=$(xcodebuild -project VPNPlus.xcodeproj -scheme VPNPlus -configuration Release \
             -showBuildSettings 2>/dev/null | awk -F' = ' '/ BUILT_PRODUCTS_DIR/{print $2; exit}')/VPN\ Plus.app
           BIN=$(ls "$APP"/Contents/Library/SystemExtensions/*.systemextension/Contents/MacOS/* | head -1)
+          # Read once, then searched: `strings | grep -q` under pipefail fails
+          # exactly when it matches — grep quits early and strings dies on the
+          # closed pipe (CI #1, 2026-09-25).
+          SYMBOLS=$(strings "$BIN")
           for sel in "startTunnelWithOptions:completionHandler:" "stopTunnelWithReason:completionHandler:" "sleepWithCompletionHandler:" "wake"; do
-            strings "$BIN" | grep -qx "$sel" || { echo "::error::the tunnel provider does not implement $sel"; exit 1; }
+            grep -qx "$sel" <<< "$SYMBOLS" || { echo "::error::the tunnel provider does not implement $sel"; exit 1; }
           done
           echo "all four lifecycle overrides present"
 
