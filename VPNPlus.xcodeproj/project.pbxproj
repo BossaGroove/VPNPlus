@@ -1224,7 +1224,7 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(SRCROOT)/ThirdParty/out/lib",
 				);
-				MARKETING_VERSION = 0.0.1;
+				MARKETING_VERSION = 1.0.0;
 				OTHER_LDFLAGS = (
 					"-lssl",
 					"-lcrypto",
@@ -1371,7 +1371,7 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(SRCROOT)/ThirdParty/out/lib",
 				);
-				MARKETING_VERSION = 0.0.1;
+				MARKETING_VERSION = 1.0.0;
 				OTHER_LDFLAGS = (
 					"-lssl",
 					"-lcrypto",
@@ -1404,7 +1404,7 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(SRCROOT)/ThirdParty/out/lib",
 				);
-				MARKETING_VERSION = 0.0.1;
+				MARKETING_VERSION = 1.0.0;
 				OTHER_LDFLAGS = (
 					"-lssl",
 					"-lcrypto",
@@ -1456,7 +1456,7 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(SRCROOT)/ThirdParty/out/lib",
 				);
-				MARKETING_VERSION = 0.0.1;
+				MARKETING_VERSION = 1.0.0;
 				OTHER_LDFLAGS = (
 					"-lssl",
 					"-lcrypto",

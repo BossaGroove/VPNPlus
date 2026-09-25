@@ -8,10 +8,10 @@ Guidance for AI-assisted development in this repository.
 existing options work and are unpleasant to use. v1 speaks **OpenVPN**;
 **WireGuard is phase 2**. See [README.md](README.md).
 
-**Status: early implementation.** The app and a NetworkExtension system
-extension exist, openvpn3 is compiled into the extension, and nothing connects
-yet. Decisions that are settled: NetworkExtension packet tunnel as a system
-extension, openvpn3 as the engine, GPL-3.0-or-later, no sandbox.
+**Status: 1.0.0 is the first public release** — what it does is in
+[CHANGELOG.md](CHANGELOG.md). Decisions that are settled: NetworkExtension
+packet tunnel as a system extension, openvpn3 as the engine,
+GPL-3.0-or-later, no sandbox.
 
 ## Hard rules
 
@@ -36,8 +36,8 @@ extension, openvpn3 as the engine, GPL-3.0-or-later, no sandbox.
   the app's own strings. The specific names to watch for are listed in the
   private repo, deliberately not here. If a build artefact would carry one,
   that is a signing question — raise it, do not work around it.
-- **Everything committed here is publishable.** This repository goes public
-  at the first release. Internal notes, working docs, vendor references, and
+- **Everything committed here is publishable.** This repository is public
+  from the first release on. Internal notes, working docs, vendor references, and
   anything owner-specific belong in the private repo cloned at `internal/`
   (gitignored). Never move content the other way without a deliberate check.
 - **Reference implementations are read-only, and never copied.** VPN Plus is
@@ -60,8 +60,8 @@ extension, openvpn3 as the engine, GPL-3.0-or-later, no sandbox.
   a minimal, explicitly-audited interface. This is in tension with making
   failures legible: diagnostics must be *useful* without leaking secrets.
   Solve that, rather than resolving it by hiding information.
-- **The Xcode project is generated.** Once it exists: edit `project.yml`,
-  never the pbxproj; run `xcodegen generate` after changing it (both are
+- **The Xcode project is generated.** Edit `project.yml`, never the
+  pbxproj; run `xcodegen generate` after changing it (both are
   committed).
 
 ## Build & test
@@ -83,11 +83,15 @@ Scripts/ui-test.sh <shots-dir> [en de fr ja zh-Hans zh-Hant]   # the UI, inside 
 **The UI suite runs inside the app.** `VPNPlusAppTests` is hosted by the app,
 which its scheme launches with `-UITesting`: a stand-in tunnel walks the real
 state machine, fixture profiles live in a throwaway store, no extension,
-Keychain or notification is touched, and the app never activates — its window
+Keychain or notification is touched, the network it reports is a fixed one on
+documentation addresses rather than this Mac's, and the app never activates — its window
 sits behind everything and every test asserts the frontmost application did
 not change. It needs no approved extension and no signing beyond the ordinary
 build. One run per language writes a capture of every routine state under the
-shots directory. Never drive the app with XCUITest, System Events or anything
+shots directory. The same run writes the README's (`readme-*.png`, from
+`ReadmeShotsTests`); `docs/images/` is those, copied as they are — rerun it
+rather than retouching one, since the stand-ins are what make them
+publishable. Never drive the app with XCUITest, System Events or anything
 that synthesises global input: the suite must never take the developer's Mac.
 
 The engine is compiled into the tunnel extension from `ThirdParty/openvpn3`
@@ -99,8 +103,7 @@ it behind a cache. Running the extension needs a signed build: see
 Developer ID certificate **and** both provisioning profiles, and it is done by
 the release workflow rather than by Xcode — see the note on entitlements below.
 
-**Deployment target: macOS 14.0.** Chosen with the first milestone, as this
-file promised. The binding constraint is
+**Deployment target: macOS 14.0.** Chosen with the first milestone. The binding constraint is
 `NSXPCConnection.setCodeSigningRequirement` (macOS 13+), which the privileged
 interface depends on; 14.0 matches the sibling app and clears it comfortably.
 
@@ -110,8 +113,7 @@ interface depends on; 14.0 matches the sibling app and clears it comfortably.
   only for simple leaf surfaces such as Settings/About).
 - Universal binary (arm64 + x86_64), Developer ID-signed and notarized,
   distributed via GitHub Releases with Sparkle 2 for updates. The Mac App
-  Store is not a target; deployment target is decided with the first
-  milestone.
+  Store is not a target.
 - Localized from v1: English, 日本語, 繁體中文, 简体中文, Deutsch, Français —
   String Catalog plus an in-app language picker. User-facing strings are
   localized as they land, not retrofitted.
